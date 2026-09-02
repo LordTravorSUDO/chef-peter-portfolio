@@ -68,6 +68,7 @@ export const GallerySection: React.FC = () => {
                   src={item.imagePath}
                   alt={item.title}
                   fallbackText={item.placeholderLabel}
+                  loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 
@@ -131,6 +132,7 @@ export const GallerySection: React.FC = () => {
                     src={lightboxItem.imagePath}
                     alt={lightboxItem.title}
                     fallbackText={lightboxItem.placeholderLabel}
+                    loading="lazy"
                     className="w-full h-full object-cover max-h-[480px]"
                   />
                 </div>

@@ -7,6 +7,8 @@ interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElemen
   fallbackSrc?: string;
   className?: string;
   aspectRatio?: string;
+  /** Pass "lazy" for below-the-fold images. Defaults to "eager" to preserve LCP for hero images. */
+  loading?: 'eager' | 'lazy';
 }
 
 export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
@@ -16,6 +18,7 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
   fallbackSrc = "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=1000&q=80",
   className = '',
   aspectRatio,
+  loading = 'eager',
   ...props
 }) => {
   const [currentSrc, setCurrentSrc] = useState<string>(src);
@@ -49,6 +52,7 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
           <img
             src={currentSrc}
             alt={alt}
+            loading={loading}
             referrerPolicy="no-referrer"
             onLoad={() => setIsLoading(false)}
             onError={handleError}

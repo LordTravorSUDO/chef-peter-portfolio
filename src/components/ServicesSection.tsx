@@ -38,13 +38,13 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ onOpenConsulta
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#C5A059] bg-[#1A1A1A] px-3.5 py-1.5 rounded-full border border-[#C5A059]/30 inline-block mb-3">
-            Consultancy Offerings
+            Professional Services — Uganda &amp; Beyond
           </span>
           <h2 className="text-3xl sm:text-5xl font-serif font-bold text-[#EAE7E2] tracking-tight">
             Professional Advisory Services
           </h2>
           <p className="text-sm sm:text-base text-[#A09E98] mt-3 font-light">
-            Tailored hospitality solutions for luxury hotels, commercial bakeries, private households, and international dining operations.
+            Private chef services, culinary consultancy, hospitality advisory, catering, menu development, kitchen operations, and culinary training — available in Kampala, Uganda and internationally.
           </p>
         </div>
 

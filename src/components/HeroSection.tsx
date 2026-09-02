@@ -40,13 +40,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenConsultationModa
                 <span className="gold-gradient-text italic font-normal">the Teacher</span>
               </h1>
               <p className="text-sm sm:text-base lg:text-lg font-medium text-[#C5A059] tracking-[0.15em] uppercase font-mono pt-1">
-                Founder, De'Chosen Events Consultants | Master Culinary & Baking Trainer
+                Private Chef &amp; Culinary Consultant, Uganda | Founder, De'Chosen Events Consultants
               </p>
             </div>
 
             {/* Short Intro */}
             <p className="text-base sm:text-lg text-[#A09E98] max-w-2xl font-light leading-relaxed border-l-2 border-[#C5A059] pl-4 sm:pl-6">
-              "Founder of De'Chosen Events Consultants and master trainer offering practical classes in culinary and baking arts, commercial kitchen setups, and international hospitality advisory."
+              "Professional private chef, culinary consultant and hospitality trainer based in Kampala, Uganda. Founder of De'Chosen Events Consultants — offering practical culinary and baking classes, private chef services, kitchen consultancy, and international hospitality advisory."
             </p>
 
             {/* CTA Buttons */}
@@ -110,7 +110,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenConsultationModa
               <div className="relative rounded-2xl overflow-hidden border-2 border-[#C5A059]/40 bg-[#161616] shadow-2xl group">
                 <ImageWithFallback
                   src={CHEF_PROFILE.chefImages.heroPortrait}
-                  alt="Chef Peter the Teacher — Executive Hospitality Consultant"
+                  alt="Chef Peter the Teacher — professional chef and culinary consultant in Uganda"
                   fallbackText="CHEF PETER PHOTO PLACEHOLDER — Upload your photo (.jpg, .png, .webp, .avif) to /public/images/ or edit src/data/chefProfile.ts"
                   className="w-full h-[460px] sm:h-[540px] lg:h-[580px] object-cover object-top transition-transform duration-700 group-hover:scale-105"
                 />

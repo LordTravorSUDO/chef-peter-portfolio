@@ -105,8 +105,8 @@ export const CHEF_PROFILE = {
     whatsappDefaultMessage: "Hello Chef Peter, I am interested in your Culinary & Baking Classes and Hospitality Advisory services through De'Chosen Events Consultants.",
     
     // PERSONALIZATION NOTE: Update your email address
-    email: "info@dechosenevents.com",
-    secondaryEmail: "contact@chefpeter.com",
+    email: "dechosenevents@gmail.com",
+    secondaryEmail: "chefpetertheteacher@gmail.com",
 
     // PERSONALIZATION NOTE: Location and office address
     locationDisplay: "Kampala, Uganda",

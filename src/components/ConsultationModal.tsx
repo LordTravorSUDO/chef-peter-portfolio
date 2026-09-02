@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { CHEF_PROFILE } from '../data/chefProfile';
-import { X, Send, CheckCircle2, PhoneCall } from 'lucide-react';
+import { X, Send, CheckCircle2, PhoneCall, AlertCircle } from 'lucide-react';
+
+const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string | undefined;
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -27,11 +29,53 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
-    setIsSubmitted(true);
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      if (!WEB3FORMS_ACCESS_KEY) {
+        throw new Error('Web3Forms access key is not configured. Please add VITE_WEB3FORMS_ACCESS_KEY to your environment variables.');
+      }
+
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: `Consultation Request: ${formData.service} — Chef Peter Portfolio`,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || 'Not provided',
+          service: formData.service,
+          timeframe: formData.timeframe,
+          message: formData.message || 'No additional notes provided.',
+          from_name: 'Chef Peter Portfolio'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Submission failed. Please try again.');
+      }
+
+      setIsSubmitted(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again or contact us directly via WhatsApp.';
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -59,6 +103,15 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
             <button
               onClick={() => {
                 setIsSubmitted(false);
+                setSubmitError(null);
+                setFormData({
+                  name: '',
+                  email: '',
+                  phone: '',
+                  service: initialService || services[0].title,
+                  timeframe: 'Immediate Advisory (1-2 weeks)',
+                  message: ''
+                });
                 onClose();
               }}
               className="px-6 py-2.5 rounded-xl bg-[#C5A059] text-black text-xs font-bold uppercase tracking-[0.2em]"
@@ -167,11 +220,31 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-[0.2em] text-black bg-[#C5A059] hover:bg-[#b08d49] shadow-lg shadow-[#C5A059]/20 transition-all flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-[0.2em] text-black bg-[#C5A059] hover:bg-[#b08d49] shadow-lg shadow-[#C5A059]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send className="w-4 h-4" />
-                <span>Confirm Consultation Request</span>
+                {isSubmitting ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span>Sending Request...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirm Consultation Request</span>
+                  </>
+                )}
               </button>
+
+              {submitError && (
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/40 flex items-start gap-2.5 animate-in fade-in duration-200">
+                  <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-[11px] text-red-400 font-mono leading-relaxed">{submitError}</p>
+                </div>
+              )}
             </form>
           </div>
         )}

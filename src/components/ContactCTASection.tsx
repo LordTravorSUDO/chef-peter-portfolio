@@ -14,11 +14,13 @@ import { Mail, Phone, MessageSquare, MapPin, Send, CheckCircle2, Copy, AlertCirc
 
 // =========================================================================
 // 💡 EMAIL FORM CONFIGURATION FOR CHEF PETER / DE'CHOSEN EVENTS:
-// To receive form submissions straight to your email (info@dechosenevents.com),
-// paste your free Formspree endpoint URL below:
-// Example: const FORMSPREE_ENDPOINT: string = "https://formspree.io/f/xyzyraabc";
+// Form submissions are sent via Web3Forms (https://web3forms.com).
+// Add your free access key to a .env file in the project root:
+//   VITE_WEB3FORMS_ACCESS_KEY="your_key_here"
+// On Vercel, add VITE_WEB3FORMS_ACCESS_KEY as an Environment Variable
+// in your project settings. No backend server required.
 // =========================================================================
-const FORMSPREE_ENDPOINT: string = ""; 
+const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string | undefined;
 
 export const ContactCTASection: React.FC = () => {
   const { contactDetails, services } = CHEF_PROFILE;
@@ -34,6 +36,7 @@ export const ContactCTASection: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Helper function to handle copying values to clipboard with visual feedback
@@ -65,26 +68,45 @@ export const ContactCTASection: React.FC = () => {
     }
 
     setFormErrors({});
+    setSubmitError(null);
     setIsSubmitting(true);
 
-    // If a Formspree endpoint URL is configured, submit via POST
-    if (FORMSPREE_ENDPOINT && FORMSPREE_ENDPOINT.trim().length > 0) {
-      try {
-        await fetch(FORMSPREE_ENDPOINT, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(formData)
-        });
-      } catch (err) {
-        console.error("Form submission error:", err);
+    try {
+      if (!WEB3FORMS_ACCESS_KEY) {
+        throw new Error('Web3Forms access key is not configured. Please add VITE_WEB3FORMS_ACCESS_KEY to your environment variables.');
       }
-    }
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: `New Inquiry: ${formData.service} — Chef Peter Portfolio`,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || 'Not provided',
+          service: formData.service,
+          message: formData.message,
+          from_name: 'Chef Peter Portfolio'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Submission failed. Please try again.');
+      }
+
+      setIsSubmitted(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again or contact us directly via WhatsApp.';
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
 
@@ -335,6 +357,7 @@ export const ContactCTASection: React.FC = () => {
                   <button
                     onClick={() => {
                       setIsSubmitted(false);
+                      setSubmitError(null);
                       setFormData({ name: '', email: '', phone: '', service: services[0].title, message: '' });
                     }}
                     className="px-6 py-3 rounded-xl bg-[#C5A059] text-black text-xs font-bold uppercase tracking-[0.2em] hover:bg-[#b08d49] transition-all shadow-lg"
@@ -465,14 +488,34 @@ export const ContactCTASection: React.FC = () => {
                   )}
                 </div>
 
+                {/* Submission Error Message */}
+                {submitError && (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/40 flex items-start gap-3 animate-in fade-in duration-200">
+                    <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-red-400 font-mono leading-relaxed">{submitError}</p>
+                  </div>
+                )}
+
                 {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-4 rounded-xl text-xs font-bold uppercase tracking-[0.2em] text-black bg-[#C5A059] hover:bg-[#b08d49] shadow-xl shadow-[#C5A059]/20 transition-all flex items-center justify-center gap-2 transform active:scale-[0.99] disabled:opacity-50"
+                  className="w-full py-4 rounded-xl text-xs font-bold uppercase tracking-[0.2em] text-black bg-[#C5A059] hover:bg-[#b08d49] shadow-xl shadow-[#C5A059]/20 transition-all flex items-center justify-center gap-2 transform active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Sending Inquiry...' : 'Submit Inquiry to Chef Peter'}</span>
+                  {isSubmitting ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                      <span>Sending Inquiry...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Submit Inquiry to Chef Peter</span>
+                    </>
+                  )}
                 </button>
 
               </form>

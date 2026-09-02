@@ -48,6 +48,7 @@ export const BooksSection: React.FC<BooksSectionProps> = ({ onOpenConsultationMo
                     src={book.coverImage}
                     alt={book.title}
                     fallbackText={book.placeholderLabel}
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                   
