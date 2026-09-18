@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { StorySection } from './components/StorySection';
@@ -14,10 +14,23 @@ import { ContactCTASection } from './components/ContactCTASection';
 import { Footer } from './components/Footer';
 import { ConsultationModal } from './components/ConsultationModal';
 import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
+import { SeoLandingPage } from './components/SeoLandingPage';
+import { getSeoPage } from './data/seoPages';
 
-export default function App() {
+const HOME_TITLE = 'Chef Peter the Teacher | Private Chef Uganda';
+const HOME_DESCRIPTION = 'Chef Peter the Teacher is a private chef, culinary consultant and hospitality educator serving Kampala, Entebbe and clients across Uganda.';
+
+function HomePage() {
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [modalServiceTitle, setModalServiceTitle] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    document.title = HOME_TITLE;
+    const description = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
+    if (description) description.content = HOME_DESCRIPTION;
+    const canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (canonical) canonical.href = 'https://www.chefpetertheteacher.com/';
+  }, []);
 
   const handleOpenConsultationModal = (serviceTitle?: string) => {
     setModalServiceTitle(serviceTitle);
@@ -26,56 +39,30 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0C0C0C] text-[#EAE7E2] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
-      {/* Sticky Glass Navbar */}
       <Navbar onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Hero Section */}
       <HeroSection onOpenConsultationModal={() => handleOpenConsultationModal()} />
-
-      {/* The Chef Peter Story */}
       <StorySection />
-
-      {/* International Journey */}
       <InternationalJourneySection />
-
-      {/* Expertise & Culinary Mastery */}
       <ExpertiseSection />
-
-      {/* Professional Experience */}
       <ExperienceSection />
-
-      {/* Culinary Gallery */}
       <GallerySection />
-
-      {/* Published Works */}
       <BooksSection onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Education & Credentials */}
       <EducationCredentialsSection />
-
-      {/* Chef Philosophy */}
       <PhilosophySection />
-
-      {/* Professional Advisory Services */}
       <ServicesSection onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Contact & Executive Inquiry */}
       <ContactCTASection />
-
-      {/* Footer */}
       <Footer />
-
-      {/* Quick Consultation Booking Modal */}
       <ConsultationModal
         isOpen={consultationModalOpen}
         initialService={modalServiceTitle}
         onClose={() => setConsultationModalOpen(false)}
       />
-
-      {/* Floating WhatsApp Quick Chat Button */}
       <FloatingWhatsAppButton />
     </div>
   );
 }
 
-
+export default function App() {
+  const page = getSeoPage(window.location.pathname);
+  return page ? <SeoLandingPage page={page} /> : <HomePage />;
+}

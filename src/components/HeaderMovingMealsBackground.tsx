@@ -12,7 +12,7 @@ const MOVING_MEALS_ROW_1 = [
   { name: "Gourmet Ugandan Rolex", url: "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=600&q=75" },
   { name: "Lake Victoria Tilapia", url: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=75" },
   { name: "Mongolian Flame Wok", url: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=75" },
-  { name: "Grand Wedding Cake", url: "https://images.unsplash.com/photo-1535141192574-5d4897c13136?auto=format&fit=crop&w=600&q=75" },
+  { name: "Grand Wedding Cake", url: "/images/weddingcake.jfif" },
   { name: "French Macaron Tower", url: "https://images.unsplash.com/photo-1569864358642-9d1684040f43?auto=format&fit=crop&w=600&q=75" },
   { name: "Japanese Wagyu Ramen", url: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=600&q=75" },
   { name: "Smoky Jollof Rice", url: "https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?auto=format&fit=crop&w=600&q=75" }

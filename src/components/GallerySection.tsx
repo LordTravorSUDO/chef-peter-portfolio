@@ -6,6 +6,7 @@ import { Utensils, ZoomIn, X, Tag, Sparkles, Filter } from 'lucide-react';
 export const GallerySection: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<GalleryCategory>('All');
   const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);
+  const [visibleCount, setVisibleCount] = useState(12);
 
   const filteredItems = selectedCategory === 'All'
     ? GALLERY_ITEMS
@@ -13,6 +14,13 @@ export const GallerySection: React.FC = () => {
         item.category === selectedCategory ||
         (item.secondaryCategories && item.secondaryCategories.includes(selectedCategory as any))
       );
+
+  const visibleItems = filteredItems.slice(0, visibleCount);
+
+  const selectCategory = (category: GalleryCategory) => {
+    setSelectedCategory(category);
+    setVisibleCount(12);
+  };
 
   return (
     <section id="gallery" className="py-24 bg-[#0C0C0C] relative overflow-hidden border-t border-[#C5A059]/20">
@@ -42,7 +50,7 @@ export const GallerySection: React.FC = () => {
             return (
               <button
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => selectCategory(cat)}
                 className={`px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.2em] transition-all duration-300 ${
                   isSelected
                     ? 'bg-[#C5A059] text-black shadow-lg shadow-[#C5A059]/25 scale-105'
@@ -57,7 +65,7 @@ export const GallerySection: React.FC = () => {
 
         {/* Gallery Image Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
+          {visibleItems.map((item) => (
             <div
               key={item.id}
               onClick={() => setLightboxItem(item)}
@@ -110,6 +118,17 @@ export const GallerySection: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {visibleCount < filteredItems.length && (
+          <div className="mt-10 text-center">
+            <button
+              onClick={() => setVisibleCount(count => count + 12)}
+              className="px-7 py-3 rounded-full border border-[#C5A059]/50 text-[#C5A059] hover:bg-[#C5A059] hover:text-black text-xs font-bold uppercase tracking-[0.2em] transition-colors"
+            >
+              View More Dishes
+            </button>
+          </div>
+        )}
 
         {/* Lightbox Modal */}
         {lightboxItem && (
