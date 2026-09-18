@@ -6,7 +6,14 @@ interface ServicesSectionProps {
   onOpenConsultationModal: (serviceTitle?: string) => void;
 }
 
-const servicePagePaths: Record<string, string> = {\n  'Executive Hospitality Advisory': '/hospitality-consultancy',\n  'Private Chef & Bespoke Dining': '/private-chef-uganda',\n  'Culinary & Baking Masterclasses': '/cooking-classes-kampala',\n  'Commercial Bakery Consultancy': '/baking-pastry-classes',\n  'Menu Engineering & Cost Control': '/culinary-consultant-uganda',\n};\n\nexport const ServicesSection: React.FC<ServicesSectionProps> = ({ onOpenConsultationModal }) => {
+const servicePagePaths: Record<string, string> = {
+  "Culinary & Baking Arts Classes (De'Chosen Academy)": '/cooking-classes-kampala',
+  "De'Chosen Hospitality & Events Advisory": '/hospitality-consultancy',
+  'Menu Engineering & Culinary Innovation': '/culinary-consultant-uganda',
+  'Kitchen Operations & High-Volume Logistics': '/hospitality-consultancy',
+  'Private Household Culinary Advisory': '/private-chef-uganda',
+  'Hospitality Strategy & Brand Transformation': '/hospitality-consultancy',
+};\n\nexport const ServicesSection: React.FC<ServicesSectionProps> = ({ onOpenConsultationModal }) => {
   const { services } = CHEF_PROFILE;
 
   const getServiceIcon = (iconName: string) => {
