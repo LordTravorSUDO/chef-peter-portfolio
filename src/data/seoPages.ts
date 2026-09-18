@@ -4,6 +4,23 @@ export interface SeoSection {
   points?: string[];
 }
 
+export interface CredentialItem {
+  title: string;
+  detail: string;
+  status: 'verified' | 'confirmation-needed';
+}
+
+export interface ProfessionalEvidence {
+  qualifications: CredentialItem[];
+  certifications: CredentialItem[];
+  organizations: string[];
+  countries: string[];
+  books: string[];
+  media: CredentialItem[];
+  awards: CredentialItem[];
+  capabilities: string[];
+}
+
 export interface SeoPage {
   path: string;
   title: string;
@@ -21,6 +38,7 @@ export interface SeoPage {
   image?: string;
   imageAlt?: string;
   experienceNote?: string;
+  professionalEvidence?: ProfessionalEvidence;
 }
 
 export const SEO_PAGES: SeoPage[] = [
@@ -252,6 +270,78 @@ export const SEO_PAGES: SeoPage[] = [
         body: 'Through D’E-Chosen Events Consultants, Chef Peter provides culinary services, consultancy and training. His culinary publications preserve practical knowledge for students, bakers, cooks and hospitality professionals.'
       }
     ],
+    professionalEvidence: {
+      qualifications: [
+        {
+          title: 'Bachelor’s Degree',
+          detail: 'Makerere University Business School (MUBS), as listed in Chef Peter’s professional profile.',
+          status: 'verified'
+        }
+      ],
+      certifications: [
+        {
+          title: 'Professional culinary and hospitality certification',
+          detail: 'Chef Peter is presented as a certified professional chef. Exact certificate titles, awarding institutions and completion dates should be added from the original certificates before publication as individual credentials.',
+          status: 'confirmation-needed'
+        },
+        {
+          title: 'Food safety and HACCP competence',
+          detail: 'His profile demonstrates professional experience with food-safety compliance, aviation catering and high-volume operations. Any named HACCP or food-safety certificate should be listed only after its document is confirmed.',
+          status: 'confirmation-needed'
+        }
+      ],
+      organizations: [
+        "De'Chosen Events Consultants",
+        'Calm Waters Eco Lodge',
+        'Newrest Uganda In-Flights',
+        'UN Base catering operations',
+        'Visit Africa Uganda (Watoto Ltd)',
+        'Green Castle International',
+        'DP World — Bosaso operations',
+        'Imperial Group of Hotels',
+        'Speke Group of Hotels'
+      ],
+      countries: [
+        'Uganda',
+        'Democratic Republic of the Congo',
+        'Kenya',
+        'South Sudan',
+        'United Arab Emirates',
+        'Cameroon',
+        'Somalia — Bosaso, Puntland'
+      ],
+      books: [
+        'Secrets of a Successful Baker',
+        'Inter-Continental Recipe Book',
+        'In 1000 Ways and More I Cooked'
+      ],
+      media: [
+        {
+          title: 'Media appearances and published features',
+          detail: 'No specific verified television, radio, newspaper, podcast or online-feature references are currently listed. Confirmed programme names, publishers, dates and links can be added here later.',
+          status: 'confirmation-needed'
+        }
+      ],
+      awards: [
+        {
+          title: 'Awards and professional recognitions',
+          detail: 'No named award or issuing organisation is currently documented on the website. Verified awards can be added after the certificate, trophy, announcement or official reference is provided.',
+          status: 'confirmation-needed'
+        }
+      ],
+      capabilities: [
+        'Culinary and hospitality consultancy',
+        'Menu development, engineering and food costing',
+        'Commercial kitchen systems and workflow design',
+        'Food safety, hygiene and HACCP-aligned operations',
+        'Professional chef, baking and pastry training',
+        'Staff development, mentorship and practical assessment',
+        'High-volume, aviation and institutional catering',
+        'Private household and VIP culinary service',
+        'Hotel, lodge, restaurant and event operations',
+        'Hospitality management and service improvement'
+      ]
+    },
     audienceTitle: 'Professional areas',
     audience: ['Culinary and hospitality consultancy', 'Menu development and kitchen systems', 'Practical chef, baking and pastry training', 'Private dining and event culinary services'],
     processTitle: 'How Chef Peter approaches an assignment',
