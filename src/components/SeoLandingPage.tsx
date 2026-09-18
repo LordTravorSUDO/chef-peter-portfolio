@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award, GraduationCap, BadgeCheck, Building2, MapPinned, BookOpen, Newspaper, Trophy, ChefHat, CircleAlert } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award, GraduationCap, BadgeCheck, Building2, MapPinned, BookOpen, Newspaper, Trophy, ChefHat } from 'lucide-react';
 import { SeoPage } from '../data/seoPages';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { Footer } from './Footer';
@@ -216,10 +216,6 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
               <EvidenceCard icon={<Trophy className="w-6 h-6" />} title="Awards and Recognitions" items={page.professionalEvidence.awards} />
             </div>
 
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-[#C5A059]/25 bg-[#C5A059]/5 p-4 text-sm text-[#B8B4AD]">
-              <CircleAlert className="w-5 h-5 text-[#C5A059] shrink-0 mt-0.5" />
-              <p>Professional evidence is presented from Chef Peter’s supplied profile. Where exact certificate titles, publication editions or award dates are not yet available, those details can be added later from the original documents without changing the verified career summary.</p>
-            </div>
           </section>
         )}
 
