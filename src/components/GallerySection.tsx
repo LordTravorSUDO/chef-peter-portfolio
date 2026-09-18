@@ -120,10 +120,10 @@ export const GallerySection: React.FC = () => {
         </div>
 
         {visibleCount < filteredItems.length && (
-          <div className=\"mt-10 text-center\">
+          <div className="mt-10 text-center">
             <button
               onClick={() => setVisibleCount(count => count + 12)}
-              className=\"px-7 py-3 rounded-full border border-[#C5A059]/50 text-[#C5A059] hover:bg-[#C5A059] hover:text-black text-xs font-bold uppercase tracking-[0.2em] transition-colors\"
+              className="px-7 py-3 rounded-full border border-[#C5A059]/50 text-[#C5A059] hover:bg-[#C5A059] hover:text-black text-xs font-bold uppercase tracking-[0.2em] transition-colors"
             >
               View More Dishes
             </button>
