@@ -40,11 +40,11 @@ export const Footer: React.FC = () => {
               Navigation
             </h4>
             <ul className="space-y-2 text-xs">
-              <li><a href="#story" className="hover:text-[#C5A059] transition-colors">The Story</a></li>
-              <li><a href="#journey" className="hover:text-[#C5A059] transition-colors">International Journey</a></li>
-              <li><a href="#expertise" className="hover:text-[#C5A059] transition-colors">Core Expertise</a></li>
-              <li><a href="#experience" className="hover:text-[#C5A059] transition-colors">Professional Experience</a></li>
-              <li><a href="#gallery" className="hover:text-[#C5A059] transition-colors">Culinary Gallery</a></li>
+              <li><a href="/#story" className="hover:text-[#C5A059] transition-colors">The Story</a></li>
+              <li><a href="/#journey" className="hover:text-[#C5A059] transition-colors">International Journey</a></li>
+              <li><a href="/#expertise" className="hover:text-[#C5A059] transition-colors">Core Expertise</a></li>
+              <li><a href="/#experience" className="hover:text-[#C5A059] transition-colors">Professional Experience</a></li>
+              <li><a href="/#gallery" className="hover:text-[#C5A059] transition-colors">Culinary Gallery</a></li>
             </ul>
           </div>
 
@@ -53,10 +53,14 @@ export const Footer: React.FC = () => {
               Publications & Services
             </h4>
             <ul className="space-y-2 text-xs">
-              <li><a href="#books" className="hover:text-[#C5A059] transition-colors">Published Works</a></li>
-              <li><a href="#credentials" className="hover:text-[#C5A059] transition-colors">Academic Background</a></li>
-              <li><a href="#services" className="hover:text-[#C5A059] transition-colors">Advisory Offerings</a></li>
-              <li><a href="#contact" className="hover:text-[#C5A059] transition-colors">Direct Contact</a></li>
+              <li><a href="/private-chef-uganda" className="hover:text-[#C5A059] transition-colors">Private Chef Uganda</a></li>
+              <li><a href="/cooking-classes-kampala" className="hover:text-[#C5A059] transition-colors">Cooking Classes Kampala</a></li>
+              <li><a href="/baking-pastry-classes" className="hover:text-[#C5A059] transition-colors">Baking & Pastry Classes</a></li>
+              <li><a href="/culinary-consultant-uganda" className="hover:text-[#C5A059] transition-colors">Culinary Consultancy</a></li>
+              <li><a href="/hospitality-consultancy" className="hover:text-[#C5A059] transition-colors">Hospitality Consultancy</a></li>
+              <li><a href="/about-chef-peter" className="hover:text-[#C5A059] transition-colors">About Chef Peter</a></li>
+              <li><a href="/culinary-books" className="hover:text-[#C5A059] transition-colors">Culinary Books</a></li>
+              <li><a href="/#contact" className="hover:text-[#C5A059] transition-colors">Direct Contact</a></li>
             </ul>
           </div>
 
