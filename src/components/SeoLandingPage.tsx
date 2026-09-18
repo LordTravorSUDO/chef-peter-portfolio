@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, CheckCircle, MessageCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award } from 'lucide-react';
 import { SeoPage } from '../data/seoPages';
+import { WhatsAppIcon } from './WhatsAppIcon';
 import { Footer } from './Footer';
 
 const SITE_URL = 'https://www.chefpetertheteacher.com';
@@ -95,7 +96,7 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
               )}
               <div className="mt-9 flex flex-wrap gap-3">
                 <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#C5A059] text-black font-bold px-6 py-3 hover:bg-[#E6C687] transition-colors">
-                  <MessageCircle className="w-5 h-5" /> Enquire on WhatsApp
+                  <WhatsAppIcon className="w-5 h-5" title="WhatsApp" /> Enquire on WhatsApp
                 </a>
                 <a href="tel:+256752345858" className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/50 px-6 py-3 text-[#EAE7E2] hover:border-[#C5A059] transition-colors">
                   <Phone className="w-5 h-5" /> Call Chef Peter
@@ -199,7 +200,7 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
             <h2 className="font-serif text-3xl font-bold">Discuss your requirements with Chef Peter</h2>
             <p className="text-[#A09E98] mt-3 max-w-2xl mx-auto">Share your location, preferred date, number of people and the service or training you require. Chef Peter will respond with the next steps.</p>
             <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#C5A059] text-black font-bold px-7 py-3 hover:bg-[#E6C687] transition-colors">
-              <MessageCircle className="w-5 h-5" /> Start an enquiry
+              <WhatsAppIcon className="w-5 h-5" title="WhatsApp" /> Start an enquiry
             </a>
           </div>
         </section>

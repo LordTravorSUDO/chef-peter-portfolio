@@ -9,7 +9,8 @@
 
 import React, { useState } from 'react';
 import { CHEF_PROFILE } from '../data/chefProfile';
-import { MessageCircle, X, Sparkles, Send } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon';
 
 export const FloatingWhatsAppButton: React.FC = () => {
   const { contactDetails } = CHEF_PROFILE;
@@ -33,7 +34,7 @@ export const FloatingWhatsAppButton: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-full bg-[#25D366]/20 border border-[#25D366] flex items-center justify-center text-[#25D366]">
-                <MessageCircle className="w-5 h-5" />
+                <WhatsAppIcon className="w-5 h-5" title="WhatsApp" />
               </div>
               <div>
                 <h4 className="text-sm font-serif font-bold text-[#EAE7E2] leading-tight flex items-center gap-1.5">
@@ -73,7 +74,7 @@ export const FloatingWhatsAppButton: React.FC = () => {
             onClick={() => setIsOpen(false)}
             className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black text-xs font-bold uppercase tracking-[0.15em] flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20 transition-all transform active:scale-[0.98]"
           >
-            <Send className="w-4 h-4" />
+            <WhatsAppIcon className="w-4 h-4" title="WhatsApp" />
             <span>Open WhatsApp Chat</span>
           </a>
         </div>
@@ -93,7 +94,7 @@ export const FloatingWhatsAppButton: React.FC = () => {
           {isOpen ? (
             <X className="w-7 h-7 text-white" />
           ) : (
-            <MessageCircle className="w-7 h-7 text-white drop-shadow-md group-hover:rotate-12 transition-transform duration-300" />
+            <WhatsAppIcon className="w-7 h-7 text-white drop-shadow-md group-hover:rotate-12 transition-transform duration-300" title="WhatsApp" />
           )}
 
           {/* Quick Tooltip Badge on desktop */}
