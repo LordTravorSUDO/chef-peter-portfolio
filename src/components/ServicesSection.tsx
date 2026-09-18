@@ -13,7 +13,9 @@ const servicePagePaths: Record<string, string> = {
   'Kitchen Operations & High-Volume Logistics': '/hospitality-consultancy',
   'Private Household Culinary Advisory': '/private-chef-uganda',
   'Hospitality Strategy & Brand Transformation': '/hospitality-consultancy',
-};\n\nexport const ServicesSection: React.FC<ServicesSectionProps> = ({ onOpenConsultationModal }) => {
+};
+
+export const ServicesSection: React.FC<ServicesSectionProps> = ({ onOpenConsultationModal }) => {
   const { services } = CHEF_PROFILE;
 
   const getServiceIcon = (iconName: string) => {
@@ -88,13 +90,22 @@ const servicePagePaths: Record<string, string> = {
                 </div>
               </div>
 
-              <button
-                onClick={() => onOpenConsultationModal(service.title)}
-                className="w-full py-3 rounded-xl bg-[#1A1A1A] hover:bg-[#C5A059] text-xs font-semibold uppercase tracking-[0.2em] text-[#C5A059] hover:text-black border border-[#C5A059]/30 hover:border-[#C5A059] transition-all flex items-center justify-center gap-2 mt-4"
-              >
-                <span>Inquire For This Service</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="space-y-3 mt-4">
+                <a
+                  href={servicePagePaths[service.title] ?? '/#services'}
+                  className="w-full py-3 rounded-xl bg-[#C5A059] hover:bg-[#d4af37] text-xs font-semibold uppercase tracking-[0.2em] text-black transition-all flex items-center justify-center gap-2"
+                >
+                  <span>Learn More</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+                <button
+                  onClick={() => onOpenConsultationModal(service.title)}
+                  className="w-full py-3 rounded-xl bg-[#1A1A1A] hover:bg-[#C5A059] text-xs font-semibold uppercase tracking-[0.2em] text-[#C5A059] hover:text-black border border-[#C5A059]/30 hover:border-[#C5A059] transition-all flex items-center justify-center gap-2"
+                >
+                  <span>Inquire For This Service</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
             </div>
           ))}
