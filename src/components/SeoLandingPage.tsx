@@ -23,7 +23,7 @@ const EvidenceCard: React.FC<{
   title: string;
   items: Array<{ title: string; detail: string; status: 'verified' | 'confirmation-needed' }>;
 }> = ({ icon, title, items }) => (
-  <article className="rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
+  <article className="mb-6 break-inside-avoid rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
     <div className="flex items-center gap-3 text-[#C5A059]">
       {icon}
       <h3 className="font-serif text-2xl font-bold">{title}</h3>
@@ -49,7 +49,7 @@ const EvidenceCard: React.FC<{
 );
 
 const ListCard: React.FC<{ icon: React.ReactNode; title: string; items: string[] }> = ({ icon, title, items }) => (
-  <article className="rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
+  <article className="mb-6 break-inside-avoid rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
     <div className="flex items-center gap-3 text-[#C5A059]">
       {icon}
       <h3 className="font-serif text-2xl font-bold">{title}</h3>
@@ -205,7 +205,7 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
               </p>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-6">
+            <div className="columns-1 lg:columns-2 gap-6">
               <EvidenceCard icon={<GraduationCap className="w-6 h-6" />} title="Qualifications" items={page.professionalEvidence.qualifications} />
               <EvidenceCard icon={<BadgeCheck className="w-6 h-6" />} title="Professional Certificates" items={page.professionalEvidence.certifications} />
               <ListCard icon={<Building2 className="w-6 h-6" />} title="Professional Organisations and Operations" items={page.professionalEvidence.organizations} />
@@ -218,7 +218,7 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
 
             <div className="mt-6 flex items-start gap-3 rounded-xl border border-[#C5A059]/25 bg-[#C5A059]/5 p-4 text-sm text-[#B8B4AD]">
               <CircleAlert className="w-5 h-5 text-[#C5A059] shrink-0 mt-0.5" />
-              <p>Items marked “Confirmation needed” are professional-profile placeholders, not claimed certificates or awards. They should be replaced with exact evidence before being presented as verified achievements.</p>
+              <p>Professional evidence is presented from Chef Peter’s supplied profile. Where exact certificate titles, publication editions or award dates are not yet available, those details can be added later from the original documents without changing the verified career summary.</p>
             </div>
           </section>
         )}
