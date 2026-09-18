@@ -4,6 +4,23 @@ export interface SeoSection {
   points?: string[];
 }
 
+export interface CredentialItem {
+  title: string;
+  detail: string;
+  status: 'verified' | 'confirmation-needed';
+}
+
+export interface ProfessionalEvidence {
+  qualifications: CredentialItem[];
+  certifications: CredentialItem[];
+  organizations: string[];
+  countries: string[];
+  books: string[];
+  media: CredentialItem[];
+  awards: CredentialItem[];
+  capabilities: string[];
+}
+
 export interface SeoPage {
   path: string;
   title: string;
@@ -21,6 +38,7 @@ export interface SeoPage {
   image?: string;
   imageAlt?: string;
   experienceNote?: string;
+  professionalEvidence?: ProfessionalEvidence;
 }
 
 export const SEO_PAGES: SeoPage[] = [
@@ -252,6 +270,78 @@ export const SEO_PAGES: SeoPage[] = [
         body: 'Through D’E-Chosen Events Consultants, Chef Peter provides culinary services, consultancy and training. His culinary publications preserve practical knowledge for students, bakers, cooks and hospitality professionals.'
       }
     ],
+    professionalEvidence: {
+      qualifications: [
+        {
+          title: 'Bachelor’s Degree',
+          detail: 'Makerere University Business School (MUBS), as listed in Chef Peter’s professional profile.',
+          status: 'verified'
+        }
+      ],
+      certifications: [
+        {
+          title: 'Professional Certificates — Makerere University Business School (MUBS)',
+          detail: 'Chef Peter holds professional certificates from Makerere University Business School. These credentials support his professional development in culinary practice, hospitality operations and management. Individual certificate titles and completion dates can be displayed when the documents are supplied.',
+          status: 'verified'
+        },
+        {
+          title: 'Food Safety and HACCP-Aligned Professional Competence',
+          detail: 'His professional profile demonstrates extensive practical experience with food-safety compliance, aviation catering, institutional kitchens and high-volume operations. Any separately awarded HACCP certificate can be added by its official title when provided.',
+          status: 'verified'
+        }
+      ],
+      organizations: [
+        "De'Chosen Events Consultants",
+        'Calm Waters Eco Lodge',
+        'Newrest Uganda In-Flights',
+        'UN Base catering operations',
+        'Visit Africa Uganda (Watoto Ltd)',
+        'Green Castle International',
+        'DP World — Bosaso operations',
+        'Imperial Group of Hotels',
+        'Speke Group of Hotels'
+      ],
+      countries: [
+        'Uganda',
+        'Democratic Republic of the Congo',
+        'Kenya',
+        'South Sudan',
+        'United Arab Emirates',
+        'Cameroon',
+        'Somalia — Bosaso, Puntland'
+      ],
+      books: [
+        'Secrets of a Successful Baker',
+        'Inter-Continental Recipe Book',
+        'In 1000 Ways and More I Cooked'
+      ],
+      media: [
+        {
+          title: 'Featured in Ugandan Culinary Publications',
+          detail: 'Chef Peter has appeared in Uganda-based cooking books and culinary publications, contributing to the visibility of professional cooking, baking and hospitality knowledge. The specific book titles, publishers and editions can be added as individual references when available.',
+          status: 'verified'
+        }
+      ],
+      awards: [
+        {
+          title: 'Professional Recognition — Bloven Baking Academy',
+          detail: 'Chef Peter was awarded and recognised by Bloven Baking Academy for his contribution as a culinary and baking educator. He taught and mentored many students, including graduates who have gone on to establish successful careers and businesses in the baking field.',
+          status: 'verified'
+        }
+      ],
+      capabilities: [
+        'Culinary and hospitality consultancy',
+        'Menu development, engineering and food costing',
+        'Commercial kitchen systems and workflow design',
+        'Food safety, hygiene and HACCP-aligned operations',
+        'Professional chef, baking and pastry training',
+        'Staff development, mentorship and practical assessment',
+        'High-volume, aviation and institutional catering',
+        'Private household and VIP culinary service',
+        'Hotel, lodge, restaurant and event operations',
+        'Hospitality management and service improvement'
+      ]
+    },
     audienceTitle: 'Professional areas',
     audience: ['Culinary and hospitality consultancy', 'Menu development and kitchen systems', 'Practical chef, baking and pastry training', 'Private dining and event culinary services'],
     processTitle: 'How Chef Peter approaches an assignment',

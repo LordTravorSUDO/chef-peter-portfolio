@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award, GraduationCap, BadgeCheck, Building2, MapPinned, BookOpen, Newspaper, Trophy, ChefHat } from 'lucide-react';
 import { SeoPage } from '../data/seoPages';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { Footer } from './Footer';
@@ -16,6 +16,54 @@ function setMeta(selector: string, attribute: string, value: string) {
   }
   element.setAttribute(attribute, value);
 }
+
+
+const EvidenceCard: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  items: Array<{ title: string; detail: string; status: 'verified' | 'confirmation-needed' }>;
+}> = ({ icon, title, items }) => (
+  <article className="mb-6 break-inside-avoid rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
+    <div className="flex items-center gap-3 text-[#C5A059]">
+      {icon}
+      <h3 className="font-serif text-2xl font-bold">{title}</h3>
+    </div>
+    <div className="mt-5 space-y-4">
+      {items.map(item => (
+        <div key={item.title} className="rounded-xl bg-black/20 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h4 className="font-semibold text-[#EAE7E2]">{item.title}</h4>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+              item.status === 'verified'
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
+            }`}>
+              {item.status === 'verified' ? 'Profile verified' : 'Confirmation needed'}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-[#AFAAA2]">{item.detail}</p>
+        </div>
+      ))}
+    </div>
+  </article>
+);
+
+const ListCard: React.FC<{ icon: React.ReactNode; title: string; items: string[] }> = ({ icon, title, items }) => (
+  <article className="mb-6 break-inside-avoid rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
+    <div className="flex items-center gap-3 text-[#C5A059]">
+      {icon}
+      <h3 className="font-serif text-2xl font-bold">{title}</h3>
+    </div>
+    <ul className="mt-5 grid gap-3">
+      {items.map(item => (
+        <li key={item} className="flex items-start gap-3 rounded-lg bg-black/20 p-3 text-sm leading-6 text-[#D0CCC4]">
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#C5A059]" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  </article>
+);
 
 export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
   useEffect(() => {
@@ -145,6 +193,31 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
             </article>
           ))}
         </section>
+
+
+        {page.professionalEvidence && (
+          <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20" aria-labelledby="credentials-heading">
+            <div className="text-center max-w-3xl mx-auto mb-10">
+              <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059]">Professional Evidence</span>
+              <h2 id="credentials-heading" className="mt-3 text-3xl sm:text-4xl font-serif font-bold">Credentials, Experience and Professional Standing</h2>
+              <p className="mt-4 text-[#AFAAA2] leading-7">
+                This section separates information already documented in Chef Peter’s professional profile from details that still require supporting certificates, publication links or official references.
+              </p>
+            </div>
+
+            <div className="columns-1 lg:columns-2 gap-6">
+              <EvidenceCard icon={<GraduationCap className="w-6 h-6" />} title="Qualifications" items={page.professionalEvidence.qualifications} />
+              <EvidenceCard icon={<BadgeCheck className="w-6 h-6" />} title="Professional Certificates" items={page.professionalEvidence.certifications} />
+              <ListCard icon={<Building2 className="w-6 h-6" />} title="Professional Organisations and Operations" items={page.professionalEvidence.organizations} />
+              <ListCard icon={<MapPinned className="w-6 h-6" />} title="Countries of Professional Operation" items={page.professionalEvidence.countries} />
+              <ListCard icon={<BookOpen className="w-6 h-6" />} title="Published Culinary Books" items={page.professionalEvidence.books} />
+              <ListCard icon={<ChefHat className="w-6 h-6" />} title="Professional Capabilities" items={page.professionalEvidence.capabilities} />
+              <EvidenceCard icon={<Newspaper className="w-6 h-6" />} title="Media Appearances" items={page.professionalEvidence.media} />
+              <EvidenceCard icon={<Trophy className="w-6 h-6" />} title="Awards and Recognitions" items={page.professionalEvidence.awards} />
+            </div>
+
+          </section>
+        )}
 
         <section className="border-y border-[#C5A059]/20 bg-[#121212]">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 grid lg:grid-cols-2 gap-12">
