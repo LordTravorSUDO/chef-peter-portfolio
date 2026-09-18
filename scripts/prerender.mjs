@@ -17,7 +17,7 @@ const escapeHtml = (value) => String(value)
 const setMeta = (html, attribute, key, value) => {
   const pattern = new RegExp(`<meta\\s+[^>]*${attribute}=["']${key}["'][^>]*>`, 'i');
   const tag = `<meta ${attribute}="${key}" content="${escapeHtml(value)}" />`;
-  return pattern.test(html) ? html.replace(pattern, tag) : html.replace('</head>', `  ${tag}\\n  </head>`);
+  return pattern.test(html) ? html.replace(pattern, tag) : html.replace('</head>', `  ${tag}\n  </head>`);
 };
 
 for (const route of prerenderRoutes) {
@@ -25,7 +25,7 @@ for (const route of prerenderRoutes) {
   const canonicalUrl = `https://www.chefpetertheteacher.com${route}`;
   let output = template;
 
-  output = output.replace(/<title>[\\s\\S]*?<\\/title>/i, `<title>${escapeHtml(page.metaTitle)}</title>`);
+  output = output.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(page.metaTitle)}</title>`);
   output = setMeta(output, 'name', 'description', page.description);
   output = setMeta(output, 'property', 'og:title', page.metaTitle);
   output = setMeta(output, 'property', 'og:description', page.description);
@@ -33,7 +33,7 @@ for (const route of prerenderRoutes) {
   output = setMeta(output, 'name', 'twitter:title', page.metaTitle);
   output = setMeta(output, 'name', 'twitter:description', page.description);
 
-  const canonicalPattern = /<link\\s+[^>]*rel=["']canonical["'][^>]*>/i;
+  const canonicalPattern = /<link\s+[^>]*rel=["']canonical["'][^>]*>/i;
   const canonicalTag = `<link rel="canonical" href="${canonicalUrl}" />`;
   output = canonicalPattern.test(output)
     ? output.replace(canonicalPattern, canonicalTag)
@@ -88,7 +88,7 @@ for (const route of prerenderRoutes) {
 
   output = output.replace(
     '</head>',
-    `  <script type="application/ld+json">${JSON.stringify(structuredData).replaceAll('<', '\\u003c')}</script>\\n  </head>`
+    `  <script type="application/ld+json">${JSON.stringify(structuredData).replaceAll('<', '\\u003c')}</script>\n  </head>`
   );
   output = output.replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`);
 
