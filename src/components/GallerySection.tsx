@@ -5,7 +5,7 @@ import { Utensils, ZoomIn, X, Tag, Sparkles, Filter } from 'lucide-react';
 
 export const GallerySection: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<GalleryCategory>('All');
-  const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);
+  const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);\n  const [visibleCount, setVisibleCount] = useState(12);
 
   const filteredItems = selectedCategory === 'All'
     ? GALLERY_ITEMS
@@ -14,7 +14,7 @@ export const GallerySection: React.FC = () => {
         (item.secondaryCategories && item.secondaryCategories.includes(selectedCategory as any))
       );
 
-  return (
+  const visibleItems = filteredItems.slice(0, visibleCount);\n\n  const selectCategory = (category: GalleryCategory) => {\n    setSelectedCategory(category);\n    setVisibleCount(12);\n  };\n\n  return (
     <section id="gallery" className="py-24 bg-[#0C0C0C] relative overflow-hidden border-t border-[#C5A059]/20">
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 right-1/4 w-[600px] h-[600px] bg-[#C5A059]/5 blur-[160px] rounded-full pointer-events-none"></div>
@@ -42,7 +42,7 @@ export const GallerySection: React.FC = () => {
             return (
               <button
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => selectCategory(cat)}
                 className={`px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.2em] transition-all duration-300 ${
                   isSelected
                     ? 'bg-[#C5A059] text-black shadow-lg shadow-[#C5A059]/25 scale-105'
@@ -57,7 +57,7 @@ export const GallerySection: React.FC = () => {
 
         {/* Gallery Image Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
+          {visibleItems.map((item) => (
             <div
               key={item.id}
               onClick={() => setLightboxItem(item)}
@@ -111,7 +111,7 @@ export const GallerySection: React.FC = () => {
           ))}
         </div>
 
-        {/* Lightbox Modal */}
+        {visibleCount < filteredItems.length && (\n          <div className=\"mt-10 text-center\">\n            <button\n              onClick={() => setVisibleCount(count => count + 12)}\n              className=\"px-7 py-3 rounded-full border border-[#C5A059]/50 text-[#C5A059] hover:bg-[#C5A059] hover:text-black text-xs font-bold uppercase tracking-[0.2em] transition-colors\"\n            >\n              View More Dishes\n            </button>\n          </div>\n        )}\n\n        {/* Lightbox Modal */}
         {lightboxItem && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
             <div className="bg-[#161616] border border-[#C5A059]/40 rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl relative animate-in fade-in zoom-in duration-200">
