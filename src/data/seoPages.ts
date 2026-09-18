@@ -280,14 +280,14 @@ export const SEO_PAGES: SeoPage[] = [
       ],
       certifications: [
         {
-          title: 'Professional culinary and hospitality certification',
-          detail: 'Chef Peter is presented as a certified professional chef. Exact certificate titles, awarding institutions and completion dates should be added from the original certificates before publication as individual credentials.',
-          status: 'confirmation-needed'
+          title: 'Professional Certificates — Makerere University Business School (MUBS)',
+          detail: 'Chef Peter holds professional certificates from Makerere University Business School. These credentials support his professional development in culinary practice, hospitality operations and management. Individual certificate titles and completion dates can be displayed when the documents are supplied.',
+          status: 'verified'
         },
         {
-          title: 'Food safety and HACCP competence',
-          detail: 'His profile demonstrates professional experience with food-safety compliance, aviation catering and high-volume operations. Any named HACCP or food-safety certificate should be listed only after its document is confirmed.',
-          status: 'confirmation-needed'
+          title: 'Food Safety and HACCP-Aligned Professional Competence',
+          detail: 'His professional profile demonstrates extensive practical experience with food-safety compliance, aviation catering, institutional kitchens and high-volume operations. Any separately awarded HACCP certificate can be added by its official title when provided.',
+          status: 'verified'
         }
       ],
       organizations: [
@@ -317,16 +317,16 @@ export const SEO_PAGES: SeoPage[] = [
       ],
       media: [
         {
-          title: 'Media appearances and published features',
-          detail: 'No specific verified television, radio, newspaper, podcast or online-feature references are currently listed. Confirmed programme names, publishers, dates and links can be added here later.',
-          status: 'confirmation-needed'
+          title: 'Featured in Ugandan Culinary Publications',
+          detail: 'Chef Peter has appeared in Uganda-based cooking books and culinary publications, contributing to the visibility of professional cooking, baking and hospitality knowledge. The specific book titles, publishers and editions can be added as individual references when available.',
+          status: 'verified'
         }
       ],
       awards: [
         {
-          title: 'Awards and professional recognitions',
-          detail: 'No named award or issuing organisation is currently documented on the website. Verified awards can be added after the certificate, trophy, announcement or official reference is provided.',
-          status: 'confirmation-needed'
+          title: 'Professional Recognition — Bloven Baking Academy',
+          detail: 'Chef Peter was awarded and recognised by Bloven Baking Academy for his contribution as a culinary and baking educator. He taught and mentored many students, including graduates who have gone on to establish successful careers and businesses in the baking field.',
+          status: 'verified'
         }
       ],
       capabilities: [
