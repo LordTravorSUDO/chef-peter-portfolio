@@ -10,7 +10,8 @@
 
 import React, { useState } from 'react';
 import { CHEF_PROFILE } from '../data/chefProfile';
-import { Mail, Phone, MessageSquare, MapPin, Send, CheckCircle2, Copy, AlertCircle, Sparkles, ExternalLink, HelpCircle, BookOpen } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon';
+import { Mail, Phone, MapPin, Send, CheckCircle2, Copy, AlertCircle, Sparkles, ExternalLink, HelpCircle, BookOpen } from 'lucide-react';
 
 // =========================================================================
 // 💡 EMAIL FORM CONFIGURATION FOR CHEF PETER / DE'CHOSEN EVENTS:
@@ -149,7 +150,7 @@ export const ContactCTASection: React.FC = () => {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black text-xs font-bold uppercase tracking-wider transition-all transform hover:-translate-y-0.5 shadow-lg shadow-[#25D366]/20"
               >
-                <MessageSquare className="w-4 h-4 fill-black" />
+                <WhatsAppIcon className="w-4 h-4 fill-black" title="WhatsApp" />
                 <span>Chat directly on WhatsApp</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-80" />
               </a>
@@ -192,7 +193,7 @@ export const ContactCTASection: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-xl bg-[#25D366]/10 border border-[#25D366]/40 text-[#25D366] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#25D366] group-hover:text-black transition-all duration-300 shadow-md">
-                      <MessageSquare className="w-6 h-6" />
+                      <WhatsAppIcon className="w-6 h-6" title="WhatsApp" />
                     </div>
                     <div>
                       <span className="text-[10px] font-mono uppercase tracking-widest text-[#25D366] font-bold block">
@@ -371,7 +372,7 @@ export const ContactCTASection: React.FC = () => {
                     rel="noopener noreferrer"
                     className="px-6 py-3 rounded-xl bg-[#25D366] text-black text-xs font-bold uppercase tracking-[0.15em] hover:bg-[#20bd5a] transition-all flex items-center gap-2"
                   >
-                    <MessageSquare className="w-4 h-4 fill-black" />
+                    <WhatsAppIcon className="w-4 h-4 fill-black" title="WhatsApp" />
                     <span>Follow up on WhatsApp</span>
                   </a>
                 </div>
