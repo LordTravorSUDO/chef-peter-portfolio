@@ -53,13 +53,17 @@ export const Footer: React.FC = () => {
               Publications & Services
             </h4>
             <ul className="space-y-2 text-xs">
+              <li><a href="/#books" className="hover:text-[#C5A059] transition-colors">Published Works</a></li>
+              <li><a href="/#credentials" className="hover:text-[#C5A059] transition-colors">Academic Background</a></li>
+              <li><a href="/#services" className="hover:text-[#C5A059] transition-colors">Advisory Offerings</a></li>
               <li><a href="/private-chef-uganda" className="hover:text-[#C5A059] transition-colors">Private Chef Uganda</a></li>
               <li><a href="/cooking-classes-kampala" className="hover:text-[#C5A059] transition-colors">Cooking Classes Kampala</a></li>
-              <li><a href="/baking-pastry-classes" className="hover:text-[#C5A059] transition-colors">Baking & Pastry Classes</a></li>
+              <li><a href="/baking-pastry-classes" className="hover:text-[#C5A059] transition-colors">Baking &amp; Pastry Classes</a></li>
               <li><a href="/culinary-consultant-uganda" className="hover:text-[#C5A059] transition-colors">Culinary Consultancy</a></li>
               <li><a href="/hospitality-consultancy" className="hover:text-[#C5A059] transition-colors">Hospitality Consultancy</a></li>
               <li><a href="/about-chef-peter" className="hover:text-[#C5A059] transition-colors">About Chef Peter</a></li>
               <li><a href="/culinary-books" className="hover:text-[#C5A059] transition-colors">Culinary Books</a></li>
+              <li><a href="/articles" className="hover:text-[#C5A059] transition-colors">Articles</a></li>
               <li><a href="/#contact" className="hover:text-[#C5A059] transition-colors">Direct Contact</a></li>
             </ul>
           </div>

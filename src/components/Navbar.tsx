@@ -19,14 +19,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenConsultationModal }) => {
   }, []);
 
   const navLinks = [
-    { name: 'Story', href: '#story' },
-    { name: 'Journey', href: '#journey' },
-    { name: 'Expertise', href: '#expertise' },
+    { name: 'Story',      href: '#story' },
+    { name: 'Journey',    href: '#journey' },
+    { name: 'Expertise',  href: '#expertise' },
     { name: 'Experience', href: '#experience' },
-    { name: 'Gallery', href: '#gallery' },
-    { name: 'Books', href: '#books' },
-    { name: 'Services', href: '#services' },
-    { name: 'Contact', href: '#contact' },
+    { name: 'Gallery',    href: '#gallery' },
+    { name: 'Books',      href: '#books' },
+    { name: 'Services',   href: '#services' },
+    { name: 'Articles',   href: '/articles' },
+    { name: 'Contact',    href: '#contact' },
   ];
 
   return (

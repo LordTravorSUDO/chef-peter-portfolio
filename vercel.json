@@ -1,36 +1,12 @@
 {
   "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "redirects": [
     {
-      "source": "/private-chef-uganda",
-      "destination": "/private-chef-uganda.html"
-    },
-    {
-      "source": "/culinary-consultant-uganda",
-      "destination": "/culinary-consultant-uganda.html"
-    },
-    {
-      "source": "/cooking-classes-kampala",
-      "destination": "/cooking-classes-kampala.html"
-    },
-    {
-      "source": "/baking-pastry-classes",
-      "destination": "/baking-pastry-classes.html"
-    },
-    {
-      "source": "/hospitality-consultancy",
-      "destination": "/hospitality-consultancy.html"
-    },
-    {
-      "source": "/about-chef-peter",
-      "destination": "/about-chef-peter.html"
-    },
-    {
-      "source": "/culinary-books",
-      "destination": "/culinary-books.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap",
+      "permanent": false
     }
   ],
   "headers": [
@@ -51,6 +27,30 @@
           "value": "public, max-age=604800"
         }
       ]
+    },
+    {
+      "source": "/admin/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
+      "source": "/articles/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/publish-scheduled",
+      "schedule": "* * * * *"
     }
   ]
 }

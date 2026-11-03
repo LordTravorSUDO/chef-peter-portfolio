@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /api/
 
+# Public article pages are allowed — do not add /articles/ to Disallow
+# The sitemap is served dynamically from /api/sitemap
 Sitemap: https://www.chefpetertheteacher.com/sitemap.xml

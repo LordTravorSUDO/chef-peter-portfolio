@@ -22,5 +22,12 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "middleware.ts",
+    "api/**",
+    "api/_edge/**"
+  ]
 }

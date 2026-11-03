@@ -1,0 +1,53 @@
+# =============================================================================
+# Supabase local development config
+# https://supabase.com/docs/guides/local-development
+# =============================================================================
+# To use the Supabase CLI locally:
+#   npm install -g supabase
+#   supabase login
+#   supabase link --project-ref YOUR_PROJECT_REF
+#   supabase db push           # apply migrations to remote
+#   supabase gen types typescript --project-id YOUR_PROJECT_REF \
+#     > src/types/database.ts  # regenerate types from live schema
+# =============================================================================
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+# Disable public sign-up — admin accounts are created manually
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "http://localhost:3000/admin",
+  "https://www.chefpetertheteacher.com/admin"
+]
+jwt_expiry = 3600
+enable_signup = false   # ← PUBLIC SIGN-UP IS DISABLED
+
+[auth.email]
+enable_signup    = false  # ← also disabled at email level
+enable_confirmations = true
+
+[analytics]
+enabled = false
