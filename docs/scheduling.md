@@ -1,16 +1,43 @@
 # Scheduling Articles — Server-side Mechanism
 
-## Status
+## Plan compatibility
 
-**Implementation is complete.** The scheduler is implemented as a Vercel Cron job
-that calls `/api/cron/publish-scheduled` every minute. It is NOT operational until
-you have:
+| Vercel plan | Cron frequency | Cost |
+|---|---|---|
+| **Hobby (free)** | **Once per day only** | **Free — used here** |
+| Pro | Every minute | $20/month |
 
-1. Applied migration `supabase/migrations/20260201000000_scheduler.sql`
-2. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` in Vercel
-3. Deployed to Vercel (crons only run on deployed environments, not in local dev)
+**This project is configured for the free Vercel Hobby plan.** The cron runs
+once per day at **00:00 UTC (03:00 Africa/Kampala time)**.
 
-Until step 3, scheduled articles remain private — the safe default.
+---
+
+## How daily scheduling works
+
+The cron fires at midnight UTC every night and publishes all articles whose
+`scheduled_for` timestamp has arrived.
+
+### What this means for you
+
+| You schedule for... | It goes live at... |
+|---|---|
+| Any time before 03:00 Kampala on Tuesday | 03:00 Kampala Tuesday (that same night) |
+| 09:00 Kampala on Tuesday | 03:00 Kampala Wednesday (next night) |
+| 22:00 Kampala on Friday | 03:00 Kampala Saturday (that night, ~5 hrs later) |
+
+**Tip:** To publish on a specific day, schedule the article for any time between
+00:00 and 02:59 Kampala on that day. The cron fires at 03:00 and will publish it.
+
+The article is **never published before** its `scheduled_for` time — the Postgres
+function checks `scheduled_for <= NOW()` strictly. The only delay is that
+publication happens at the cron execution time (03:00 Kampala), not the exact
+minute you specified.
+
+### For more precise scheduling (optional, free)
+
+Add Supabase pg_cron (free, see below) alongside the Vercel Cron. pg_cron runs
+inside your database every minute. Both schedulers are idempotent — running both
+creates no duplicates.
 
 ---
 
@@ -22,8 +49,8 @@ Until step 3, scheduled articles remain private — the safe default.
         └── UPDATE articles SET status='scheduled', scheduled_for=<UTC ISO>
               └── articles_log_event trigger → article_events (event_type='scheduled')
 
-[Every minute — Vercel Cron]
-  └── GET /api/cron/publish-scheduled  (Authorization: Bearer CRON_SECRET)
+[Every day at 00:00 UTC — Vercel Hobby Cron]
+  └── POST /api/cron/publish-scheduled  (Authorization: Bearer CRON_SECRET)
         └── POST /rest/v1/rpc/publish_scheduled_articles
               └── UPDATE articles SET status='published' WHERE scheduled_for <= NOW()
               └── INSERT article_events (event_type='published', actor_id=NULL)
@@ -34,28 +61,20 @@ Until step 3, scheduled articles remain private — the safe default.
 
 ## Idempotency
 
-The `publish_scheduled_articles()` function is safe to run multiple times in the
-same minute (or after a retry). It only acts on articles where:
-- `status = 'scheduled'`
-- `scheduled_for <= NOW()`
-
-Once an article has been published, it no longer matches the WHERE clause.
-Re-running the function a second, third, or hundredth time will not corrupt
-or duplicate anything. Each run is logged in `scheduler_runs`.
+The `publish_scheduled_articles()` Postgres function is safe to call multiple
+times. It only acts on articles where `status = 'scheduled' AND scheduled_for <= NOW()`.
+Once published, an article never matches again. Each run is logged in `scheduler_runs`.
 
 ---
 
 ## Timezone handling
 
-All `scheduled_for` values are stored as `TIMESTAMPTZ` in PostgreSQL — this means
-UTC internally, with timezone offset preserved. The admin editor shows both the
-author's local time and the equivalent UTC time.
-
-When the editor submits a scheduled datetime, it converts the local `datetime-local`
-input to a UTC ISO 8601 string using `new Date(localValue).toISOString()`. Postgres
-`NOW()` is UTC. The comparison `scheduled_for <= NOW()` is always UTC-to-UTC.
-
-There is no ambiguity.
+- All `scheduled_for` values are stored as `TIMESTAMPTZ` (UTC internally)
+- The admin editor converts the local `datetime-local` input to a UTC ISO 8601
+  string using `new Date(localValue).toISOString()` before saving
+- The admin editor displays both your local time and the UTC equivalent
+- Postgres `NOW()` is UTC — comparisons are always UTC-to-UTC
+- Uganda is UTC+3 (Africa/Kampala). Midnight UTC = 03:00 Kampala.
 
 ---
 
@@ -83,7 +102,7 @@ supabase/migrations/20260201000000_scheduler.sql
 This creates:
 - `scheduler_runs` table (run log)
 - `article_events` table (lifecycle audit log)
-- `publish_scheduled_articles()` function
+- `publish_scheduled_articles()` function (idempotent)
 - `log_article_event()` trigger on `articles`
 
 ### Step 2 — Add environment variables in Vercel
@@ -91,27 +110,27 @@ This creates:
 Vercel Dashboard → Project → Settings → Environment Variables:
 
 ```
-SUPABASE_URL = https://YOUR_REF.supabase.co
-SUPABASE_SERVICE_ROLE_KEY = eyJ...   (from Supabase → Settings → API → service_role)
-CRON_SECRET = <your random string>
+SUPABASE_URL              = https://YOUR_REF.supabase.co
+SUPABASE_SERVICE_ROLE_KEY = eyJ...
+CRON_SECRET               = <your random string>
 ```
 
-Set for **Production** and **Preview** only. Do NOT add to Development.
+Set for **Production** and **Preview** only. Never add to Development.
 
 ### Step 3 — Deploy to Vercel
 
-The cron job in `vercel.json` only runs after a deployment:
+The cron job in `vercel.json` is configured as:
 
 ```json
-"crons": [{ "path": "/api/cron/publish-scheduled", "schedule": "* * * * *" }]
+"crons": [{ "path": "/api/cron/publish-scheduled", "schedule": "0 0 * * *" }]
 ```
 
-Vercel Hobby plan supports crons running once per day. **Vercel Pro or higher is
-required for minute-level cron frequency.**
+`0 0 * * *` means: at minute 0, hour 0 (midnight), every day. This is valid on
+the Vercel Hobby free plan.
 
-> If you are on the Hobby plan, use the pg_cron option below instead.
+The cron only runs on deployed Vercel environments — not in local development.
 
-### Step 4 — Run the tests
+### Step 4 — Run the SQL tests
 
 In Supabase SQL Editor, run:
 ```
@@ -120,106 +139,92 @@ supabase/tests/scheduler_workflow.sql
 
 All 10 tests should print PASS.
 
-### Step 5 — End-to-end verification
+### Step 5 — End-to-end verification (Hobby plan)
 
-1. Create an article in the admin editor
-2. Set status to "Scheduled" with a time 2 minutes in the future
-3. Save the article
-4. Wait 2 minutes
-5. Refresh the articles list — article should now show "Published" status
-6. Check `scheduler_runs` in Supabase Table Editor — a successful run should appear
+1. Create an article, set `scheduled_for` to any time before 03:00 Kampala today
+   (i.e. before midnight UTC today)
+2. Save the article — it should show "Scheduled" status
+3. Wait until after midnight UTC (03:00 Kampala)
+4. Refresh the articles list — the article should show "Published"
+5. Check `scheduler_runs` in Supabase Table Editor — a successful run should appear
 
 ---
 
-## Alternative: pg_cron (Hobby plan / no Vercel Pro needed)
+## Optional: pg_cron for hourly precision (free)
 
-If you are on Vercel Hobby plan, use Supabase pg_cron instead:
+If you want articles to publish within one hour of their scheduled time, enable
+Supabase pg_cron. It runs inside Postgres and is free on all Supabase plans.
 
 ### Enable pg_cron
 
-In Supabase Dashboard → Database → Extensions, enable `pg_cron`.
+Supabase Dashboard → Database → Extensions → enable `pg_cron`.
 
-### Schedule the function
-
-In the SQL Editor:
+### Schedule the function (runs every hour)
 
 ```sql
 SELECT cron.schedule(
-  'publish-scheduled-articles',   -- job name (unique)
-  '* * * * *',                    -- every minute
+  'publish-scheduled-articles-hourly',
+  '0 * * * *',        -- top of every hour
+  $$ SELECT public.publish_scheduled_articles('pg_cron') $$
+);
+```
+
+For every minute (maximum precision):
+```sql
+SELECT cron.schedule(
+  'publish-scheduled-articles-minutely',
+  '* * * * *',        -- every minute
   $$ SELECT public.publish_scheduled_articles('pg_cron') $$
 );
 ```
 
 Verify:
 ```sql
-SELECT * FROM cron.job WHERE jobname = 'publish-scheduled-articles';
+SELECT jobid, jobname, schedule, active FROM cron.job;
 ```
 
-To remove it:
+To remove:
 ```sql
-SELECT cron.unschedule('publish-scheduled-articles');
+SELECT cron.unschedule('publish-scheduled-articles-hourly');
 ```
 
-> ⚠️ Use Vercel Cron OR pg_cron — not both. Running both would double-publish
-> each scheduled article batch (though idempotency means this is harmless,
-> it creates unnecessary duplicate log entries).
-
----
-
-## Vercel Cron pricing
-
-| Plan | Cron frequency | Cost |
-|---|---|---|
-| Hobby | Daily only (once per day) | Free |
-| Pro | Every minute | $20/month |
-| Enterprise | Every minute | Custom |
-
-For a publishing platform where articles may be scheduled by hour, **Vercel Pro
-($20/month) or pg_cron (free, included in Supabase) is required** for minute-level
-scheduling precision.
+> **Both Vercel Cron AND pg_cron can run at the same time.** The function is
+> idempotent — double-running creates no duplicates, only a second log entry.
+> Using both gives redundancy: if one fails, the other still publishes.
 
 ---
 
 ## Failure handling and retry
 
-If the scheduler function fails (Postgres error, network timeout, etc.):
+If the scheduler function fails:
 
-1. The error is logged to `scheduler_runs.error_message` with `run_status='error'`
-2. The article remains in `scheduled` status (not corrupted)
-3. The next cron execution (1 minute later) retries automatically
-4. No manual intervention is needed unless `scheduled_for` is more than a few
-   minutes in the past and the article is still not published
+1. The error is logged in `scheduler_runs.error_message` with `run_status='error'`
+2. The article stays in `scheduled` status — it is never corrupted or lost
+3. The next cron execution picks it up automatically
+4. No manual intervention is needed
 
-To check for failures:
+Check for failures:
 ```sql
-SELECT * FROM public.scheduler_runs
+SELECT run_at, run_status, published_count, error_message
+FROM public.scheduler_runs
 WHERE run_status = 'error'
 ORDER BY run_at DESC
 LIMIT 10;
 ```
 
-To trigger a manual retry:
-```
-POST /api/cron/publish-scheduled?secret=<CRON_SECRET>
-```
+### Manual trigger (for testing or recovery)
 
----
-
-## Testing the scheduler manually (before Vercel Cron is live)
-
-You can test the scheduler directly in the Supabase SQL Editor:
-
-```sql
-SELECT public.publish_scheduled_articles('manual');
-```
-
-Or trigger the API endpoint:
+Trigger the endpoint directly from a browser or curl:
 ```bash
 curl -X POST "https://your-deployment.vercel.app/api/cron/publish-scheduled?secret=YOUR_CRON_SECRET"
 ```
 
-Expected response:
+Or from the Supabase SQL Editor:
+```sql
+SELECT public.publish_scheduled_articles('manual');
+```
+
+Expected API response:
 ```json
 { "status": "success", "published_count": 1, "published_ids": ["..."], "triggered_by": "manual" }
 ```

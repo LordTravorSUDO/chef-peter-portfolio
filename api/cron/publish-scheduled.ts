@@ -1,7 +1,28 @@
 /**
  * Vercel Cron Job — Scheduled Article Publisher
  * Path: /api/cron/publish-scheduled
- * Schedule: every minute (see vercel.json crons block)
+ * Schedule: once daily at 00:00 UTC (03:00 Africa/Kampala)
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * VERCEL HOBBY PLAN LIMITATION:
+ *   Vercel's free Hobby plan supports cron jobs running at most once per day.
+ *   This endpoint therefore runs once every 24 hours at midnight UTC
+ *   (3:00 AM Uganda time, UTC+3).
+ *
+ *   PRACTICAL IMPACT FOR SCHEDULING:
+ *   If you schedule an article for, say, 09:00 Kampala (06:00 UTC) on a given
+ *   day, it will be published the following midnight UTC (03:00 Kampala) when
+ *   the cron next fires — not at 09:00 exactly. The article will NEVER be
+ *   published before its scheduled_for time (the Postgres function checks
+ *   scheduled_for <= NOW()), but it may be published up to 24 hours late.
+ *
+ *   RECOMMENDATION:
+ *   Schedule articles for a time earlier than 03:00 Kampala the day you want
+ *   them to go live. For example, scheduling for 01:00 Kampala on Tuesday
+ *   means the cron fires at 03:00 Kampala on Tuesday and publishes it.
+ *
+ *   If you need more precise scheduling (e.g. to the hour), upgrade to
+ *   Vercel Pro or use Supabase pg_cron (free — see docs/scheduling.md).
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * WHAT THIS DOES:
@@ -24,9 +45,10 @@
  *   This endpoint rejects any request without that header.
  *
  * TIMEZONE:
- *   All comparisons are done in UTC (TIMESTAMPTZ in Postgres). The UI stores
- *   the user's local datetime as a UTC ISO 8601 string. Postgres NOW() is UTC.
- *   There is no ambiguity.
+ *   All comparisons are done in UTC (TIMESTAMPTZ in Postgres). The admin editor
+ *   converts the local Africa/Kampala datetime to a UTC ISO 8601 string before
+ *   storing. Postgres NOW() is UTC. The comparison scheduled_for <= NOW() is
+ *   always UTC-to-UTC — there is no timezone ambiguity in the database query.
  *
  * SECURITY:
  *   Uses SUPABASE_SERVICE_ROLE_KEY — a server-only secret (no VITE_ prefix).
