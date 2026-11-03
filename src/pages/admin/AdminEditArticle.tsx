@@ -1,7 +1,7 @@
 /**
  * /admin/articles/:id/edit — Edit an existing article.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronRight, Eye } from 'lucide-react';
 import { getArticleByIdAdmin } from '../../lib/services/articles';
@@ -15,17 +15,30 @@ export default function AdminEditArticle() {
   const [loading, setLoading]    = useState(true);
   const [error,   setError]      = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadArticle = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    getArticleByIdAdmin(id)
-      .then((data) => {
-        if (!data) setError('Article not found.');
-        else setArticle(data);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const data = await getArticleByIdAdmin(id);
+      if (!data) setError('Article not found.');
+      else setArticle(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load article.');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    loadArticle();
+  }, [loadArticle]);
+
+  // Refresh the article from the DB after a save/publish/unpublish so the
+  // form always shows the current server state (e.g. updated_at, status, reading_time_minutes)
+  const handleSaved = useCallback((_savedId: string) => {
+    loadArticle();
+  }, [loadArticle]);
 
   if (loading) {
     return (
@@ -72,7 +85,7 @@ export default function AdminEditArticle() {
         )}
       </div>
 
-      <ArticleForm article={article} onSaved={() => {}} />
+      <ArticleForm article={article} onSaved={handleSaved} />
     </div>
   );
 }

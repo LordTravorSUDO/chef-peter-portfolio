@@ -239,14 +239,29 @@ export default function ArticleForm({ article, onSaved }: Props) {
   // ── Manual save ─────────────────────────────────────────────────────────
   const [manualSaving, setManualSaving] = useState(false);
   const handleManualSave = async () => {
+    if (manualSaving) return; // prevent double-submit
     setManualSaving(true);
     try {
-      const ok = await saveNow();
-      if (ok) showToast('Article saved.', 'success');
-      else showToast('Save failed. Please try again.', 'error');
+      // For new articles, call performSave directly (autosave is disabled for new articles)
+      if (!isEdit) {
+        await performSave();
+        // Navigation to /edit happens inside performSave via navigate()
+        // No toast here — the navigation itself confirms success
+      } else {
+        const ok = await saveNow();
+        if (ok) {
+          showToast('Article saved.', 'success');
+        } else {
+          showToast('Save failed — check your connection and try again.', 'error');
+        }
+      }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Save failed', 'error');
-    } finally { setManualSaving(false); }
+      // Surface the actual error message so the admin knows what went wrong
+      const msg = err instanceof Error ? err.message : 'Save failed. Please try again.';
+      showToast(msg, 'error');
+    } finally {
+      setManualSaving(false);
+    }
   };
 
   // ── Publish / unpublish / schedule / archive ───────────────────────────
@@ -533,10 +548,17 @@ export default function ArticleForm({ article, onSaved }: Props) {
         <div className="space-y-4">
           {/* Action buttons */}
           <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-4">
-            {/* Save button */}
+            {/* Save / Create button */}
             <Button className="w-full" loading={manualSaving || autosaveStatus === 'saving'} icon={<Save className="w-4 h-4" />} onClick={handleManualSave}>
-              {isEdit ? 'Save changes' : 'Create draft'}
+              {isEdit ? 'Save changes' : 'Save draft'}
             </Button>
+
+            {/* New article hint */}
+            {!isEdit && (
+              <p className="text-xs text-[#6B7A8D] text-center leading-snug">
+                Save as draft first. You can publish after saving.
+              </p>
+            )}
 
             {/* Preview (edit only) */}
             {isEdit && (
@@ -680,8 +702,9 @@ export default function ArticleForm({ article, onSaved }: Props) {
                 UTC: {new Date(article.scheduled_for).toUTCString()}
               </p>
               <p className="text-[#6B7A8D] pt-1">
-                The Vercel Cron job checks every minute and publishes this article automatically when its time arrives. No browser tab needs to remain open.
-                <br />See docs/scheduling.md if the cron endpoint is not yet configured.
+                The Vercel Cron job publishes this article automatically once daily
+                at 03:00 Africa/Kampala (00:00 UTC). No browser tab needs to remain open.
+                <br />For more precise scheduling, see docs/scheduling.md.
               </p>
             </div>
           )}

@@ -162,8 +162,14 @@ function uploadWithProgress(
         let msg = `Upload failed (HTTP ${xhr.status})`;
         try {
           const res = JSON.parse(xhr.responseText);
+          // Supabase returns 'message' or 'error' fields
           if (res.message) msg = res.message;
-        } catch { /* ignore */ }
+          else if (res.error) msg = res.error;
+          // Make the "bucket not found" error more actionable
+          if (msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('container')) {
+            msg = `Storage bucket "${MEDIA_BUCKET}" not found. Please create it in Supabase Dashboard → Storage → New bucket. See docs/supabase-setup.md Step 7.`;
+          }
+        } catch { /* ignore JSON parse error */ }
         reject(new MediaUploadError(msg));
       }
     };
