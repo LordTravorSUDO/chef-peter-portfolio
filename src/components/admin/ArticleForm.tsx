@@ -499,13 +499,13 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
               <label className="block text-sm font-medium text-[#1A2B40]">
                 URL slug <span className="text-[#C0392B]" aria-hidden>*</span>
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-[#6B7A8D] shrink-0">/articles/</span>
                 <input
                   value={slug}
                   onChange={(e) => { setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setSlugTouched(true); }}
                   placeholder="article-slug"
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm text-[#1A2B40] font-mono bg-white focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D] transition ${slugError ? 'border-[#C0392B]' : 'border-[#DDE3EA]'}`}
+                  className={`flex-1 min-w-0 basis-40 rounded-lg border px-3 py-2 text-sm text-[#1A2B40] font-mono bg-white focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D] transition ${slugError ? 'border-[#C0392B]' : 'border-[#DDE3EA]'}`}
                 />
                 {slugChecking && <span className="text-xs text-[#6B7A8D]">Checking…</span>}
                 <button
