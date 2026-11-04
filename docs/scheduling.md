@@ -96,7 +96,7 @@ Generate CRON_SECRET: `openssl rand -hex 32`
 
 In Supabase Dashboard → SQL Editor, run:
 ```
-supabase/migrations/20260201000000_scheduler.sql
+supabase/migrations/20261105000000_scheduler.sql
 ```
 
 This creates:
@@ -214,10 +214,14 @@ LIMIT 10;
 
 ### Manual trigger (for testing or recovery)
 
-Trigger the endpoint directly from a browser or curl:
+Trigger the endpoint from a terminal (never from a browser — the secret must stay server-side).
+The secret is accepted **only** in the `Authorization` header, not in the URL:
 ```bash
-curl -X POST "https://your-deployment.vercel.app/api/cron/publish-scheduled?secret=YOUR_CRON_SECRET"
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  "https://your-deployment.vercel.app/api/cron/publish-scheduled?trigger=manual"
 ```
+The endpoint returns HTTP 200 on success and HTTP 500 if the run failed
+(the failure is also recorded in `scheduler_runs`).
 
 Or from the Supabase SQL Editor:
 ```sql

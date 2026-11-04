@@ -278,14 +278,14 @@ This prevents anyone from creating an account via the API. Only you can create u
 ### How scheduling works
 1. You set a future date/time and click "Schedule publication"
 2. The article is saved with `status = 'scheduled'` — invisible to the public
-3. Vercel Cron calls /api/cron/publish-scheduled every minute
+3. Vercel Cron calls /api/cron/publish-scheduled once daily at 00:00 UTC (03:00 Kampala)
 4. The cron endpoint calls the `publish_scheduled_articles()` Postgres function
 5. This function finds articles where `scheduled_for <= NOW()` and flips them to published
 6. The process is **idempotent** — running it multiple times has no adverse effect
 7. Every run is logged in the `scheduler_runs` table
 
 ### Scheduler setup
-**Option A — Vercel Cron (requires Vercel Pro $20/month):**
+**Option A — Vercel Cron (daily, works on the free Hobby plan):**
 Already configured in `vercel.json`. Just set `CRON_SECRET` in Vercel env vars.
 
 **Option B — Supabase pg_cron (free):**
@@ -408,4 +408,4 @@ When a new migration file is added to `supabase/migrations/`:
 | 6 | 20260101000005_articles.sql | articles table, join tables, RLS |
 | 7 | 20260101000006_article_revisions.sql | article_revisions table, revision trigger |
 | 8 | 20260101000007_redirects.sql | redirects table |
-| 9 | 20260201000000_scheduler.sql | scheduler_runs, article_events, publish_scheduled_articles() |
+| 9 | 20261105000000_scheduler.sql | scheduler_runs, article_events, publish_scheduled_articles() (renamed from 20260201000000; not yet applied to production) |

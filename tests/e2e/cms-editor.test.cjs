@@ -3,8 +3,9 @@
  *
  * Covers: auth lifecycle (no deadlock after tab refocus / token refresh),
  * article create/save/publish, image preservation, autosave recovery and
- * serialisation, author byline handling, reading-time display, archive, and
- * media uploads (session token, bucket, error reporting, picker selection).
+ * serialisation, author byline handling, reading-time display, archive,
+ * media uploads (session token, bucket, error reporting, picker selection) and
+ * scheduling in Kampala time regardless of the browser's time zone.
  *
  * Runs the real application bundle in Chromium. ALL Supabase traffic is
  * intercepted and answered by an in-memory mock — no request ever reaches a
@@ -219,8 +220,8 @@ function createMock(opts = {}) {
 
 // ── test runner ─────────────────────────────────────────────────────────────
 const results = [];
-async function withPage(browser, base, mockOpts, fn, { session = makeSession() } = {}) {
-  const context = await browser.newContext();
+async function withPage(browser, base, mockOpts, fn, { session = makeSession(), timezoneId } = {}) {
+  const context = await browser.newContext(timezoneId ? { timezoneId } : {});
   const mock = createMock(mockOpts);
   await context.route(`${SB}/**`, mock.handler);
   if (session) {
@@ -650,6 +651,34 @@ const TESTS = {
       assert(s.log.some((e) => e.method === 'DELETE' && e.path.startsWith('/storage/v1/object/')), 'storage object removal requested');
     });
   },
+
+  // 25–26. Scheduling uses Kampala time whatever the browser's time zone is.
+  ...['Africa/Kampala', 'America/New_York'].reduce((acc, tz) => Object.assign(acc, {
+    [`schedule: Kampala wall time round-trips without shifting (browser in ${tz})`]: async (browser, base) => {
+      const stored = '2026-12-01T06:00:00+00:00';           // = 09:00 in Kampala
+      const art = baseArticle({ status: 'scheduled', scheduled_for: stored, created_at: '2026-11-01T10:00:00Z' });
+      await withPage(browser, base, { articles: [art] }, async (page, s) => {
+        await page.goto(`${base}/admin/articles/22222222-2222-4222-8222-222222222222/edit`);
+        await page.getByPlaceholder('Enter article title…').waitFor({ timeout: 15000 });
+        const input = page.locator('input[type="datetime-local"]');
+        assert(await input.inputValue() === '2026-12-01T09:00', `input shows Kampala time (got ${await input.inputValue()})`);
+        const preview = await page.getByTestId('schedule-preview').textContent();
+        assert(/Kampala time: .*09:00/.test(preview) && /06:00:00 GMT/.test(preview), `preview shows Kampala + UTC (got "${preview}")`);
+        // Re-schedule without changing the field → same instant
+        await page.getByRole('button', { name: 'Schedule publication' }).click();
+        await waitFor(() => writes(s, 'PATCH').some((e) => e.body.status === 'scheduled'), 8000, 'schedule PATCH');
+        const first = writes(s, 'PATCH').find((e) => e.body.status === 'scheduled').body.scheduled_for;
+        assert(new Date(first).getTime() === new Date(stored).getTime(), `unchanged reschedule keeps the instant (sent ${first})`);
+        // Change the time → converted from Kampala to UTC exactly once
+        await input.fill('2026-12-02T10:30');
+        await page.getByRole('button', { name: 'Schedule publication' }).click();
+        await waitFor(() => writes(s, 'PATCH').filter((e) => e.body.status === 'scheduled').length >= 2, 8000, 'second schedule PATCH');
+        const second = writes(s, 'PATCH').filter((e) => e.body.status === 'scheduled')[1].body.scheduled_for;
+        assert(second === '2026-12-02T07:30:00.000Z', `10:30 Kampala → 07:30Z (sent ${second})`);
+        await expectToast(page, 'Article scheduled for');
+      }, { timezoneId: tz });
+    },
+  }), {}),
 };
 
 (async () => {

@@ -47,6 +47,7 @@ import RevisionHistory from './RevisionHistory';
 import SeoQualityPanel from './seo/SeoQualityPanel';
 import { runSeoChecks } from '../../lib/seo/quality';
 import { ToastContainer, useToast } from './ui/Toast';
+import { utcIsoToZonedInput, zonedInputToUtcIso, formatInZone } from '../../lib/datetime';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,7 +120,8 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   const [slug,             setSlug]             = useState(article?.slug             ?? '');
   const [excerpt,          setExcerpt]          = useState(article?.excerpt         ?? '');
   const [body,             setBody]             = useState(article?.body             ?? '');
-  const [scheduledFor,     setScheduledFor]     = useState(article?.scheduled_for    ? article.scheduled_for.slice(0, 16) : '');
+  // datetime-local value in Kampala wall time (converted from the stored UTC instant)
+  const [scheduledFor,     setScheduledFor]     = useState(() => utcIsoToZonedInput(article?.scheduled_for));
   const [seoTitle,         setSeoTitle]         = useState(article?.seo_title        ?? '');
   const [metaDesc,         setMetaDesc]         = useState(article?.meta_description ?? '');
   const [canonicalUrl,     setCanonicalUrl]     = useState(article?.canonical_url   ?? '');
@@ -427,9 +429,10 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     if (!scheduledFor) { showToast('Set a scheduled date/time first.', 'error'); return; }
     setActionLoading(true);
     try {
+      const scheduledUtc = zonedInputToUtcIso(scheduledFor);   // Kampala wall time → UTC, exactly once
       await saveNow();
-      await scheduleArticle(article.id, new Date(scheduledFor).toISOString());
-      showToast(`Article scheduled for ${new Date(scheduledFor).toLocaleString('en-GB')}.`, 'success');
+      await scheduleArticle(article.id, scheduledUtc);
+      showToast(`Article scheduled for ${formatInZone(scheduledUtc)}.`, 'success');
       onSaved?.(article.id);
     } catch (err) {
       showToast(errMsg(err, 'Schedule failed.'), 'error');
@@ -761,23 +764,19 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     onChange={(e) => setScheduledFor(e.target.value)}
                     className="w-full rounded-lg border border-[#DDE3EA] px-3 py-2 text-sm text-[#1A2B40] bg-white focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D] transition"
                   />
-                  {/* Show both local and UTC so there is never ambiguity */}
-                  {scheduledFor && (
-                    <div className="space-y-0.5">
-                      <p className="text-xs text-[#6B7A8D]">
-                        Your time: {new Date(scheduledFor).toLocaleString('en-GB', {
-                          day: '2-digit', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
-                          timeZoneName: 'short',
-                        })}
-                      </p>
-                      <p className="text-xs text-[#6B7A8D]">
-                        UTC: {new Date(scheduledFor).toUTCString()}
-                      </p>
-                    </div>
-                  )}
+                  {/* Show both Kampala and UTC so there is never ambiguity */}
+                  {scheduledFor && (() => {
+                    let utcIso: string | null = null;
+                    try { utcIso = zonedInputToUtcIso(scheduledFor); } catch { utcIso = null; }
+                    return utcIso && (
+                      <div className="space-y-0.5" data-testid="schedule-preview">
+                        <p className="text-xs text-[#6B7A8D]">Kampala time: {formatInZone(utcIso)}</p>
+                        <p className="text-xs text-[#6B7A8D]">UTC: {new Date(utcIso).toUTCString()}</p>
+                      </div>
+                    );
+                  })()}
                   <p className="text-xs text-[#6B7A8D]">
-                    The article publishes at this time in your local timezone.
+                    Enter the time in Kampala time (EAT, UTC+3), whatever computer you use.
                     The server stores and compares times in UTC.
                   </p>
                 </div>
@@ -865,10 +864,9 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
             <div className="bg-[#1B365D]/5 border border-[#1B365D]/20 rounded-lg p-3 text-xs text-[#1B365D] space-y-1">
               <p className="font-semibold">🕐 Scheduled for publication</p>
               <p>
-                Local: {new Date(article.scheduled_for).toLocaleString('en-GB', {
+                Kampala: {formatInZone(article.scheduled_for, undefined, {
                   day: '2-digit', month: 'long', year: 'numeric',
                   hour: '2-digit', minute: '2-digit',
-                  timeZoneName: 'short',
                 })}
               </p>
               <p className="text-[#4A777A]">
