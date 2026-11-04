@@ -498,6 +498,23 @@ export async function restoreRevision(articleId: string, revisionId: string) {
 // Utilities
 // ---------------------------------------------------------------------------
 
+/**
+ * Estimate reading time for DISPLAY in the admin UI while editing.
+ *
+ * Mirrors the database expression for articles.reading_time_minutes
+ * (supabase/migrations/20260101000005_articles.sql):
+ *   GREATEST(1, array_length(regexp_split_to_array(trim(body), '\s+'), 1) / 200)
+ * i.e. whitespace-separated tokens of the stored body, ÷ 200 (integer), min 1.
+ *
+ * The stored value is computed by the database. The application never writes
+ * that column: the migration defines it as GENERATED ALWAYS, and Postgres
+ * rejects writes to generated columns, which would make every save fail.
+ */
+export function estimateReadingTimeMinutes(body: string): number {
+  const tokens = body.trim().split(/\s+/).length;
+  return Math.max(1, Math.floor(tokens / 200));
+}
+
 /** Generate a URL-safe slug from a title. */
 export function slugify(title: string): string {
   return title

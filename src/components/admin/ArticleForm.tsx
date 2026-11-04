@@ -27,7 +27,7 @@ import type { Editor } from '@tiptap/react';
 import {
   createArticle, updateArticle, slugify, isSlugAvailable,
   publishArticle, unpublishArticle, scheduleArticle, cancelSchedule,
-  archiveArticle, sanitiseHtml,
+  archiveArticle, sanitiseHtml, estimateReadingTimeMinutes,
 } from '../../lib/services/articles';
 import { setArticleCategories, setArticleTags, getCategories, getTags } from '../../lib/services/taxonomy';
 import { getMediaUrl } from '../../lib/services/media';
@@ -229,14 +229,24 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     const existingId = article?.id ?? createdIdRef.current;
     let articleId: string;
     if (existingId) {
-      await updateArticle(existingId, content);
+      // Author handling on edit:
+      //   - author_id is never changed by an edit (it identifies the original author).
+      //   - author_display_name (the public byline) follows the author's current
+      //     profile name when the AUTHOR edits — preserving the existing workflow
+      //     of renaming yourself in Settings and re-saving.
+      //   - When a different admin edits, the original author's byline is kept.
+      //   - An empty profile name never blanks the byline.
+      const isOwnArticle  = article ? article.author_id === user!.id : true;
+      const profileName   = profile?.display_name?.trim();
+      const authorUpdate  = isOwnArticle && profileName ? { author_display_name: profileName } : {};
+      await updateArticle(existingId, { ...content, ...authorUpdate });
       articleId = existingId;
     } else {
       articleId = await createArticle({
         ...content,
         status:              'draft',
         author_id:           user!.id,
-        author_display_name: profile?.display_name || 'Chef Peter the Teacher',
+        author_display_name: profile?.display_name?.trim() || 'Chef Peter the Teacher',
         published_at:        null,
         scheduled_for:       null,
       });
@@ -441,6 +451,16 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   const handleArchive = () => runExclusive(async () => {
     if (!article) return;
     setActionLoading(true);
+    // Persist pending edits first so archiving never discards them. If they
+    // cannot be saved, the article is NOT archived and the editor stays open.
+    try {
+      await saveNow();
+    } catch (err) {
+      showToast(`Archive cancelled — your latest changes could not be saved: ${errMsg(err, 'unknown error')}`, 'error');
+      setActionLoading(false);
+      setConfirmAction(null);
+      return;
+    }
     try {
       await archiveArticle(article.id);
       showToast('Article archived.', 'success');
@@ -833,7 +853,8 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
               <p>Created: {new Date(article.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
               <p>Updated: {new Date(article.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
               {article.published_at && <p>Published: {new Date(article.published_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
-              <p>Reading time: {article.reading_time_minutes} min</p>
+              {/* Live estimate using the same formula as the database column */}
+              <p>Reading time: {estimateReadingTimeMinutes(sanitiseHtml(body))} min</p>
               {/* Live word count from current editor state */}
               <p>Words: {body.replace(/<[^>]+>/g, '').trim().split(/\s+/).filter(Boolean).length.toLocaleString()}</p>
             </div>
@@ -902,7 +923,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
       <ConfirmDialog
         open={confirmAction === 'archive'}
         title="Archive article"
-        description="Archived articles are hidden from the public and from article listings. You can restore them later. Are you sure?"
+        description="Any unsaved changes will be saved first. Archived articles are hidden from the public and from article listings. You can restore them later. Are you sure?"
         confirmLabel="Archive"
         onConfirm={handleArchive}
         onCancel={() => setConfirmAction(null)}
