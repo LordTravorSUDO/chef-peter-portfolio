@@ -241,6 +241,8 @@ export interface ArticleWithRelations extends ArticleWithAuthor, ArticleWithFeat
   article_tags: Array<{
     tags: Tag | null;
   }>;
+  /** Present when the query selects the social_image relation (admin editor, preview) */
+  social_image?: Pick<Media, 'id' | 'storage_path' | 'alt_text'> | null;
 }
 
 /** Slim card projection used in /articles listing — avoids fetching body */

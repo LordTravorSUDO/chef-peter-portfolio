@@ -1,7 +1,17 @@
 /**
  * /admin/articles/:id/edit — Edit an existing article.
+ *
+ * Loading model:
+ *   - The full-page spinner is shown ONLY for the first load of an article.
+ *   - After a save or a publishing action the article is refreshed silently:
+ *     the editor stays mounted, so the cursor, unsaved typing and toasts are
+ *     preserved. Only server-owned fields (status, published_at, updated_at,
+ *     reading time …) are taken from the refreshed record.
+ *   - After a revision restore the editor is deliberately re-initialised from
+ *     the refreshed record, because the stored content was replaced.
+ *   - Responses for an older request (or a different article ID) are ignored.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronRight, Eye } from 'lucide-react';
 import { getArticleByIdAdmin } from '../../lib/services/articles';
@@ -10,37 +20,78 @@ import Spinner from '../../components/admin/ui/Spinner';
 import type { ArticleWithRelations } from '../../types/article';
 
 export default function AdminEditArticle() {
-  const { id }                   = useParams<{ id: string }>();
-  const [article, setArticle]    = useState<ArticleWithRelations | null>(null);
-  const [loading, setLoading]    = useState(true);
-  const [error,   setError]      = useState<string | null>(null);
+  const { id }                          = useParams<{ id: string }>();
+  const [article,      setArticle]      = useState<ArticleWithRelations | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  /** Changing this re-initialises the editor (used only after a revision restore) */
+  const [formVersion,  setFormVersion]  = useState(0);
 
-  const loadArticle = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getArticleByIdAdmin(id);
-      if (!data) setError('Article not found.');
-      else setArticle(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load article.');
-    } finally {
-      setLoading(false);
-    }
+  const requestSeq = useRef(0);
+
+  /** Fetch the article. Returns the record, or null if the response is stale. */
+  const fetchArticle = useCallback(async (): Promise<ArticleWithRelations | null | 'stale'> => {
+    if (!id) return null;
+    const seq = ++requestSeq.current;
+    const data = await getArticleByIdAdmin(id);
+    return seq === requestSeq.current ? data : 'stale';
   }, [id]);
 
+  // ── Initial load (and when the route ID changes) ────────────────────────
   useEffect(() => {
-    loadArticle();
-  }, [loadArticle]);
+    let cancelled = false;
+    setArticle(null);
+    setLoading(true);
+    setError(null);
+    setRefreshError(null);
 
-  // Refresh the article from the DB after a save/publish/unpublish so the
-  // form always shows the current server state (e.g. updated_at, status, reading_time_minutes)
+    fetchArticle()
+      .then((data) => {
+        if (cancelled || data === 'stale') return;
+        if (!data) setError('Article not found.');
+        else setArticle(data);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load article.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [fetchArticle]);
+
+  // ── Silent refresh after save / publish / unpublish / schedule ──────────
+  const refreshArticle = useCallback(async (): Promise<boolean> => {
+    try {
+      const data = await fetchArticle();
+      if (data === 'stale') return false;
+      if (!data) {
+        setRefreshError('The article could not be found when refreshing. It may have been deleted.');
+        return false;
+      }
+      setArticle(data);
+      setRefreshError(null);
+      return true;
+    } catch (e) {
+      setRefreshError(
+        `Your changes were saved, but the latest article details could not be reloaded (${e instanceof Error ? e.message : 'unknown error'}). Reload the page to see them.`,
+      );
+      return false;
+    }
+  }, [fetchArticle]);
+
   const handleSaved = useCallback((_savedId: string) => {
-    loadArticle();
-  }, [loadArticle]);
+    void refreshArticle();
+  }, [refreshArticle]);
 
-  if (loading) {
+  // ── Reload the editor content (after a revision restore) ────────────────
+  const handleReloadRequested = useCallback(async () => {
+    if (await refreshArticle()) setFormVersion((v) => v + 1);
+  }, [refreshArticle]);
+
+  if (loading && !article) {
     return (
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
     );
@@ -85,7 +136,20 @@ export default function AdminEditArticle() {
         )}
       </div>
 
-      <ArticleForm article={article} onSaved={handleSaved} />
+      {refreshError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800" role="alert">
+          {refreshError}
+        </div>
+      )}
+
+      {/* key changes only on a deliberate reload — never on a routine save */}
+      <div key={`${article.id}:${formVersion}`}>
+        <ArticleForm
+          article={article}
+          onSaved={handleSaved}
+          onReloadRequested={handleReloadRequested}
+        />
+      </div>
     </div>
   );
 }
