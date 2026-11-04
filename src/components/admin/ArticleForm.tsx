@@ -10,10 +10,15 @@
  *   - Unsaved changes trigger a browser beforeunload warning
  *   - Autosave only runs on existing articles (never creates phantom drafts)
  *   - Slug uniqueness is checked with debounced API calls
+ *   - Content saves never write status / published_at / scheduled_for — those
+ *     are owned by the publish, unpublish and schedule actions
+ *   - Existing featured and social images are loaded and preserved on save;
+ *     they change only when the editor selects or removes an image
+ *   - One save at a time; a created article is never inserted twice
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Save, Globe, Eye, EyeOff, Send, Clock, RotateCcw,
   Archive, CheckCircle, AlertCircle, FileText, Image as ImageIcon,
@@ -22,7 +27,7 @@ import type { Editor } from '@tiptap/react';
 import {
   createArticle, updateArticle, slugify, isSlugAvailable,
   publishArticle, unpublishArticle, scheduleArticle, cancelSchedule,
-  archiveArticle, sanitiseHtml,
+  archiveArticle, sanitiseHtml, estimateReadingTimeMinutes,
 } from '../../lib/services/articles';
 import { setArticleCategories, setArticleTags, getCategories, getTags } from '../../lib/services/taxonomy';
 import { getMediaUrl } from '../../lib/services/media';
@@ -42,6 +47,7 @@ import RevisionHistory from './RevisionHistory';
 import SeoQualityPanel from './seo/SeoQualityPanel';
 import { runSeoChecks } from '../../lib/seo/quality';
 import { ToastContainer, useToast } from './ui/Toast';
+import { utcIsoToZonedInput, zonedInputToUtcIso, formatInZone } from '../../lib/datetime';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,14 +57,20 @@ interface FeaturedImageInfo { id: string; storage_path: string; alt_text: string
 
 interface Props {
   article?: ArticleWithRelations;
+  /** Called after a save or workflow action so the parent can refresh server-side fields */
   onSaved?: (id: string) => void;
+  /** Called when the stored content was replaced elsewhere (revision restore) and the form must reload */
+  onReloadRequested?: () => void;
 }
+
+/** Mirrors the articles_slug_format CHECK constraint in the database */
+const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 // ---------------------------------------------------------------------------
 // Autosave status indicator
 // ---------------------------------------------------------------------------
 
-function SaveStatusIndicator({ status }: { status: AutosaveStatus }) {
+function SaveStatusIndicator({ status, error }: { status: AutosaveStatus; error?: string | null }) {
   const config: Record<AutosaveStatus, { label: string; icon: React.ReactNode; cls: string }> = {
     idle:   { label: 'All changes saved', icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'text-emerald-600' },
     dirty:  { label: 'Unsaved changes…',  icon: <FileText   className="w-3.5 h-3.5" />, cls: 'text-[#D99B26]' },
@@ -68,9 +80,10 @@ function SaveStatusIndicator({ status }: { status: AutosaveStatus }) {
   };
   const c = config[status];
   return (
-    <div className={`flex items-center gap-1.5 text-xs font-medium ${c.cls}`} role="status" aria-live="polite">
+    <div className={`flex items-center gap-1.5 text-xs font-medium ${c.cls}`} role="status" aria-live="polite" title={status === 'failed' && error ? error : undefined}>
       {c.icon}
       {c.label}
+      {status === 'failed' && <span className="font-normal">— retrying automatically</span>}
     </div>
   );
 }
@@ -79,17 +92,26 @@ function SaveStatusIndicator({ status }: { status: AutosaveStatus }) {
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ArticleForm({ article, onSaved }: Props) {
+export default function ArticleForm({ article, onSaved, onReloadRequested }: Props) {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
+  const location          = useLocation();
   const { toasts, showToast, dismissToast } = useToast();
   const isEdit            = !!article;
 
-  // ── Featured image info (resolved from article relations) ──────────────
+  // ── Image info (resolved from article relations) ───────────────────────
+  // If a relation could not be resolved but the ID is set, keep the ID so a
+  // save never silently clears the stored image.
   const initialFeatured: FeaturedImageInfo | null = article?.featured_image
     ? { id: article.featured_image.id, storage_path: article.featured_image.storage_path, alt_text: article.featured_image.alt_text }
-    : null;
-  const initialSocial: FeaturedImageInfo | null = null;
+    : article?.featured_image_id
+      ? { id: article.featured_image_id, storage_path: '', alt_text: null }
+      : null;
+  const initialSocial: FeaturedImageInfo | null = article?.social_image
+    ? { id: article.social_image.id, storage_path: article.social_image.storage_path, alt_text: article.social_image.alt_text }
+    : article?.social_image_id
+      ? { id: article.social_image_id, storage_path: '', alt_text: null }
+      : null;
 
   // ---------------------------------------------------------------------------
   // Form state
@@ -98,8 +120,8 @@ export default function ArticleForm({ article, onSaved }: Props) {
   const [slug,             setSlug]             = useState(article?.slug             ?? '');
   const [excerpt,          setExcerpt]          = useState(article?.excerpt         ?? '');
   const [body,             setBody]             = useState(article?.body             ?? '');
-  const [status,           setStatus]           = useState<ArticleStatus>(article?.status ?? 'draft');
-  const [scheduledFor,     setScheduledFor]     = useState(article?.scheduled_for    ? article.scheduled_for.slice(0, 16) : '');
+  // datetime-local value in Kampala wall time (converted from the stored UTC instant)
+  const [scheduledFor,     setScheduledFor]     = useState(() => utcIsoToZonedInput(article?.scheduled_for));
   const [seoTitle,         setSeoTitle]         = useState(article?.seo_title        ?? '');
   const [metaDesc,         setMetaDesc]         = useState(article?.meta_description ?? '');
   const [canonicalUrl,     setCanonicalUrl]     = useState(article?.canonical_url   ?? '');
@@ -118,9 +140,29 @@ export default function ArticleForm({ article, onSaved }: Props) {
   const [showSeo,       setShowSeo]      = useState(false);
   const [mediaPicker,   setMediaPicker]  = useState<null | 'featured' | 'social' | 'inline'>(null);
 
-  // ── Destructive action confirm state ──────────────────────────────────
-  const [confirmAction, setConfirmAction] = useState<null | 'unpublish' | 'archive' | 'restore'>(null);
+  // ── Confirm dialogs and busy state ─────────────────────────────────────
+  const [confirmAction, setConfirmAction] = useState<null | 'publish' | 'savePublish' | 'unpublish' | 'archive'>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [manualSaving,  setManualSaving]  = useState(false);
+  const busyRef = useRef(false); // synchronous double-submit guard
+
+  /** ID of an article created by this form instance (prevents duplicate inserts) */
+  const createdIdRef = useRef<string | null>(null);
+
+  /** Taxonomy as last written to the database — avoids rewriting it on every autosave */
+  const savedTaxonomyRef = useRef<string | null>(
+    isEdit ? JSON.stringify({ c: [...selectedCatIds].sort(), p: primaryCatId, t: [...selectedTagIds].sort() }) : null,
+  );
+
+  // ── One-off message carried over from the previous page (e.g. after create)
+  useEffect(() => {
+    const flash = (location.state as { flash?: { message: string; type: 'success' | 'error' | 'warning' } } | null)?.flash;
+    if (flash) {
+      showToast(flash.message, flash.type);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Load taxonomy ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -140,7 +182,7 @@ export default function ArticleForm({ article, onSaved }: Props) {
     const t = setTimeout(async () => {
       setSlugChecking(true);
       try {
-        const available = await isSlugAvailable(slug, article?.id);
+        const available = await isSlugAvailable(slug, article?.id ?? createdIdRef.current ?? undefined);
         setSlugError(available ? undefined : 'This slug is already in use. Choose another.');
       } catch { /* non-fatal */ }
       finally { setSlugChecking(false); }
@@ -148,72 +190,120 @@ export default function ArticleForm({ article, onSaved }: Props) {
     return () => clearTimeout(t);
   }, [slug, article?.id]);
 
-  // ── Build the save payload ─────────────────────────────────────────────
-  const buildPayload = useCallback(() => {
-    if (!user) return null;
-    return {
-      title:               title.trim(),
-      slug:                slug.trim(),
-      excerpt:             excerpt.trim(),
-      body:                sanitiseHtml(body),
-      status,
-      author_id:           user.id,
-      author_display_name: profile?.display_name ?? 'Chef Peter the Teacher',
-      featured_image_id:   featuredImage?.id ?? null,
-      social_image_id:     socialImage?.id ?? null,
-      published_at:        article?.published_at ?? null,    // preserve existing
-      scheduled_for:       status === 'scheduled' ? new Date(scheduledFor).toISOString() : null,
-      seo_title:           seoTitle.trim()     || null,
-      meta_description:    metaDesc.trim()     || null,
-      canonical_url:       canonicalUrl.trim() || null,
-      noindex,
-    };
-  }, [user, profile, title, slug, excerpt, body, status, featuredImage, socialImage, article, scheduledFor, seoTitle, metaDesc, canonicalUrl, noindex]);
+  // ── Validation shared by every save path ───────────────────────────────
+  const validateForSave = useCallback((): void => {
+    if (!user) throw new Error('You are not signed in. Sign in again and retry.');
+    const t = title.trim();
+    const s = slug.trim();
+    if (!t) throw new Error('A title is required.');
+    if (t.length > 255) throw new Error('The title must be 255 characters or fewer.');
+    if (!s) throw new Error('A URL slug is required.');
+    if (!SLUG_PATTERN.test(s)) {
+      throw new Error('The URL slug may only contain lowercase letters, numbers and single hyphens, and cannot start or end with a hyphen.');
+    }
+    if (slugError) throw new Error(slugError);
+  }, [user, title, slug, slugError]);
 
-  // ── Save function (shared by manual save and autosave) ────────────────
-  const performSave = useCallback(async () => {
-    if (!user) { showToast('Not authenticated.', 'error'); throw new Error('Not authenticated'); }
-    if (!title.trim()) { showToast('Title is required.', 'error'); throw new Error('Title required'); }
-    if (!slug.trim())  { showToast('Slug is required.', 'error'); throw new Error('Slug required'); }
-    if (slugError) throw new Error('Slug conflict');
+  // ── Payloads ───────────────────────────────────────────────────────────
+  // Content fields only. Status, published_at and scheduled_for are owned by
+  // the publish / unpublish / schedule actions, so a content save can never
+  // revert a published or scheduled article.
+  const buildContentPayload = useCallback(() => ({
+    title:             title.trim(),
+    slug:              slug.trim(),
+    excerpt:           excerpt.trim(),
+    body:              sanitiseHtml(body),
+    featured_image_id: featuredImage?.id ?? null,
+    social_image_id:   socialImage?.id ?? null,
+    seo_title:         seoTitle.trim()     || null,
+    meta_description:  metaDesc.trim()     || null,
+    canonical_url:     canonicalUrl.trim() || null,
+    noindex,
+  }), [title, slug, excerpt, body, featuredImage, socialImage, seoTitle, metaDesc, canonicalUrl, noindex]);
 
-    const payload = buildPayload();
-    if (!payload) throw new Error('Not authenticated');
+  // ── Core save (shared by manual save, autosave and publish actions) ────
+  // Returns the article ID. Never navigates and never shows toasts — callers
+  // decide how to report the outcome.
+  const performSave = useCallback(async (): Promise<string> => {
+    validateForSave();
+    const content = buildContentPayload();
 
+    const existingId = article?.id ?? createdIdRef.current;
     let articleId: string;
-    if (isEdit && article) {
-      await updateArticle(article.id, payload);
-      articleId = article.id;
+    if (existingId) {
+      // Author handling on edit:
+      //   - author_id is never changed by an edit (it identifies the original author).
+      //   - author_display_name (the public byline) follows the author's current
+      //     profile name when the AUTHOR edits — preserving the existing workflow
+      //     of renaming yourself in Settings and re-saving.
+      //   - When a different admin edits, the original author's byline is kept.
+      //   - An empty profile name never blanks the byline.
+      const isOwnArticle  = article ? article.author_id === user!.id : true;
+      const profileName   = profile?.display_name?.trim();
+      const authorUpdate  = isOwnArticle && profileName ? { author_display_name: profileName } : {};
+      await updateArticle(existingId, { ...content, ...authorUpdate });
+      articleId = existingId;
     } else {
-      articleId = await createArticle(payload);
-      // For new articles, navigate to edit URL (replace, not push)
-      navigate(`/admin/articles/${articleId}/edit`, { replace: true });
+      articleId = await createArticle({
+        ...content,
+        status:              'draft',
+        author_id:           user!.id,
+        author_display_name: profile?.display_name?.trim() || 'Chef Peter the Teacher',
+        published_at:        null,
+        scheduled_for:       null,
+      });
+      createdIdRef.current = articleId;
     }
 
-    // Taxonomy assignments
-    const catAssignments = selectedCatIds.map((id) => ({ categoryId: id, isPrimary: id === primaryCatId }));
-    await setArticleCategories(articleId, catAssignments);
-    await setArticleTags(articleId, selectedTagIds);
+    // Taxonomy — only written when it has changed since the last save
+    const taxonomyKey = JSON.stringify({ c: [...selectedCatIds].sort(), p: primaryCatId, t: [...selectedTagIds].sort() });
+    if (taxonomyKey !== savedTaxonomyRef.current) {
+      try {
+        const catAssignments = selectedCatIds.map((id) => ({ categoryId: id, isPrimary: id === primaryCatId }));
+        await setArticleCategories(articleId, catAssignments);
+        await setArticleTags(articleId, selectedTagIds);
+        savedTaxonomyRef.current = taxonomyKey;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'unknown error';
+        throw new Error(`The article was saved, but its categories/tags could not be saved: ${msg}`);
+      }
+    }
 
-    onSaved?.(articleId);
-  }, [user, title, slug, slugError, buildPayload, isEdit, article, navigate, selectedCatIds, primaryCatId, selectedTagIds, onSaved, showToast]);
+    return articleId;
+  }, [validateForSave, buildContentPayload, article, user, profile, selectedCatIds, primaryCatId, selectedTagIds]);
 
-  // ── Autosave hook (only for existing articles) ─────────────────────────
-  // The "data" is a JSON-serializable snapshot of the form fields
+  // ── Autosave (existing articles only) ──────────────────────────────────
   const autosaveData = useMemo(() => ({
-    title, slug, excerpt, body, status, scheduledFor,
+    title, slug, excerpt, body,
     seoTitle, metaDesc, canonicalUrl, noindex,
     featuredImageId: featuredImage?.id ?? null,
     socialImageId: socialImage?.id ?? null,
     selectedCatIds, primaryCatId, selectedTagIds,
-  }), [title, slug, excerpt, body, status, scheduledFor, seoTitle, metaDesc, canonicalUrl, noindex, featuredImage, socialImage, selectedCatIds, primaryCatId, selectedTagIds]);
+  }), [title, slug, excerpt, body, seoTitle, metaDesc, canonicalUrl, noindex, featuredImage, socialImage, selectedCatIds, primaryCatId, selectedTagIds]);
 
-  const { status: autosaveStatus, saveNow } = useAutosave({
+  const autosaveSave = useCallback(async () => { await performSave(); }, [performSave]);
+
+  const {
+    status: autosaveStatus,
+    error: autosaveError,
+    saveNow,
+    hasUnsavedChanges,
+  } = useAutosave({
     data: autosaveData,
-    onSave: performSave,
+    onSave: autosaveSave,
     interval: 4000,
     enabled: isEdit,
   });
+
+  // Report autosave failures once per distinct error (manual saves report their own)
+  const lastReportedErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (autosaveStatus === 'failed' && autosaveError && !busyRef.current && autosaveError !== lastReportedErrorRef.current) {
+      lastReportedErrorRef.current = autosaveError;
+      showToast(`Autosave failed: ${autosaveError}`, 'error');
+    }
+    if (autosaveStatus === 'saved') lastReportedErrorRef.current = null;
+  }, [autosaveStatus, autosaveError, showToast]);
 
   // ── SEO quality checks (re-computed whenever relevant fields change) ───
   const seoChecks = useMemo(() => {
@@ -233,53 +323,96 @@ export default function ArticleForm({ article, onSaved }: Props) {
   }, [title, slug, excerpt, body, seoTitle, metaDesc, featuredImage, noindex]);
 
   // ── Unsaved changes guard ──────────────────────────────────────────────
-  const isDirty = autosaveStatus === 'dirty' || autosaveStatus === 'failed';
+  const newArticleHasContent = !isEdit && !createdIdRef.current && !!(title.trim() || excerpt.trim() || body.replace(/<[^>]+>/g, '').trim());
+  const isDirty = isEdit
+    ? hasUnsavedChanges || autosaveStatus === 'saving' || autosaveStatus === 'failed'
+    : newArticleHasContent;
   useUnsavedChanges(isDirty);
 
-  // ── Manual save ─────────────────────────────────────────────────────────
-  const [manualSaving, setManualSaving] = useState(false);
-  const handleManualSave = async () => {
-    if (manualSaving) return; // prevent double-submit
+  /** Runs an action with a synchronous double-submit guard. */
+  const runExclusive = async (fn: () => Promise<void>) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try { await fn(); } finally { busyRef.current = false; }
+  };
+
+  const errMsg = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+
+  // ── Manual save ────────────────────────────────────────────────────────
+  const handleManualSave = () => runExclusive(async () => {
     setManualSaving(true);
     try {
-      // For new articles, call performSave directly (autosave is disabled for new articles)
       if (!isEdit) {
-        await performSave();
-        // Navigation to /edit happens inside performSave via navigate()
-        // No toast here — the navigation itself confirms success
+        const id = await performSave();
+        navigate(`/admin/articles/${id}/edit`, {
+          replace: true,
+          state: { flash: { message: 'Draft saved.', type: 'success' } },
+        });
       } else {
-        const ok = await saveNow();
-        if (ok) {
-          showToast('Article saved.', 'success');
-        } else {
-          showToast('Save failed — check your connection and try again.', 'error');
-        }
+        await saveNow();
+        showToast('Article saved.', 'success');
+        onSaved?.(article!.id);
       }
     } catch (err) {
-      // Surface the actual error message so the admin knows what went wrong
-      const msg = err instanceof Error ? err.message : 'Save failed. Please try again.';
-      showToast(msg, 'error');
+      const msg = errMsg(err, 'Save failed. Please try again.');
+      if (!isEdit && createdIdRef.current) {
+        // The article row exists — continue on its edit page rather than
+        // risking a duplicate insert on the next click.
+        navigate(`/admin/articles/${createdIdRef.current}/edit`, {
+          replace: true,
+          state: { flash: { message: msg, type: 'error' } },
+        });
+      } else {
+        showToast(msg, 'error');
+      }
     } finally {
       setManualSaving(false);
     }
-  };
+  });
 
-  // ── Publish / unpublish / schedule / archive ───────────────────────────
-  const handlePublish = async () => {
+  // ── Save & publish (new articles) ──────────────────────────────────────
+  const handleSaveAndPublish = () => runExclusive(async () => {
+    setActionLoading(true);
+    let id: string | null = null;
+    try {
+      id = await performSave();
+      await publishArticle(id);
+      navigate(`/admin/articles/${id}/edit`, {
+        replace: true,
+        state: { flash: { message: 'Article saved and published.', type: 'success' } },
+      });
+    } catch (err) {
+      const msg = errMsg(err, 'Save & publish failed.');
+      const createdId = id ?? createdIdRef.current;
+      if (createdId) {
+        navigate(`/admin/articles/${createdId}/edit`, {
+          replace: true,
+          state: { flash: { message: `The draft was saved, but it was not published: ${msg}`, type: 'error' } },
+        });
+      } else {
+        showToast(msg, 'error');
+      }
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+    }
+  });
+
+  // ── Publish / unpublish / schedule / archive (existing articles) ───────
+  const handlePublish = () => runExclusive(async () => {
     if (!article) { showToast('Save the article first.', 'warning'); return; }
     setActionLoading(true);
     try {
-      // Save content changes first
-      if (isDirty) await performSave();
+      await saveNow(); // persist pending content first (no-op when clean)
       await publishArticle(article.id);
       showToast('Article published.', 'success');
       onSaved?.(article.id);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Publish failed', 'error');
+      showToast(errMsg(err, 'Publish failed.'), 'error');
     } finally { setActionLoading(false); setConfirmAction(null); }
-  };
+  });
 
-  const handleUnpublish = async () => {
+  const handleUnpublish = () => runExclusive(async () => {
     if (!article) return;
     setActionLoading(true);
     try {
@@ -287,43 +420,66 @@ export default function ArticleForm({ article, onSaved }: Props) {
       showToast('Article unpublished. It is now a draft (published_at preserved).', 'success');
       onSaved?.(article.id);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Unpublish failed', 'error');
+      showToast(errMsg(err, 'Unpublish failed.'), 'error');
     } finally { setActionLoading(false); setConfirmAction(null); }
-  };
+  });
 
-  const handleSchedule = async () => {
+  const handleSchedule = () => runExclusive(async () => {
     if (!article) { showToast('Save the article first.', 'warning'); return; }
     if (!scheduledFor) { showToast('Set a scheduled date/time first.', 'error'); return; }
     setActionLoading(true);
     try {
-      if (isDirty) await performSave();
-      await scheduleArticle(article.id, new Date(scheduledFor).toISOString());
-      showToast(`Article scheduled for ${new Date(scheduledFor).toLocaleString('en-GB')}.`, 'success');
+      const scheduledUtc = zonedInputToUtcIso(scheduledFor);   // Kampala wall time → UTC, exactly once
+      await saveNow();
+      await scheduleArticle(article.id, scheduledUtc);
+      showToast(`Article scheduled for ${formatInZone(scheduledUtc)}.`, 'success');
       onSaved?.(article.id);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Schedule failed', 'error');
+      showToast(errMsg(err, 'Schedule failed.'), 'error');
     } finally { setActionLoading(false); }
-  };
+  });
 
-  const handleArchive = async () => {
+  const handleCancelSchedule = () => runExclusive(async () => {
     if (!article) return;
     setActionLoading(true);
+    try {
+      await cancelSchedule(article.id);
+      showToast('Schedule cancelled. The article is a draft again.', 'success');
+      onSaved?.(article.id);
+    } catch (err) {
+      showToast(errMsg(err, 'Could not cancel the schedule.'), 'error');
+    } finally { setActionLoading(false); }
+  });
+
+  const handleArchive = () => runExclusive(async () => {
+    if (!article) return;
+    setActionLoading(true);
+    // Persist pending edits first so archiving never discards them. If they
+    // cannot be saved, the article is NOT archived and the editor stays open.
+    try {
+      await saveNow();
+    } catch (err) {
+      showToast(`Archive cancelled — your latest changes could not be saved: ${errMsg(err, 'unknown error')}`, 'error');
+      setActionLoading(false);
+      setConfirmAction(null);
+      return;
+    }
     try {
       await archiveArticle(article.id);
       showToast('Article archived.', 'success');
       navigate('/admin/articles');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Archive failed', 'error');
+      showToast(errMsg(err, 'Archive failed.'), 'error');
     } finally { setActionLoading(false); setConfirmAction(null); }
-  };
+  });
 
   // ── Inline image insertion from the rich text editor ────────────────────
+  const editorRef = useRef<Editor | null>(null);
   const handleInsertImage = useCallback((editor: Editor) => {
     setMediaPicker('inline');
     // Store editor reference for later use when media is selected
     editorRef.current = editor;
   }, []);
-  const editorRef = useRef<Editor | null>(null);
 
   const handleMediaSelect = useCallback((media: Media) => {
     const url = getMediaUrl(media.storage_path);
@@ -361,8 +517,8 @@ export default function ArticleForm({ article, onSaved }: Props) {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
-  const currentStatus = article?.status ?? status;
-
+  const currentStatus: ArticleStatus = article?.status ?? 'draft';
+  const anyBusy = manualSaving || actionLoading;
   return (
     <div className="space-y-6">
       <title>{isEdit ? 'Edit Article' : 'New Article'} | Chef Peter CMS</title>
@@ -379,7 +535,7 @@ export default function ArticleForm({ article, onSaved }: Props) {
               </span>
             )}
           </div>
-          {isEdit && <SaveStatusIndicator status={autosaveStatus} />}
+          {isEdit && <SaveStatusIndicator status={autosaveStatus} error={autosaveError} />}
         </div>
       )}
 
@@ -440,11 +596,17 @@ export default function ArticleForm({ article, onSaved }: Props) {
             <p className="text-sm font-medium text-[#1A2B40]">Featured image</p>
             {featuredImage ? (
               <div className="flex items-start gap-3">
-                <img
-                  src={getMediaUrl(featuredImage.storage_path)}
-                  alt={featuredImage.alt_text ?? 'Featured image'}
-                  className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
-                />
+                {featuredImage.storage_path ? (
+                  <img
+                    src={getMediaUrl(featuredImage.storage_path)}
+                    alt={featuredImage.alt_text ?? 'Featured image'}
+                    className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg border border-[#DDE3EA] bg-[#F4F6F8] flex items-center justify-center text-[10px] text-[#6B7A8D] text-center p-1">
+                    Image set (preview unavailable)
+                  </div>
+                )}
                 <div className="flex-1">
                   <Button size="sm" variant="ghost" onClick={() => setMediaPicker('featured')}>
                     Change image
@@ -510,11 +672,17 @@ export default function ArticleForm({ article, onSaved }: Props) {
                   <p className="text-sm font-medium text-[#1A2B40]">Social sharing image</p>
                   {socialImage ? (
                     <div className="flex items-start gap-3">
-                      <img
-                        src={getMediaUrl(socialImage.storage_path)}
-                        alt={socialImage.alt_text ?? 'Social image'}
-                        className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
-                      />
+                      {socialImage.storage_path ? (
+                        <img
+                          src={getMediaUrl(socialImage.storage_path)}
+                          alt={socialImage.alt_text ?? 'Social image'}
+                          className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 rounded-lg border border-[#DDE3EA] bg-[#F4F6F8] flex items-center justify-center text-[10px] text-[#6B7A8D] text-center p-1">
+                          Image set (preview unavailable)
+                        </div>
+                      )}
                       <div className="flex-1">
                         <Button size="sm" variant="ghost" onClick={() => setMediaPicker('social')}>Change</Button>
                         <button type="button" onClick={() => setSocialImage(null)} className="ml-2 text-xs text-[#C0392B] hover:underline">Remove</button>
@@ -540,7 +708,7 @@ export default function ArticleForm({ article, onSaved }: Props) {
 
           {/* Revision history (edit only) */}
           {isEdit && article && (
-            <RevisionHistory articleId={article.id} onRestored={() => { /* parent will re-fetch */ }} />
+            <RevisionHistory articleId={article.id} onRestored={() => onReloadRequested?.()} />
           )}
         </div>
 
@@ -549,15 +717,21 @@ export default function ArticleForm({ article, onSaved }: Props) {
           {/* Action buttons */}
           <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-4">
             {/* Save / Create button */}
-            <Button className="w-full" loading={manualSaving || autosaveStatus === 'saving'} icon={<Save className="w-4 h-4" />} onClick={handleManualSave}>
+            <Button className="w-full" loading={manualSaving || autosaveStatus === 'saving'} disabled={anyBusy} icon={<Save className="w-4 h-4" />} onClick={handleManualSave}>
               {isEdit ? 'Save changes' : 'Save draft'}
             </Button>
 
-            {/* New article hint */}
+            {/* New article: save and publish in one step */}
             {!isEdit && (
-              <p className="text-xs text-[#6B7A8D] text-center leading-snug">
-                Save as draft first. You can publish after saving.
-              </p>
+              <>
+                <Button variant="secondary" className="w-full" icon={<Send className="w-4 h-4" />} onClick={() => setConfirmAction('savePublish')} loading={actionLoading} disabled={anyBusy}>
+                  Save &amp; publish
+                </Button>
+                <p className="text-xs text-[#6B7A8D] text-center leading-snug">
+                  Save a draft to keep working on it, or save and publish it to the website now.
+                  Scheduling becomes available after the first save.
+                </p>
+              </>
             )}
 
             {/* Preview (edit only) */}
@@ -569,12 +743,12 @@ export default function ArticleForm({ article, onSaved }: Props) {
 
             {/* Publish / Unpublish / Schedule */}
             {isEdit && currentStatus !== 'published' && (
-              <Button variant="secondary" className="w-full" icon={<Send className="w-4 h-4" />} onClick={() => setConfirmAction('publish')} loading={actionLoading}>
+              <Button variant="secondary" className="w-full" icon={<Send className="w-4 h-4" />} onClick={() => setConfirmAction('publish')} loading={actionLoading} disabled={anyBusy}>
                 Publish now
               </Button>
             )}
             {isEdit && currentStatus === 'published' && (
-              <Button variant="ghost" className="w-full" icon={<EyeOff className="w-4 h-4" />} onClick={() => setConfirmAction('unpublish')} loading={actionLoading}>
+              <Button variant="ghost" className="w-full" icon={<EyeOff className="w-4 h-4" />} onClick={() => setConfirmAction('unpublish')} loading={actionLoading} disabled={anyBusy}>
                 Unpublish (revert to draft)
               </Button>
             )}
@@ -590,33 +764,30 @@ export default function ArticleForm({ article, onSaved }: Props) {
                     onChange={(e) => setScheduledFor(e.target.value)}
                     className="w-full rounded-lg border border-[#DDE3EA] px-3 py-2 text-sm text-[#1A2B40] bg-white focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D] transition"
                   />
-                  {/* Show both local and UTC so there is never ambiguity */}
-                  {scheduledFor && (
-                    <div className="space-y-0.5">
-                      <p className="text-xs text-[#6B7A8D]">
-                        Your time: {new Date(scheduledFor).toLocaleString('en-GB', {
-                          day: '2-digit', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
-                          timeZoneName: 'short',
-                        })}
-                      </p>
-                      <p className="text-xs text-[#6B7A8D]">
-                        UTC: {new Date(scheduledFor).toUTCString()}
-                      </p>
-                    </div>
-                  )}
+                  {/* Show both Kampala and UTC so there is never ambiguity */}
+                  {scheduledFor && (() => {
+                    let utcIso: string | null = null;
+                    try { utcIso = zonedInputToUtcIso(scheduledFor); } catch { utcIso = null; }
+                    return utcIso && (
+                      <div className="space-y-0.5" data-testid="schedule-preview">
+                        <p className="text-xs text-[#6B7A8D]">Kampala time: {formatInZone(utcIso)}</p>
+                        <p className="text-xs text-[#6B7A8D]">UTC: {new Date(utcIso).toUTCString()}</p>
+                      </div>
+                    );
+                  })()}
                   <p className="text-xs text-[#6B7A8D]">
-                    The article publishes at this time in your local timezone.
+                    Enter the time in Kampala time (EAT, UTC+3), whatever computer you use.
                     The server stores and compares times in UTC.
                   </p>
                 </div>
-                <Button variant="ghost" className="w-full" icon={<Clock className="w-4 h-4" />} onClick={handleSchedule} loading={actionLoading} disabled={!scheduledFor}>
+                <Button variant="ghost" className="w-full" icon={<Clock className="w-4 h-4" />} onClick={handleSchedule} loading={actionLoading} disabled={!scheduledFor || anyBusy}>
                   Schedule publication
                 </Button>
                 {currentStatus === 'scheduled' && (
                   <button
                     type="button"
-                    onClick={async () => { await cancelSchedule(article.id); showToast('Schedule cancelled.', 'success'); }}
+                    onClick={handleCancelSchedule}
+                    disabled={anyBusy}
                     className="w-full text-xs text-[#6B7A8D] hover:text-[#C0392B] hover:underline transition"
                   >
                     Cancel schedule
@@ -627,12 +798,12 @@ export default function ArticleForm({ article, onSaved }: Props) {
 
             {/* Archive */}
             {isEdit && currentStatus !== 'archived' && (
-              <Button variant="ghost" className="w-full" icon={<Archive className="w-4 h-4" />} onClick={() => setConfirmAction('archive')} loading={actionLoading}>
+              <Button variant="ghost" className="w-full" icon={<Archive className="w-4 h-4" />} onClick={() => setConfirmAction('archive')} loading={actionLoading} disabled={anyBusy}>
                 Archive
               </Button>
             )}
 
-            <Button variant="ghost" className="w-full" onClick={() => navigate('/admin/articles')} disabled={manualSaving}>
+            <Button variant="ghost" className="w-full" onClick={() => navigate('/admin/articles')} disabled={anyBusy}>
               Back to articles
             </Button>
           </div>
@@ -681,7 +852,8 @@ export default function ArticleForm({ article, onSaved }: Props) {
               <p>Created: {new Date(article.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
               <p>Updated: {new Date(article.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
               {article.published_at && <p>Published: {new Date(article.published_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
-              <p>Reading time: {article.reading_time_minutes} min</p>
+              {/* Live estimate using the same formula as the database column */}
+              <p>Reading time: {estimateReadingTimeMinutes(sanitiseHtml(body))} min</p>
               {/* Live word count from current editor state */}
               <p>Words: {body.replace(/<[^>]+>/g, '').trim().split(/\s+/).filter(Boolean).length.toLocaleString()}</p>
             </div>
@@ -692,10 +864,9 @@ export default function ArticleForm({ article, onSaved }: Props) {
             <div className="bg-[#1B365D]/5 border border-[#1B365D]/20 rounded-lg p-3 text-xs text-[#1B365D] space-y-1">
               <p className="font-semibold">🕐 Scheduled for publication</p>
               <p>
-                Local: {new Date(article.scheduled_for).toLocaleString('en-GB', {
+                Kampala: {formatInZone(article.scheduled_for, undefined, {
                   day: '2-digit', month: 'long', year: 'numeric',
                   hour: '2-digit', minute: '2-digit',
-                  timeZoneName: 'short',
                 })}
               </p>
               <p className="text-[#4A777A]">
@@ -730,6 +901,15 @@ export default function ArticleForm({ article, onSaved }: Props) {
         loading={actionLoading}
       />
       <ConfirmDialog
+        open={confirmAction === 'savePublish'}
+        title="Save and publish article"
+        description="This saves the article and makes it immediately visible on the website. Are you sure?"
+        confirmLabel="Save & publish"
+        onConfirm={handleSaveAndPublish}
+        onCancel={() => setConfirmAction(null)}
+        loading={actionLoading}
+      />
+      <ConfirmDialog
         open={confirmAction === 'unpublish'}
         title="Unpublish article"
         description="This will hide the article from the public. The original publication date will be preserved. Are you sure?"
@@ -741,7 +921,7 @@ export default function ArticleForm({ article, onSaved }: Props) {
       <ConfirmDialog
         open={confirmAction === 'archive'}
         title="Archive article"
-        description="Archived articles are hidden from the public and from article listings. You can restore them later. Are you sure?"
+        description="Any unsaved changes will be saved first. Archived articles are hidden from the public and from article listings. You can restore them later. Are you sure?"
         confirmLabel="Archive"
         onConfirm={handleArchive}
         onCancel={() => setConfirmAction(null)}

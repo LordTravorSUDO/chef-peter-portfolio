@@ -221,7 +221,8 @@ export interface ArticleWithAuthor extends Article {
 
 /** Article with resolved featured image */
 export interface ArticleWithFeaturedImage extends Article {
-  featured_image: Pick<Media, 'id' | 'storage_path' | 'alt_text' | 'width_px' | 'height_px'> | null;
+  /** caption/credit are present when the query selects media(*) (public article page) */
+  featured_image: (Pick<Media, 'id' | 'storage_path' | 'alt_text' | 'width_px' | 'height_px'> & Partial<Pick<Media, 'caption' | 'credit'>>) | null;
 }
 
 /** Article with primary category (for listing cards) */
@@ -241,6 +242,8 @@ export interface ArticleWithRelations extends ArticleWithAuthor, ArticleWithFeat
   article_tags: Array<{
     tags: Tag | null;
   }>;
+  /** Present when the query selects the social_image relation (admin editor, preview) */
+  social_image?: Pick<Media, 'id' | 'storage_path' | 'alt_text'> | null;
 }
 
 /** Slim card projection used in /articles listing — avoids fetching body */

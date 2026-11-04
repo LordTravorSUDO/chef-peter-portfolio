@@ -1,68 +1,51 @@
 /**
  * Vercel Cron Job — Scheduled Article Publisher
  * Path: /api/cron/publish-scheduled
- * Schedule: once daily at 00:00 UTC (03:00 Africa/Kampala)
+ * Schedule: once daily at 00:00 UTC (03:00 Africa/Kampala) — see vercel.json
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * VERCEL HOBBY PLAN LIMITATION:
- *   Vercel's free Hobby plan supports cron jobs running at most once per day.
- *   This endpoint therefore runs once every 24 hours at midnight UTC
- *   (3:00 AM Uganda time, UTC+3).
+ * SCHEDULE (Vercel Hobby plan — daily cron):
+ *   The job runs once every 24 hours. An article scheduled for 09:00 Kampala
+ *   is published at the next run (03:00 Kampala the following day). It is
+ *   never published before its scheduled time (the database function checks
+ *   scheduled_for <= now()), but it can be published up to ~24 hours later.
+ *   Tip: to go live on a given morning, schedule it for before 03:00 Kampala
+ *   that day.
  *
- *   PRACTICAL IMPACT FOR SCHEDULING:
- *   If you schedule an article for, say, 09:00 Kampala (06:00 UTC) on a given
- *   day, it will be published the following midnight UTC (03:00 Kampala) when
- *   the cron next fires — not at 09:00 exactly. The article will NEVER be
- *   published before its scheduled_for time (the Postgres function checks
- *   scheduled_for <= NOW()), but it may be published up to 24 hours late.
- *
- *   RECOMMENDATION:
- *   Schedule articles for a time earlier than 03:00 Kampala the day you want
- *   them to go live. For example, scheduling for 01:00 Kampala on Tuesday
- *   means the cron fires at 03:00 Kampala on Tuesday and publishes it.
- *
- *   If you need more precise scheduling (e.g. to the hour), upgrade to
- *   Vercel Pro or use Supabase pg_cron (free — see docs/scheduling.md).
- *
- * ─────────────────────────────────────────────────────────────────────────────
  * WHAT THIS DOES:
- *   Calls the `publish_scheduled_articles()` Postgres function, which:
- *     1. Finds all articles with status='scheduled' AND scheduled_for <= NOW()
- *     2. Updates their status to 'published' and clears scheduled_for
- *     3. Logs the result to the scheduler_runs table
- *     4. Logs an article_event for each published article
- *     5. Returns a JSON summary of what was published
- *
- * IDEMPOTENCY:
- *   Re-running this endpoint is safe. The Postgres function only acts on
- *   articles that are STILL in 'scheduled' status. Already-published articles
- *   are never touched again.
+ *   Calls the Postgres function public.publish_scheduled_articles(p_triggered_by),
+ *   which publishes every article with status='scheduled' AND
+ *   scheduled_for <= now(), logs the run to scheduler_runs (one
+ *   article_events row per published article is written by a trigger) and
+ *   returns a JSON summary. Re-running is safe (idempotent).
  *
  * AUTHENTICATION:
- *   The CRON_SECRET environment variable must be set in Vercel.
- *   Vercel Cron automatically sends:
- *     Authorization: Bearer <CRON_SECRET>
- *   This endpoint rejects any request without that header.
+ *   Requires the header  Authorization: Bearer <CRON_SECRET>
+ *   Vercel Cron sends it automatically when CRON_SECRET is set in the project.
+ *   The secret is NOT accepted as a URL query parameter (URLs end up in logs
+ *   and browser history). It is compared in constant time.
  *
- * TIMEZONE:
- *   All comparisons are done in UTC (TIMESTAMPTZ in Postgres). The admin editor
- *   converts the local Africa/Kampala datetime to a UTC ISO 8601 string before
- *   storing. Postgres NOW() is UTC. The comparison scheduled_for <= NOW() is
- *   always UTC-to-UTC — there is no timezone ambiguity in the database query.
+ *   Manual run (server-side only, e.g. from a terminal — never from browser code):
+ *     curl -H "Authorization: Bearer $CRON_SECRET" \
+ *       "https://<deployment>/api/cron/publish-scheduled?trigger=manual"
+ *   `trigger=manual` only labels the run in scheduler_runs; it grants nothing.
  *
- * SECURITY:
- *   Uses SUPABASE_SERVICE_ROLE_KEY — a server-only secret (no VITE_ prefix).
- *   It bypasses RLS and is required to call the SECURITY DEFINER function.
- *   This key must NEVER appear in browser-bundled code.
+ * RESPONSES:
+ *   200  run succeeded (body: run_id, published_count, published_ids, …)
+ *   401  missing or wrong Authorization header
+ *   405  method other than GET/POST
+ *   500  configuration missing, database call failed, or the function
+ *        reported {"status":"error"} — so a failed run is visible as a
+ *        failed invocation in Vercel and is also recorded in scheduler_runs.
  *
- * ENVIRONMENT VARIABLES REQUIRED (add in Vercel Dashboard):
+ * ENVIRONMENT VARIABLES (server-only, no VITE_ prefix — never in the browser):
  *   SUPABASE_URL              — same value as VITE_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY — from Supabase → Settings → API → service_role
+ *   SUPABASE_SERVICE_ROLE_KEY — only role allowed to execute the function
  *   CRON_SECRET               — any strong random string, e.g. openssl rand -hex 32
- *
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { timingSafeEqual } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 interface SchedulerResult {
@@ -73,6 +56,15 @@ interface SchedulerResult {
   error?:           string;
 }
 
+/** Constant-time check of the Authorization header against the expected secret. */
+export function isAuthorized(authorizationHeader: string | string[] | undefined, secret: string): boolean {
+  const header = Array.isArray(authorizationHeader) ? authorizationHeader[0] : authorizationHeader;
+  if (!header) return false;
+  const expected = Buffer.from(`Bearer ${secret}`, 'utf8');
+  const received = Buffer.from(header, 'utf8');
+  return received.length === expected.length && timingSafeEqual(received, expected);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // ── Method guard ──────────────────────────────────────────────────────────
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -80,20 +72,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // ── Authorisation — Vercel Cron sends the CRON_SECRET automatically ──────
+  // ── Authorisation — header only ───────────────────────────────────────────
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    // Configuration error — log but don't expose the detail
     console.error('[scheduler] CRON_SECRET environment variable is not set');
     res.status(500).json({ error: 'Scheduler is not configured correctly' });
     return;
   }
 
-  const authHeader = (req.headers['authorization'] ?? '') as string;
-  const isVercelInternal = authHeader === `Bearer ${cronSecret}`;
-  const isManualWithSecret = req.query['secret'] === cronSecret;
-
-  if (!isVercelInternal && !isManualWithSecret) {
+  if (!isAuthorized(req.headers['authorization'], cronSecret)) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
@@ -108,11 +95,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // Determine trigger type
-  const triggeredBy = isManualWithSecret ? 'manual' : 'cron';
+  // Label only — authentication above is identical for both
+  const triggeredBy = req.query['trigger'] === 'manual' ? 'manual' : 'cron';
 
   // ── Call the idempotent Postgres scheduler function ───────────────────────
-  const rpcUrl = `${supabaseUrl}/rest/v1/rpc/publish_scheduled_articles`;
+  const rpcUrl = `${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/publish_scheduled_articles`;
 
   try {
     const rpcRes = await fetch(rpcUrl, {
@@ -132,30 +119,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(500).json({
         status: 'error',
         error:  `RPC call failed: HTTP ${rpcRes.status}`,
-        detail:  errBody,
+        detail: errBody,
       });
       return;
     }
 
     const result = await rpcRes.json() as SchedulerResult;
+    const timestamp = new Date().toISOString();
 
-    // Log summary to Vercel function logs (visible in Vercel Dashboard)
-    if (result.status === 'error') {
-      console.error('[scheduler] Postgres function returned error:', result.error);
-    } else {
-      console.log(
-        `[scheduler] Run complete — published: ${result.published_count ?? 0}`,
-        result.published_ids?.length
-          ? `IDs: ${result.published_ids.join(', ')}`
-          : '(none)',
-      );
+    if (result.status !== 'success') {
+      // The function logged the failure in scheduler_runs; surface it as a failed invocation
+      console.error('[scheduler] Postgres function returned error:', result.error ?? result);
+      res.status(500).json({ ...result, status: 'error', triggered_by: triggeredBy, timestamp });
+      return;
     }
 
-    res.status(200).json({
-      ...result,
-      triggered_by: triggeredBy,
-      timestamp:    new Date().toISOString(),
-    });
+    console.log(
+      `[scheduler] Run complete — published: ${result.published_count ?? 0}`,
+      result.published_ids?.length ? `IDs: ${result.published_ids.join(', ')}` : '(none)',
+    );
+    res.status(200).json({ ...result, triggered_by: triggeredBy, timestamp });
 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

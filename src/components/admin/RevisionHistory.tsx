@@ -18,6 +18,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { History, RotateCcw, Eye, ChevronDown, ChevronUp, Radio } from 'lucide-react';
 import { getArticleRevisions, restoreRevision, getRevisionFull } from '../../lib/services/articles';
 import { getArticleEvents, type ArticleEvent } from '../../lib/services/scheduler';
+import { formatInZone } from '../../lib/datetime';
 import ConfirmDialog from './ui/ConfirmDialog';
 import Spinner from './ui/Spinner';
 import Button from './ui/Button';
@@ -168,10 +169,7 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
                         </p>
                         {scheduledFor && (
                           <p className="text-[10px] text-[#6B7A8D] mt-0.5">
-                            For: {new Date(scheduledFor).toLocaleString('en-GB', {
-                              day: '2-digit', month: 'short', year: 'numeric',
-                              hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-                            })}
+                            For: {formatInZone(scheduledFor)}
                           </p>
                         )}
                         <p className="text-[10px] text-[#6B7A8D] mt-0.5">{formatDateTime(ev.created_at)}</p>

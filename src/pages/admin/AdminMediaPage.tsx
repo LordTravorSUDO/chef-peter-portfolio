@@ -98,6 +98,8 @@ export default function AdminMediaPage() {
     setUploads((prev) => [...newUploads, ...prev]);
 
     // Upload each file sequentially
+    let succeeded = 0;
+    let failed    = 0;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const uploadId = newUploads[i].id;
@@ -117,7 +119,9 @@ export default function AdminMediaPage() {
         setUploads((prev) =>
           prev.map((u) => u.id === uploadId ? { ...u, status: 'done', progress: 100 } : u)
         );
+        succeeded++;
       } catch (err) {
+        failed++;
         setUploads((prev) =>
           prev.map((u) => u.id === uploadId
             ? { ...u, status: 'failed', error: err instanceof Error ? err.message : 'Upload failed' }
@@ -129,13 +133,21 @@ export default function AdminMediaPage() {
 
     // Refresh the grid
     setRefreshTick((t) => t + 1);
-    showToast(`${files.length} file${files.length > 1 ? 's' : ''} processed.`, 'success');
+    const plural = (n: number) => `${n} file${n === 1 ? '' : 's'}`;
+    if (failed === 0) {
+      showToast(`${plural(succeeded)} uploaded.`, 'success');
+    } else if (succeeded === 0) {
+      showToast(`Upload failed for ${plural(failed)}. See the error under each file.`, 'error');
+    } else {
+      showToast(`${plural(succeeded)} uploaded, ${failed} failed. See the error under each failed file.`, 'warning');
+    }
   }, [showToast]);
 
-  // Clear completed uploads after a delay
+  // Clear successful uploads after a delay. Failed uploads stay visible so the
+  // administrator can read the error.
   useEffect(() => {
     const timer = setTimeout(() => {
-      setUploads((prev) => prev.filter((u) => u.status === 'uploading'));
+      setUploads((prev) => (prev.some((u) => u.status === 'done') ? prev.filter((u) => u.status !== 'done') : prev));
     }, 5000);
     return () => clearTimeout(timer);
   }, [uploads]);

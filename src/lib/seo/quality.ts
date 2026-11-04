@@ -185,7 +185,7 @@ export function runSeoChecks(input: SeoCheckInput): SeoCheck[] {
   }
 
   // ── Broken internal links (simple check) ─────────────────────────────────
-  const internalLinkMatches = body.match(/href=["'](\/[^"']*?)["']/gi) ?? [];
+  const internalLinkMatches: string[] = body.match(/href=["'](\/[^"']*?)["']/gi) ?? [];
   const brokenAdminLinks = internalLinkMatches.filter((l) => l.includes('/admin'));
   if (brokenAdminLinks.length > 0) {
     checks.push({

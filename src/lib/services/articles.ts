@@ -212,12 +212,20 @@ export async function getAllArticlesAdmin(opts: {
   };
 }
 
-/** Fetch a single article by ID for the admin editor (all statuses). */
+/**
+ * Fetch a single article by ID for the admin editor (all statuses).
+ *
+ * Includes the featured and social image records. The editor initialises its
+ * image fields from these relations; without them it would start with empty
+ * image fields and the next save would overwrite the stored image IDs with NULL.
+ */
 export async function getArticleByIdAdmin(id: string) {
   const { data, error } = await supabase
     .from('articles')
     .select(`
       *,
+      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, width_px, height_px ),
+      social_image:media!articles_social_image_id_fkey ( id, storage_path, alt_text ),
       article_categories ( is_primary, categories ( * ) ),
       article_tags ( tags ( * ) )
     `)
@@ -255,6 +263,38 @@ export async function getArticleByIdForPreview(id: string) {
   return data as ArticleWithRelations | null;
 }
 
+/**
+ * Translate a PostgREST / Postgres error into a message an editor can act on.
+ * The original message is kept in brackets so it can still be diagnosed.
+ */
+export function describeArticleDbError(
+  error: { code?: string; message: string; details?: string | null },
+): string {
+  const raw = error.message;
+  const ctx = `${raw} ${error.details ?? ''}`;
+  switch (error.code) {
+    case '23505':
+      if (ctx.includes('slug')) return 'This URL slug is already used by another article. Choose a different slug.';
+      return `This article conflicts with an existing record. (${raw})`;
+    case '23514':
+      if (ctx.includes('slug_format')) return 'The URL slug may only contain lowercase letters, numbers and single hyphens, and cannot start or end with a hyphen.';
+      if (ctx.includes('seo_title')) return 'The SEO title must be 70 characters or fewer.';
+      if (ctx.includes('meta_description')) return 'The meta description must be 160 characters or fewer.';
+      if (ctx.includes('title_check')) return 'The title must be between 1 and 255 characters.';
+      if (ctx.includes('scheduled')) return 'The scheduled date is not valid for this article.';
+      return `The article failed a validation rule. (${raw})`;
+    case '23503':
+      return `A linked record (image, category or tag) no longer exists. Re-select it and try again. (${raw})`;
+    case '42501':
+      return 'Permission denied. Your session may have expired or your account is not an active admin. Sign in again and retry.';
+    case 'PGRST301':
+    case 'PGRST303':
+      return 'Your session has expired. Sign in again and retry.';
+    default:
+      return raw;
+  }
+}
+
 /** Create a new article draft. Returns the created article ID. */
 export async function createArticle(payload: ArticleInsert) {
   const { data, error } = await supabase
@@ -263,7 +303,7 @@ export async function createArticle(payload: ArticleInsert) {
     .select('id')
     .single();
 
-  if (error) throw new Error(`createArticle: ${error.message}`);
+  if (error) throw new Error(`Could not create the article: ${describeArticleDbError(error)}`);
   return data.id as string;
 }
 
@@ -274,7 +314,7 @@ export async function updateArticle(id: string, payload: ArticleUpdate) {
     .update(payload)
     .eq('id', id);
 
-  if (error) throw new Error(`updateArticle: ${error.message}`);
+  if (error) throw new Error(`Could not save the article: ${describeArticleDbError(error)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +353,7 @@ export async function publishArticle(id: string): Promise<void> {
     })
     .eq('id', id);
 
-  if (error) throw new Error(`publishArticle: ${error.message}`);
+  if (error) throw new Error(`Could not publish the article: ${describeArticleDbError(error)}`);
 }
 
 /**
@@ -333,7 +373,7 @@ export async function unpublishArticle(id: string): Promise<void> {
     })
     .eq('id', id);
 
-  if (error) throw new Error(`unpublishArticle: ${error.message}`);
+  if (error) throw new Error(`Could not unpublish the article: ${describeArticleDbError(error)}`);
 }
 
 /**
@@ -372,7 +412,7 @@ export async function scheduleArticle(id: string, scheduledFor: string): Promise
     })
     .eq('id', id);
 
-  if (error) throw new Error(`scheduleArticle: ${error.message}`);
+  if (error) throw new Error(`Could not schedule the article: ${describeArticleDbError(error)}`);
 }
 
 /**
@@ -388,7 +428,7 @@ export async function cancelSchedule(id: string): Promise<void> {
     })
     .eq('id', id);
 
-  if (error) throw new Error(`cancelSchedule: ${error.message}`);
+  if (error) throw new Error(`Could not cancel the schedule: ${describeArticleDbError(error)}`);
 }
 
 /** Archive an article (sets status = 'archived'). */
@@ -457,6 +497,23 @@ export async function restoreRevision(articleId: string, revisionId: string) {
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
+
+/**
+ * Estimate reading time for DISPLAY in the admin UI while editing.
+ *
+ * Mirrors the database expression for articles.reading_time_minutes
+ * (supabase/migrations/20260101000005_articles.sql):
+ *   GREATEST(1, array_length(regexp_split_to_array(trim(body), '\s+'), 1) / 200)
+ * i.e. whitespace-separated tokens of the stored body, ÷ 200 (integer), min 1.
+ *
+ * The stored value is computed by the database. The application never writes
+ * that column: the migration defines it as GENERATED ALWAYS, and Postgres
+ * rejects writes to generated columns, which would make every save fail.
+ */
+export function estimateReadingTimeMinutes(body: string): number {
+  const tokens = body.trim().split(/\s+/).length;
+  return Math.max(1, Math.floor(tokens / 200));
+}
 
 /** Generate a URL-safe slug from a title. */
 export function slugify(title: string): string {

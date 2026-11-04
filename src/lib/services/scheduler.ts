@@ -1,8 +1,8 @@
 /**
  * Scheduler service — read scheduler run history and trigger manual runs.
  *
- * Admin-only. Used by the admin SEO page and a new scheduler status panel.
- * All writes are done server-side (the cron endpoint). This file only reads.
+ * Admin-only reads. All writes are done server-side by the database function
+ * called from the cron endpoint. This file only reads.
  */
 
 import { supabase } from '../supabase';
@@ -62,14 +62,6 @@ export async function getScheduledCount(): Promise<number> {
   return count ?? 0;
 }
 
-/** Trigger a manual publish run via the cron API endpoint. */
-export async function triggerManualPublish(cronSecret: string): Promise<{ published_count: number; status: string }> {
-  const res = await fetch(`/api/cron/publish-scheduled?secret=${encodeURIComponent(cronSecret)}`, {
-    method: 'POST',
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Manual publish failed: ${res.status} — ${body}`);
-  }
-  return res.json();
-}
+// Manual publish runs are intentionally NOT available from browser code: the
+// cron endpoint requires CRON_SECRET, which must never reach the browser.
+// Run it server-side instead — see the header of api/cron/publish-scheduled.ts.

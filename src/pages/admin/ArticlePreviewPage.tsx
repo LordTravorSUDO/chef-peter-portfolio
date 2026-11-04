@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Eye } from 'lucide-react';
-import { getArticleByIdForPreview, sanitiseHtml } from '../../lib/services/articles';
+import { getArticleByIdForPreview, sanitiseHtml, estimateReadingTimeMinutes } from '../../lib/services/articles';
 import { getMediaUrl } from '../../lib/services/media';
 import type { ArticleWithRelations } from '../../types/article';
 import Spinner from '../../components/admin/ui/Spinner';
@@ -124,7 +124,7 @@ export default function ArticlePreviewPage() {
             <div className="flex items-center gap-4 text-xs text-[#8A8A8A] font-mono uppercase tracking-wider border-b border-[#C5A059]/20 pb-4">
               <span>By {article.author_display_name}</span>
               {article.published_at && <span>{formatDate(article.published_at)}</span>}
-              <span>{article.reading_time_minutes} min read</span>
+              <span>{article.reading_time_minutes ?? estimateReadingTimeMinutes(article.body)} min read</span>
             </div>
           </div>
         </header>

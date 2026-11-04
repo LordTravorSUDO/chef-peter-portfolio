@@ -5,7 +5,10 @@
  * in the media metadata table.
  *
  * Security:
- *   - Uploads require an authenticated session (RLS enforced).
+ *   - Uploads require an authenticated session. The request carries the
+ *     signed-in user's access token (from the Supabase client's session),
+ *     so Storage RLS evaluates it as that user — never as the anon role.
+ *   - With no valid session the upload is refused before any bytes are sent.
  *   - The service-role key is NEVER used here.
  *   - storage_path and uploaded_by are immutable after insert (RLS WITH CHECK).
  *   - File MIME types are validated both by extension AND by file content
@@ -51,10 +54,28 @@ const FILE_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> 
 // Error class
 // ---------------------------------------------------------------------------
 
+/** What went wrong — lets callers react (e.g. prompt to sign in again). */
+export type MediaUploadErrorKind =
+  | 'validation'      // rejected by client-side checks (type, size, content)
+  | 'auth'            // no session / session expired / invalid token
+  | 'permission'      // signed in, but Storage RLS policies refused the upload
+  | 'bucket'          // the article-media bucket does not exist
+  | 'conflict'        // an object already exists at that path
+  | 'too_large'       // rejected by the bucket's size limit
+  | 'unsupported_type'// rejected by the bucket's allowed MIME types
+  | 'network'         // connection failed or timed out
+  | 'metadata'        // file stored, but the media table row could not be created
+  | 'unknown';
+
 export class MediaUploadError extends Error {
-  constructor(message: string) {
+  readonly kind: MediaUploadErrorKind;
+  /** HTTP status returned by Supabase Storage, when there was a response */
+  readonly status?: number;
+  constructor(message: string, kind: MediaUploadErrorKind = 'unknown', status?: number) {
     super(message);
     this.name = 'MediaUploadError';
+    this.kind = kind;
+    this.status = status;
   }
 }
 
@@ -109,19 +130,22 @@ export async function validateFileContent(file: File): Promise<boolean> {
 async function validateFile(file: File): Promise<void> {
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
     throw new MediaUploadError(
-      `File type "${file.type}" is not allowed. Accepted: JPEG, PNG, WebP, GIF, AVIF, SVG.`
+      `File type "${file.type}" is not allowed. Accepted: JPEG, PNG, WebP, GIF, AVIF, SVG.`,
+      'validation',
     );
   }
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new MediaUploadError(
-      `"${file.name}" exceeds the 10 MB size limit (${(file.size / 1_048_576).toFixed(1)} MB).`
+      `"${file.name}" exceeds the 10 MB size limit (${(file.size / 1_048_576).toFixed(1)} MB).`,
+      'validation',
     );
   }
   // Validate file content matches declared MIME type
   const contentValid = await validateFileContent(file);
   if (!contentValid) {
     throw new MediaUploadError(
-      `"${file.name}" content does not match its declared type (${file.type}). The file may be corrupted or misnamed.`
+      `"${file.name}" content does not match its declared type (${file.type}). The file may be corrupted or misnamed.`,
+      'validation',
     );
   }
 }
@@ -130,24 +154,127 @@ async function validateFile(file: File): Promise<void> {
 // Upload with progress tracking
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Authenticated session for uploads
+// ---------------------------------------------------------------------------
+
+/** Refresh the session when it expires within this window. */
+const TOKEN_REFRESH_MARGIN_MS = 60_000;
+
+interface UploadSession { accessToken: string; userId: string; }
+
+const SIGNED_OUT_MESSAGE = 'You are not signed in (or your session has expired). Sign in again, then retry the upload.';
+
 /**
- * Upload a single file to Supabase Storage with progress tracking.
- * Uses XMLHttpRequest because the Supabase JS SDK does not expose upload progress.
+ * Return the signed-in user's access token, read from the Supabase client's
+ * own session store — the same token supabase-js attaches to every database
+ * and storage request. Refreshes it first if it is about to expire.
+ *
+ * Throws MediaUploadError('auth') when there is no usable session, so an
+ * unauthenticated upload is refused before any data is sent.
+ */
+async function getUploadSession(forceRefresh = false): Promise<UploadSession> {
+  let session = null;
+  if (!forceRefresh) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw new MediaUploadError(SIGNED_OUT_MESSAGE, 'auth');
+    session = data.session;
+  }
+
+  const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
+  if (forceRefresh || (session && expiresAtMs - Date.now() < TOKEN_REFRESH_MARGIN_MS)) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session) throw new MediaUploadError(SIGNED_OUT_MESSAGE, 'auth');
+    session = data.session;
+  }
+
+  if (!session?.access_token || !session.user?.id) {
+    throw new MediaUploadError(SIGNED_OUT_MESSAGE, 'auth');
+  }
+  return { accessToken: session.access_token, userId: session.user.id };
+}
+
+// ---------------------------------------------------------------------------
+// Storage error interpretation
+// ---------------------------------------------------------------------------
+
+/**
+ * Turn a Supabase Storage error response into an accurate, actionable error.
+ * The original Supabase message is kept in brackets for diagnosis.
+ */
+export function describeStorageError(httpStatus: number, responseText: string): MediaUploadError {
+  let code = '';
+  let message = '';
+  let bodyStatus = '';
+  try {
+    const body = JSON.parse(responseText) as { error?: string; message?: string; statusCode?: string | number };
+    code       = String(body.error ?? '');
+    message    = String(body.message ?? '');
+    bodyStatus = String(body.statusCode ?? '');
+  } catch { /* not JSON */ }
+
+  const raw   = message || code || responseText.slice(0, 200) || `HTTP ${httpStatus}`;
+  const text  = `${code} ${message}`.toLowerCase();
+  const tail  = ` (Supabase: ${raw})`;
+
+  if (/jwt|jws|token|invalidjwt|exp claim|signature/.test(text) && !/row-level security/.test(text)) {
+    return new MediaUploadError(`Your session has expired or is invalid. Sign in again, then retry the upload.${tail}`, 'auth', httpStatus);
+  }
+  if (/row-level security|accessdenied|unauthorized|not authorized|permission/.test(text) || bodyStatus === '403' || httpStatus === 403) {
+    return new MediaUploadError(
+      `Supabase Storage refused the upload (permission denied). You are signed in, but the storage access rules for the "${MEDIA_BUCKET}" bucket do not allow this account to upload.${tail}`,
+      'permission', httpStatus,
+    );
+  }
+  if (/bucket not found|nosuchbucket/.test(text)) {
+    return new MediaUploadError(`The storage bucket "${MEDIA_BUCKET}" was not found in Supabase.${tail}`, 'bucket', httpStatus);
+  }
+  if (/duplicate|already exists/.test(text) || bodyStatus === '409' || httpStatus === 409) {
+    return new MediaUploadError(`A file already exists at this storage path. Retry the upload.${tail}`, 'conflict', httpStatus);
+  }
+  if (/exceeded the maximum|too large|payload too large|entitytoolarge/.test(text) || bodyStatus === '413' || httpStatus === 413) {
+    return new MediaUploadError(`The file is larger than the storage bucket allows.${tail}`, 'too_large', httpStatus);
+  }
+  if (/mime type|invalidmimetype|not supported/.test(text) || bodyStatus === '415' || httpStatus === 415) {
+    return new MediaUploadError(`The storage bucket does not accept this file type.${tail}`, 'unsupported_type', httpStatus);
+  }
+  return new MediaUploadError(`Upload failed (HTTP ${httpStatus}).${tail}`, 'unknown', httpStatus);
+}
+
+// ---------------------------------------------------------------------------
+// Upload transport (with progress)
+// ---------------------------------------------------------------------------
+
+const UPLOAD_TIMEOUT_MS = 120_000;
+
+/**
+ * POST one file to Supabase Storage with progress events.
+ *
+ * Why XMLHttpRequest rather than supabase.storage.upload(): the storage SDK
+ * uploads with fetch(), which exposes no upload-progress events, and the
+ * media UI shows a per-file progress bar. The request is otherwise identical
+ * to the SDK's: same endpoint, `apikey` header (publishable key, identifies
+ * the project) and `Authorization: Bearer <user access token>` (identifies
+ * the signed-in user for RLS). The anon key is NEVER used as the bearer token.
  */
 function uploadWithProgress(
   storagePath: string,
   file: File,
+  accessToken: string,
   onProgress?: UploadProgressFn
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL as string;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    const objectPath      = storagePath.split('/').map(encodeURIComponent).join('/');
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${supabaseUrl}/storage/v1/object/${MEDIA_BUCKET}/${storagePath}`);
-    xhr.setRequestHeader('Authorization', `Bearer ${supabaseAnonKey}`);
+    xhr.open('POST', `${supabaseUrl}/storage/v1/object/${MEDIA_BUCKET}/${objectPath}`);
+    xhr.setRequestHeader('apikey', supabaseAnonKey);
+    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
     xhr.setRequestHeader('Content-Type', file.type);
     xhr.setRequestHeader('x-upsert', 'false');
+    xhr.timeout = UPLOAD_TIMEOUT_MS;
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -156,25 +283,11 @@ function uploadWithProgress(
     };
 
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        let msg = `Upload failed (HTTP ${xhr.status})`;
-        try {
-          const res = JSON.parse(xhr.responseText);
-          // Supabase returns 'message' or 'error' fields
-          if (res.message) msg = res.message;
-          else if (res.error) msg = res.error;
-          // Make the "bucket not found" error more actionable
-          if (msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('container')) {
-            msg = `Storage bucket "${MEDIA_BUCKET}" not found. Please create it in Supabase Dashboard → Storage → New bucket. See docs/supabase-setup.md Step 7.`;
-          }
-        } catch { /* ignore JSON parse error */ }
-        reject(new MediaUploadError(msg));
-      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(describeStorageError(xhr.status, xhr.responseText));
     };
-
-    xhr.onerror = () => reject(new MediaUploadError('Network error during upload.'));
+    xhr.onerror   = () => reject(new MediaUploadError('Network error during upload. Check your internet connection and retry.', 'network'));
+    xhr.ontimeout = () => reject(new MediaUploadError('The upload timed out. Check your internet connection and retry.', 'network'));
     xhr.send(file);
   });
 }
@@ -202,13 +315,22 @@ export async function uploadMedia(opts: {
   // ── Validate ──────────────────────────────────────────────────────────
   await validateFile(file);
 
+  // ── Require a signed-in session before sending any data ───────────────
+  let session = await getUploadSession();
+
   // ── Build collision-resistant storage path ─────────────────────────────
   const ext          = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
   const safeFilename = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
   const storagePath  = `${folder}/${safeFilename}`;
 
-  // ── Upload to Storage with progress ────────────────────────────────────
-  await uploadWithProgress(storagePath, file, onProgress);
+  // ── Upload to Storage with progress (one retry after a token refresh) ──
+  try {
+    await uploadWithProgress(storagePath, file, session.accessToken, onProgress);
+  } catch (err) {
+    if (!(err instanceof MediaUploadError) || err.kind !== 'auth') throw err;
+    session = await getUploadSession(true); // throws 'auth' if the session cannot be renewed
+    await uploadWithProgress(storagePath, file, session.accessToken, onProgress);
+  }
 
   // ── Get image dimensions (browser only, best-effort) ────────────────────
   let widthPx:  number | null = null;
@@ -222,14 +344,8 @@ export async function uploadMedia(opts: {
     } catch { /* non-fatal */ }
   }
 
-  // ── Get authenticated user ID ──────────────────────────────────────────
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    await supabaseStorage.media().remove([storagePath]).catch(() => {});
-    throw new MediaUploadError('Not authenticated. Cannot register media.');
-  }
-
   // ── Insert metadata row ─────────────────────────────────────────────────
+  // uploaded_by must equal auth.uid() (media RLS) — it is the session's user.
   const insert: MediaInsert = {
     storage_path:      storagePath,
     original_filename: file.name,
@@ -240,7 +356,7 @@ export async function uploadMedia(opts: {
     alt_text:          altText ?? null,
     caption:           caption ?? null,
     credit:            credit  ?? null,
-    uploaded_by:       user.id,
+    uploaded_by:       session.userId,
   };
 
   const { data, error: dbError } = await supabase
@@ -250,8 +366,20 @@ export async function uploadMedia(opts: {
     .single();
 
   if (dbError) {
-    await supabaseStorage.media().remove([storagePath]).catch(() => {});
-    throw new MediaUploadError(`Metadata insert failed: ${dbError.message}`);
+    // Best-effort rollback so the bucket does not keep an unregistered file
+    let rolledBack = false;
+    try {
+      const { error: removeError } = await supabaseStorage.media().remove([storagePath]);
+      rolledBack = !removeError;
+    } catch { /* reported below */ }
+    throw new MediaUploadError(
+      `The file was uploaded, but its media-library record could not be saved` +
+      (rolledBack
+        ? ', so the uploaded file was removed again.'
+        : `, and the uploaded file could not be removed automatically (path: ${storagePath}).`) +
+      ` (Supabase: ${dbError.message})`,
+      'metadata',
+    );
   }
 
   return data as Media;

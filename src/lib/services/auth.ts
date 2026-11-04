@@ -48,6 +48,28 @@ export async function getCurrentUser(): Promise<User | null> {
   return user;
 }
 
+/**
+ * Fetch the profile row for a known user ID (includes role).
+ *
+ * Preferred over getCurrentProfile() when the user ID is already known (for
+ * example from the session delivered by onAuthStateChange): it performs a
+ * single PostgREST query and makes no Supabase Auth call, so it can never
+ * contend for the Supabase Auth lock.
+ *
+ * ⚠️ Never await this (or any other Supabase call) inside an
+ * onAuthStateChange callback — see src/hooks/useAuth.ts.
+ */
+export async function getProfileById(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw new Error(`getProfileById: ${error.message}`);
+  return data as Profile | null;
+}
+
 /** Fetch the profile row for the current user (includes role). */
 export async function getCurrentProfile(): Promise<Profile | null> {
   const user = await getCurrentUser();
