@@ -56,9 +56,16 @@ export default function AdminEditArticle() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
           {error ?? 'Article not found.'}
         </div>
-        <Link to="/admin/articles" className="text-sm text-[#4A777A] hover:underline">
-          ← Back to articles
-        </Link>
+        <div className="flex gap-4">
+          {error && error !== 'Article not found.' && (
+            <button type="button" onClick={loadArticle} className="text-sm font-medium text-[#1B365D] hover:underline">
+              Retry
+            </button>
+          )}
+          <Link to="/admin/articles" className="text-sm text-[#4A777A] hover:underline">
+            ← Back to articles
+          </Link>
+        </div>
       </div>
     );
   }

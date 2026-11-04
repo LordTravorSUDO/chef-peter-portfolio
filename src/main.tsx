@@ -11,7 +11,9 @@ const application = (
       BrowserRouter enables client-side routing for /articles, /admin, etc.
       vercel.json rewrites all requests to index.html so deep links work.
     */}
-    <BrowserRouter>
+    {/* v7_startTransition: in-app navigation keeps the current page on screen
+        while the next page's code loads, instead of flashing a spinner. */}
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <App />
     </BrowserRouter>
   </StrictMode>

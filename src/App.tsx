@@ -21,6 +21,7 @@ import { ConsultationModal } from './components/ConsultationModal';
 import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
 import { SeoLandingPage } from './components/SeoLandingPage';
 import { SEO_PAGES, type SeoPage } from './data/seoPages';
+import { adminPages } from './pages/admin/adminRoutes';
 
 // ---------------------------------------------------------------------------
 // Public CMS pages — lazy-loaded so they don't affect portfolio bundle size
@@ -34,16 +35,16 @@ const TagPage            = lazy(() => import('./pages/blog/TagPage'));
 // Admin pages — lazy-loaded, code-split into a separate chunk
 // ---------------------------------------------------------------------------
 const AdminLoginPage     = lazy(() => import('./pages/admin/AdminLoginPage'));
-const AdminDashboard     = lazy(() => import('./pages/admin/AdminDashboard'));
-const AdminArticlesPage  = lazy(() => import('./pages/admin/AdminArticlesPage'));
-const AdminNewArticle    = lazy(() => import('./pages/admin/AdminNewArticle'));
-const AdminEditArticle   = lazy(() => import('./pages/admin/AdminEditArticle'));
-const AdminPreviewPage   = lazy(() => import('./pages/admin/ArticlePreviewPage'));
-const AdminMediaPage     = lazy(() => import('./pages/admin/AdminMediaPage'));
-const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'));
-const AdminTagsPage      = lazy(() => import('./pages/admin/AdminTagsPage'));
-const AdminSeoPage       = lazy(() => import('./pages/admin/AdminSeoPage'));
-const AdminSettingsPage  = lazy(() => import('./pages/admin/AdminSettingsPage'));
+const AdminDashboard     = lazy(adminPages.dashboard);
+const AdminArticlesPage  = lazy(adminPages.articles);
+const AdminNewArticle    = lazy(adminPages.newArticle);
+const AdminEditArticle   = lazy(adminPages.editArticle);
+const AdminPreviewPage   = lazy(adminPages.preview);
+const AdminMediaPage     = lazy(adminPages.media);
+const AdminCategoriesPage = lazy(adminPages.categories);
+const AdminTagsPage      = lazy(adminPages.tags);
+const AdminSeoPage       = lazy(adminPages.seo);
+const AdminSettingsPage  = lazy(adminPages.settings);
 
 // ---------------------------------------------------------------------------
 // Shared route-guard

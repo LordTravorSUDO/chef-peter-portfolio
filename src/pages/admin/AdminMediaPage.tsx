@@ -5,7 +5,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Image as ImageIcon, Search, Trash2, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { getMediaLibrary, deleteMedia, getMediaUrl, getResponsiveMediaUrl } from '../../lib/services/media';
+import { getMediaLibrary, deleteMedia } from '../../lib/services/media';
+import MediaThumb from '../../components/MediaThumb';
+import { useCachedQuery } from '../../hooks/useCachedQuery';
 import { useMediaUploads } from '../../hooks/useMediaUploads';
 import UploadProgressList from '../../components/admin/UploadProgressList';
 import type { Media } from '../../types/article';
@@ -34,11 +36,7 @@ export default function AdminMediaPage() {
   const { toasts, showToast, dismissToast } = useToast();
 
   // Grid data
-  const [items,       setItems]       = useState<Media[]>([]);
-  const [loading,     setLoading]     = useState(true);
   const [page,        setPage]        = useState(1);
-  const [totalPages,  setTotalPages]  = useState(0);
-  const [total,       setTotal]       = useState(0);
 
   // Search + filter
   const [search,      setSearch]      = useState('');
@@ -52,34 +50,35 @@ export default function AdminMediaPage() {
   // Selected item (detail panel)
   const [selected,    setSelected]    = useState<Media | null>(null);
 
-  // Refresh trigger
-  const [refreshTick, setRefreshTick] = useState(0);
+  // Search is applied 350 ms after typing stops (or on submit) — previously
+  // every keystroke sent a request.
+  const [appliedSearch, setAppliedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAppliedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  // ── Load media ──────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getMediaLibrary({
-        page,
-        pageSize: 24,
-        search:   search   || undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo:   dateTo   || undefined,
-      });
-      setItems(res.items);
-      setTotal(res.total);
-      setTotalPages(res.totalPages);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Failed to load media', 'error');
-    } finally { setLoading(false); }
-  }, [page, search, dateFrom, dateTo, showToast]);
-
-  useEffect(() => { load(); }, [load, refreshTick]);
+  // ── Load media (24 per page, cached per page/filter) ───────────────────
+  const { data, error: loadError, loading, refreshing, retry } = useCachedQuery(
+    `media:library:${page}:${appliedSearch}:${dateFrom}:${dateTo}`,
+    () => getMediaLibrary({
+      page,
+      pageSize: 24,
+      search:   appliedSearch || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo:   dateTo   || undefined,
+    }),
+  );
+  const items      = data?.items ?? [];
+  const total      = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 0;
+  // The service invalidates the media cache on every write; re-run the query.
+  const refresh    = retry;
 
   // ── Handle uploaded files ───────────────────────────────────────────────
   const handleFiles = useCallback(async (files: File[]) => {
     const { uploaded, failed, cancelled } = await uploadFiles(files);
-    if (uploaded.length > 0) setRefreshTick((t) => t + 1);
+    if (uploaded.length > 0) refresh();
     const parts = [
       uploaded.length ? `${uploaded.length} uploaded` : '',
       failed ? `${failed} failed` : '',
@@ -90,15 +89,15 @@ export default function AdminMediaPage() {
 
   // ── Handle metadata update / delete ─────────────────────────────────────
   const handleMetadataUpdated = useCallback(() => {
-    setRefreshTick((t) => t + 1);
-  }, []);
+    refresh();
+  }, [refresh]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       await deleteMedia(id);
       showToast('Image deleted.', 'success');
       setSelected(null);
-      setRefreshTick((t) => t + 1);
+      refresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Delete failed', 'error');
     }
@@ -108,7 +107,7 @@ export default function AdminMediaPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    load();
+    setAppliedSearch(search.trim());
   };
 
   const clearFilters = () => {
@@ -207,9 +206,14 @@ export default function AdminMediaPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Grid */}
         <div className="lg:col-span-2">
+          {loadError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700" role="alert">
+              Could not load the media library: {loadError} — <button onClick={retry} className="underline font-medium">Retry</button>
+            </div>
+          )}
           {loading ? (
             <div className="flex justify-center py-12"><Spinner /></div>
-          ) : items.length === 0 ? (
+          ) : !data && loadError ? null : items.length === 0 ? (
             <EmptyState
               icon={<ImageIcon className="w-6 h-6" />}
               title={hasFilters ? 'No matching files' : 'No media files yet'}
@@ -233,8 +237,8 @@ export default function AdminMediaPage() {
                   >
                     <div className="aspect-square bg-[#F4F6F8] flex items-center justify-center overflow-hidden">
                       {item.mime_type.startsWith('image/') ? (
-                        <img
-                          src={getResponsiveMediaUrl(item.storage_path, { width: 300, quality: 70 })}
+                        <MediaThumb
+                          storagePath={item.storage_path}
                           alt={item.alt_text ?? item.original_filename}
                           className="w-full h-full object-cover"
                           loading="lazy"

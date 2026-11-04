@@ -22,6 +22,10 @@
  */
 
 import { supabase } from '../supabase';
+import { invalidate } from '../cache';
+
+/** Any article write makes cached lists/dashboard counts stale. */
+const articlesChanged = () => invalidate('articles:', 'dashboard');
 import type { ArticleCard, ArticleWithRelations, ArticleInsert, ArticleUpdate, ArticleStatus } from '../../types/article';
 
 // ---------------------------------------------------------------------------
@@ -179,18 +183,15 @@ export async function getPublishedArticleBySlug(slug: string) {
  * Returns null if no articles have been published yet.
  */
 export async function getFeaturedArticle(): Promise<ArticleWithRelations | null> {
+  // Only what the hero card shows — the article body (often tens of KB) is not needed here.
   const { data, error } = await supabase
     .from('articles')
     .select(`
-      *,
-      profiles:author_id ( id, display_name, avatar_url ),
-      featured_image:media!articles_featured_image_id_fkey ( * ),
+      id, slug, title, excerpt, reading_time_minutes, published_at, author_display_name, featured_image_id,
+      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, width_px, height_px ),
       article_categories (
         is_primary,
-        categories ( * )
-      ),
-      article_tags (
-        tags ( * )
+        categories ( id, slug, name )
       )
     `)
     .eq('status', 'published')
@@ -200,7 +201,7 @@ export async function getFeaturedArticle(): Promise<ArticleWithRelations | null>
     .maybeSingle();
 
   if (error) throw new Error(`getFeaturedArticle: ${error.message}`);
-  return data as ArticleWithRelations | null;
+  return data as unknown as ArticleWithRelations | null;
 }
 
 /**
@@ -333,6 +334,7 @@ export async function createArticle(payload: ArticleInsert): Promise<ArticleServ
     .single();
 
   if (error) throw new Error(describeDbError('Creating the article', error));
+  articlesChanged();
   return data as unknown as ArticleServerState;
 }
 
@@ -352,6 +354,7 @@ export async function updateArticle(id: string, payload: ArticleUpdate): Promise
     .single();
 
   if (error) throw new Error(describeDbError('Saving the article', error));
+  articlesChanged();
   return data as unknown as ArticleServerState;
 }
 
@@ -375,6 +378,7 @@ export async function publishArticle(id: string): Promise<ArticleServerState> {
     .single();
 
   if (error) throw new Error(describeDbError('Publishing', error));
+  articlesChanged();
   return data as unknown as ArticleServerState;
 }
 
@@ -398,6 +402,7 @@ export async function unpublishArticle(id: string): Promise<ArticleServerState> 
     .single();
 
   if (error) throw new Error(describeDbError('Unpublishing', error));
+  articlesChanged();
   return data as unknown as ArticleServerState;
 }
 
@@ -430,6 +435,7 @@ export async function scheduleArticle(id: string, scheduledForUtc: string): Prom
     .single();
 
   if (error) throw new Error(describeDbError('Scheduling', error));
+  articlesChanged();
   return data as unknown as ArticleServerState;
 }
 
@@ -449,6 +455,7 @@ export async function cancelSchedule(id: string): Promise<ArticleServerState> {
     .single();
 
   if (error) throw new Error(describeDbError('Cancelling the schedule', error));
+  articlesChanged();
   return data as unknown as ArticleServerState;
 }
 
@@ -465,6 +472,7 @@ export async function deleteArticle(id: string) {
     .eq('id', id);
 
   if (error) throw new Error(`deleteArticle: ${error.message}`);
+  articlesChanged();
 }
 
 // ---------------------------------------------------------------------------

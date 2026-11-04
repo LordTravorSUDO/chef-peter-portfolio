@@ -11,10 +11,11 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import MediaThumb from '../MediaThumb';
 import { Save, Trash2, Copy, Check, AlertTriangle, Link2, FileText } from 'lucide-react';
 import {
   updateMediaMetadata, checkMediaReferences,
-  getMediaUrl, getResponsiveMediaUrl,
+  getMediaUrl,
   type MediaReference,
 } from '../../lib/services/media';
 import type { Media } from '../../types/article';
@@ -120,8 +121,8 @@ export default function MediaMetadataEditor({ media, onUpdated, onDelete }: Prop
       {/* Preview image */}
       <div className="flex gap-4">
         <div className="w-32 h-32 rounded-lg overflow-hidden bg-[#F4F6F8] border border-[#DDE3EA] shrink-0">
-          <img
-            src={getResponsiveMediaUrl(media.storage_path, { width: 256, quality: 70 })}
+          <MediaThumb
+            storagePath={media.storage_path}
             alt={media.alt_text ?? media.original_filename}
             className="w-full h-full object-cover"
             loading="lazy"

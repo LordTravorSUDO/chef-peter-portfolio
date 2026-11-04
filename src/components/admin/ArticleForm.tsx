@@ -26,6 +26,7 @@ import {
 } from '../../lib/services/articles';
 import { setArticleCategories, setArticleTags, getCategories, getTags } from '../../lib/services/taxonomy';
 import { getMediaUrl } from '../../lib/services/media';
+import MediaThumb from '../MediaThumb';
 import { utcToKampalaInput, kampalaInputToUtc, formatKampala } from '../../lib/time';
 import { useAuth } from '../../hooks/useAuth';
 import { useAutosave, type AutosaveStatus } from '../../hooks/useAutosave';
@@ -171,6 +172,8 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
   // ── Slug uniqueness check (debounced) ──────────────────────────────────
   useEffect(() => {
     if (!slug || !isValidSlug(slug)) { setSlugError(undefined); return; }
+    // The article's own saved slug needs no check (saves a request on every editor open)
+    if (server && slug === server.slug) { setSlugError(undefined); return; }
     let cancelled = false;
     const t = setTimeout(async () => {
       setSlugChecking(true);
@@ -181,7 +184,7 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
       finally { if (!cancelled) setSlugChecking(false); }
     }, 600);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [slug, articleId]);
+  }, [slug, articleId, server?.slug]);
 
   // ── Validation shared by every save path ───────────────────────────────
   const validate = useCallback((): string | null => {
@@ -282,7 +285,9 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
 
   // ── Unsaved changes guard ──────────────────────────────────────────────
   const newHasContent = !isEdit && !articleId && !!(title.trim() || wordCountOf(body) || excerpt.trim());
-  const isDirty = isEdit ? (editDirty || autosaveStatus === 'saving') : newHasContent;
+  // editorPending: typed text not yet handed over by the editor (≤250 ms)
+  const [editorPending, setEditorPending] = useState(false);
+  const isDirty = isEdit ? (editDirty || editorPending || autosaveStatus === 'saving') : (newHasContent || editorPending);
   useUnsavedChanges(isDirty);
 
   /**
@@ -462,7 +467,7 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
           )}
           {!isEdit && <span className="text-xs text-[#6B7A8D]">Not saved yet</span>}
         </div>
-        {isEdit && <SaveStatusIndicator status={busy === 'save' ? 'saving' : autosaveStatus} />}
+        {isEdit && <SaveStatusIndicator status={busy === 'save' ? 'saving' : editorPending && autosaveStatus !== 'saving' ? 'dirty' : autosaveStatus} />}
       </div>
 
       {/* Persistent error — stays until the next successful action */}
@@ -538,6 +543,7 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
             <RichTextEditor
               value={body}
               onChange={setBody}
+              onPendingChange={setEditorPending}
               onInsertImage={handleInsertImage}
               placeholder="Write your article content here…"
             />
@@ -548,8 +554,8 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
             <p className="text-sm font-medium text-[#1A2B40]">Featured image</p>
             {featuredImage ? (
               <div className="flex items-start gap-3">
-                <img
-                  src={getMediaUrl(featuredImage.storage_path)}
+                <MediaThumb
+                  storagePath={featuredImage.storage_path}
                   alt={featuredImage.alt_text ?? 'Featured image'}
                   className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
                 />
@@ -618,8 +624,8 @@ export default function ArticleForm({ article, onServerState, onReloadRequest }:
                   <p className="text-sm font-medium text-[#1A2B40]">Social sharing image</p>
                   {socialImage ? (
                     <div className="flex items-start gap-3">
-                      <img
-                        src={getMediaUrl(socialImage.storage_path)}
+                      <MediaThumb
+                        storagePath={socialImage.storage_path}
                         alt={socialImage.alt_text ?? 'Social image'}
                         className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
                       />

@@ -2,7 +2,8 @@
  * /admin/articles — Article list with status filter, pagination, archive/delete.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useCachedQuery } from '../../hooks/useCachedQuery';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PlusCircle, Pencil, Archive, Trash2, FileText, Eye, EyeOff } from 'lucide-react';
 import { getAllArticlesAdmin, archiveArticle, deleteArticle, unpublishArticle } from '../../lib/services/articles';
@@ -37,11 +38,6 @@ export default function AdminArticlesPage() {
   const statusFilter   = searchParams.get('status') ?? '';
   const page           = parseInt(searchParams.get('page') ?? '1', 10);
 
-  const [articles,    setArticles]    = useState<ArticleRow[]>([]);
-  const [total,       setTotal]       = useState(0);
-  const [totalPages,  setTotalPages]  = useState(0);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
   const [deleteId,    setDeleteId]    = useState<string | null>(null);
   const [archiveId,   setArchiveId]   = useState<string | null>(null);
   const [unpublishId, setUnpublishId] = useState<string | null>(null);
@@ -49,22 +45,16 @@ export default function AdminArticlesPage() {
 
   const { toasts, showToast, dismissToast } = useToast();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await getAllArticlesAdmin({ page, status: statusFilter || undefined });
-      setArticles(res.articles as ArticleRow[]);
-      setTotal(res.total);
-      setTotalPages(res.totalPages);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load articles');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, statusFilter]);
-
-  useEffect(() => { load(); }, [load]);
+  // Paginated (20 per page), only list columns are selected. Cached per
+  // page/filter: returning to the list is instant and refreshes quietly.
+  const { data, error, loading, refreshing, retry } = useCachedQuery(
+    `articles:list:${statusFilter}:${page}`,
+    () => getAllArticlesAdmin({ page, status: statusFilter || undefined }),
+  );
+  const articles   = (data?.articles ?? []) as ArticleRow[];
+  const total      = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 0;
+  const load       = retry;
 
   const handleStatusFilter = (value: string) => {
     setSearchParams(value ? { status: value } : {});
@@ -154,15 +144,17 @@ export default function AdminArticlesPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
-          {error} — <button onClick={load} className="underline">Retry</button>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700" role="alert">
+          Could not load articles: {error} — <button onClick={retry} className="underline font-medium">Retry</button>
         </div>
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-[#DDE3EA] shadow-sm overflow-hidden">
+      <div className={`bg-white rounded-xl border border-[#DDE3EA] shadow-sm overflow-hidden transition-opacity ${refreshing ? 'opacity-70' : ''}`} aria-busy={loading || refreshing}>
         {loading ? (
           <div className="p-12 flex justify-center"><Spinner /></div>
+        ) : !data && error ? (
+          <div className="p-12 text-center text-sm text-[#6B7A8D]">Articles could not be loaded.</div>
         ) : articles.length === 0 ? (
           <EmptyState
             icon={<FileText className="w-6 h-6" />}

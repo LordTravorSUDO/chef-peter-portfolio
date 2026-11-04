@@ -5,7 +5,9 @@
  * Uses the authenticated session; RLS ensures all statuses are visible to admins.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useCachedQuery } from './useCachedQuery';
+import { invalidate } from '../lib/cache';
 import { supabase } from '../lib/supabase';
 
 export interface DashboardStats {
@@ -36,60 +38,45 @@ const EMPTY_STATS: DashboardStats = {
   total: 0, published: 0, drafts: 0, scheduled: 0, archived: 0,
 };
 
+async function fetchDashboard(): Promise<{ stats: DashboardStats; recentArticles: RecentArticle[] }> {
+  // Five head-only count queries (no rows transferred) + 8 recent rows, in parallel.
+  const [totalRes, pubRes, draftRes, schedRes, archRes, recentRes] = await Promise.all([
+    supabase.from('articles').select('id', { count: 'exact', head: true }),
+    supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+    supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+    supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'scheduled'),
+    supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'archived'),
+    supabase.from('articles')
+      .select('id, title, status, updated_at, slug')
+      .order('updated_at', { ascending: false })
+      .limit(8),
+  ]);
+
+  const firstError = [totalRes, pubRes, draftRes, schedRes, archRes, recentRes].find((r) => r.error);
+  if (firstError?.error) throw new Error(firstError.error.message);
+
+  return {
+    stats: {
+      total:     totalRes.count  ?? 0,
+      published: pubRes.count    ?? 0,
+      drafts:    draftRes.count  ?? 0,
+      scheduled: schedRes.count  ?? 0,
+      archived:  archRes.count   ?? 0,
+    },
+    recentArticles: (recentRes.data ?? []) as RecentArticle[],
+  };
+}
+
 export function useDashboardStats(): UseDashboardResult {
-  const [stats,          setStats]          = useState<DashboardStats>(EMPTY_STATS);
-  const [recentArticles, setRecentArticles] = useState<RecentArticle[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState<string | null>(null);
-  const [tick,           setTick]           = useState(0);
-
-  const refresh = useCallback(() => setTick((n) => n + 1), []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        // Count per status using individual filtered queries
-        const [totalRes, pubRes, draftRes, schedRes, archRes, recentRes] = await Promise.all([
-          supabase.from('articles').select('id', { count: 'exact', head: true }),
-          supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'published'),
-          supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
-          supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'scheduled'),
-          supabase.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'archived'),
-          supabase.from('articles')
-            .select('id, title, status, updated_at, slug')
-            .order('updated_at', { ascending: false })
-            .limit(8),
-        ]);
-
-        if (cancelled) return;
-
-        // Surface any error from any query
-        const firstError = [totalRes, pubRes, draftRes, schedRes, archRes, recentRes]
-          .find((r) => r.error);
-        if (firstError?.error) throw new Error(firstError.error.message);
-
-        setStats({
-          total:     totalRes.count  ?? 0,
-          published: pubRes.count    ?? 0,
-          drafts:    draftRes.count  ?? 0,
-          scheduled: schedRes.count  ?? 0,
-          archived:  archRes.count   ?? 0,
-        });
-
-        setRecentArticles((recentRes.data ?? []) as RecentArticle[]);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Unknown error');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [tick]);
-
-  return { stats, recentArticles, loading, error, refresh };
+  // Cached: revisiting the dashboard shows the last numbers instantly and
+  // refreshes them in the background. Article writes invalidate the cache.
+  const { data, error, loading, retry } = useCachedQuery('dashboard', fetchDashboard);
+  const refresh = useCallback(() => { invalidate('dashboard'); retry(); }, [retry]);
+  return {
+    stats:          data?.stats ?? EMPTY_STATS,
+    recentArticles: data?.recentArticles ?? [],
+    loading,
+    error,
+    refresh,
+  };
 }

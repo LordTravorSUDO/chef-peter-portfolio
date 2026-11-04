@@ -5,8 +5,10 @@
  * Brand colours: navy #1B365D (sidebar), light grey #F4F6F8 (main bg).
  */
 
-import React, { useState } from 'react';
-import { NavLink, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, Suspense } from 'react';
+import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
+import AdminErrorBoundary from './AdminErrorBoundary';
+import { prefetchAdminPages } from '../../pages/admin/adminRoutes';
 import {
   LayoutDashboard, FileText, Image, Tag, FolderOpen,
   Settings, Search, LogOut, Menu, X, ChevronRight,
@@ -37,6 +39,10 @@ export default function AdminLayout({ children }: Props) {
   const { profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
+
+  // Warm the code for the editor and media library while the admin is idle.
+  useEffect(() => { prefetchAdminPages(); }, []);
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -177,7 +183,14 @@ export default function AdminLayout({ children }: Props) {
 
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
-          {children}
+          {/* Errors and code loading stay inside the page area: the sidebar
+              remains usable and the rest of the CMS keeps working. The
+              boundary resets when the admin navigates to another page. */}
+          <AdminErrorBoundary key={location.pathname}>
+            <Suspense fallback={<div className="flex justify-center py-20" role="status" aria-label="Loading page"><Spinner size="lg" /></div>}>
+              {children}
+            </Suspense>
+          </AdminErrorBoundary>
         </main>
       </div>
     </div>

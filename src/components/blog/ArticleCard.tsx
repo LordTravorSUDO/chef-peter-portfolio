@@ -8,7 +8,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Clock } from 'lucide-react';
-import { getResponsiveMediaUrl } from '../../lib/services/media';
+import MediaThumb from '../MediaThumb';
 import type { ArticleCard as ArticleCardType } from '../../types/article';
 
 interface Props {
@@ -30,18 +30,17 @@ export default function ArticleCard({ article }: Props) {
     article.article_categories?.find((ac) => ac.is_primary)?.categories ??
     article.article_categories?.[0]?.categories ?? null;
 
-  const thumbUrl = article.featured_image?.storage_path
-    ? getResponsiveMediaUrl(article.featured_image.storage_path, { width: 600, quality: 75 })
-    : null;
+  // Cards use the ~640 px thumbnail (falls back to the original for older images)
+  const thumbPath = article.featured_image?.storage_path ?? null;
 
   return (
     <article className="group bg-[#141414] border border-[#C5A059]/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#C5A059]/5 flex flex-col">
       {/* Thumbnail */}
       <Link to={`/articles/${article.slug}`} tabIndex={-1} aria-hidden="true">
         <div className="aspect-[16/9] bg-[#1A1A1A] overflow-hidden">
-          {thumbUrl ? (
-            <img
-              src={thumbUrl}
+          {thumbPath ? (
+            <MediaThumb
+              storagePath={thumbPath}
               alt={article.featured_image?.alt_text ?? article.title}
               width={600}
               height={338}

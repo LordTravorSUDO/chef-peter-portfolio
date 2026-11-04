@@ -53,6 +53,35 @@ if (!supabaseAnonKey || supabaseAnonKey.includes('YOUR_SUPABASE')) {
 export const SUPABASE_URL      = supabaseUrl.replace(/\/+$/, '');
 export const SUPABASE_ANON_KEY = supabaseAnonKey;
 
+/**
+ * fetch with a time limit. supabase-js has no timeout of its own, so a stalled
+ * connection left the CMS on a spinner forever. After REQUEST_TIMEOUT_MS the
+ * request is aborted and fails with a clear message (pages then offer Retry).
+ * Uploads use XMLHttpRequest (media.ts) with their own progress and Cancel.
+ */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+const fetchWithTimeout: typeof fetch = (input, init: RequestInit = {}) => {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
+  const outer = init.signal;
+  if (outer) {
+    if (outer.aborted) controller.abort();
+    else outer.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+  return fetch(input, { ...init, signal: controller.signal })
+    .catch((err) => {
+      if (timedOut) {
+        const e = new Error(`The server did not respond within ${REQUEST_TIMEOUT_MS / 1000} seconds. Check your connection and try again.`);
+        e.name = 'Timeout';
+        throw e;
+      }
+      throw err;
+    })
+    .finally(() => clearTimeout(timer));
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, supabaseAnonKey, {
   auth: {
     persistSession:     true,   // store session in localStorage
@@ -61,6 +90,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, supabaseAnonKey, {
     flowType:           'pkce', // PKCE is the secure default for SPAs
   },
   global: {
+    fetch: fetchWithTimeout,
     headers: {
       // Tag all requests for easier filtering in Supabase logs
       'x-application-name': 'chef-peter-cms',

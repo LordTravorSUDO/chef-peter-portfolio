@@ -3,6 +3,10 @@
  */
 
 import { supabase } from '../supabase';
+import { getOrLoad, invalidate } from '../cache';
+
+/** Categories/tags rarely change: reuse them for 5 minutes; any edit clears the cache. */
+const TAXONOMY_TTL_MS = 5 * 60 * 1000;
 import type {
   Category, CategoryInsert, CategoryUpdate,
   Tag, TagInsert,
@@ -12,7 +16,11 @@ import type {
 // Categories
 // ---------------------------------------------------------------------------
 
-export async function getCategories(): Promise<Category[]> {
+export function getCategories(): Promise<Category[]> {
+  return getOrLoad('taxonomy:categories', TAXONOMY_TTL_MS, fetchCategories);
+}
+
+async function fetchCategories(): Promise<Category[]> {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -41,6 +49,7 @@ export async function createCategory(payload: CategoryInsert): Promise<string> {
     .single();
 
   if (error) throw new Error(`createCategory: ${error.message}`);
+  invalidate('taxonomy:categories');
   return data.id as string;
 }
 
@@ -51,6 +60,7 @@ export async function updateCategory(id: string, payload: CategoryUpdate) {
     .eq('id', id);
 
   if (error) throw new Error(`updateCategory: ${error.message}`);
+  invalidate('taxonomy:categories');
 }
 
 export async function deleteCategory(id: string) {
@@ -61,13 +71,18 @@ export async function deleteCategory(id: string) {
 
   // articles with this category will have category_id set to NULL (ON DELETE SET NULL)
   if (error) throw new Error(`deleteCategory: ${error.message}`);
+  invalidate('taxonomy:categories');
 }
 
 // ---------------------------------------------------------------------------
 // Tags
 // ---------------------------------------------------------------------------
 
-export async function getTags(): Promise<Tag[]> {
+export function getTags(): Promise<Tag[]> {
+  return getOrLoad('taxonomy:tags', TAXONOMY_TTL_MS, fetchTags);
+}
+
+async function fetchTags(): Promise<Tag[]> {
   const { data, error } = await supabase
     .from('tags')
     .select('*')
@@ -96,6 +111,7 @@ export async function createTag(payload: TagInsert): Promise<string> {
     .single();
 
   if (error) throw new Error(`createTag: ${error.message}`);
+  invalidate('taxonomy:tags');
   return data.id as string;
 }
 
@@ -107,6 +123,7 @@ export async function deleteTag(id: string) {
 
   // article_tags rows with this tag are CASCADE deleted
   if (error) throw new Error(`deleteTag: ${error.message}`);
+  invalidate('taxonomy:tags');
 }
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,8 @@ export interface AuthContextValue {
   /** true while the initial session check is in progress */
   loading:        boolean;
   isAdmin:        boolean;
+  /** Set when the profile could not be loaded (network/timeout) — not the same as "not an admin" */
+  profileError:   string | null;
   signOut:        () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -31,7 +33,7 @@ export interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue>({
   session: null, user: null, profile: null,
-  loading: true, isAdmin: false,
+  loading: true, isAdmin: false, profileError: null,
   signOut:        async () => {},
   refreshProfile: async () => {},
 });
@@ -53,6 +55,7 @@ export function useAuthState(): AuthContextValue {
   const [profile,        setProfile]        = useState<Profile | null>(null);
   const [sessionLoaded,  setSessionLoaded]  = useState(false);
   const [profileUserId,  setProfileUserId]  = useState<string | null>(null);
+  const [profileError,   setProfileError]   = useState<string | null>(null);
 
   const user   = session?.user ?? null;
   const userId = user?.id ?? null;
@@ -61,8 +64,10 @@ export function useAuthState(): AuthContextValue {
     if (!uid) { setProfile(null); setProfileUserId(null); return; }
     try {
       setProfile(await getProfileById(uid));
-    } catch {
+      setProfileError(null);
+    } catch (e) {
       setProfile(null);
+      setProfileError(e instanceof Error ? e.message : 'Could not load your account.');
     } finally {
       setProfileUserId(uid);
     }
@@ -118,5 +123,5 @@ export function useAuthState(): AuthContextValue {
   const loading = !sessionLoaded || (userId !== null && profileUserId !== userId);
   const isAdmin = profile?.role === 'admin' && profile.is_active === true;
 
-  return { session, user, profile, loading, isAdmin, signOut, refreshProfile };
+  return { session, user, profile, loading, isAdmin, profileError, signOut, refreshProfile };
 }

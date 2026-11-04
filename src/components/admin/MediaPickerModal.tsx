@@ -14,7 +14,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getMediaLibrary, getMediaUrl, getResponsiveMediaUrl, updateMediaMetadata } from '../../lib/services/media';
+import { getMediaLibrary, updateMediaMetadata } from '../../lib/services/media';
+import MediaThumb from '../MediaThumb';
 import { useMediaUploads } from '../../hooks/useMediaUploads';
 import UploadProgressList from './UploadProgressList';
 import type { Media } from '../../types/article';
@@ -23,6 +24,7 @@ import Button from './ui/Button';
 import DragDropZone from './DragDropZone';
 import Textarea from './ui/Textarea';
 import { useToast } from './ui/Toast';
+import { useCachedQuery } from '../../hooks/useCachedQuery';
 
 interface Props {
   open:         boolean;
@@ -36,33 +38,30 @@ interface Props {
 export default function MediaPickerModal({ open, onClose, onSelect, title = 'Select image', requireAltText = true }: Props) {
   const { showToast } = useToast();
 
-  const [items,       setItems]      = useState<Media[]>([]);
-  const [loading,     setLoading]    = useState(true);
   const [search,      setSearch]     = useState('');
   const [selected,    setSelected]    = useState<Media | null>(null);
   const [page,        setPage]       = useState(1);
-  const [totalPages,  setTotalPages]  = useState(0);
 
   const { items: uploads, uploadFiles, cancel: cancelUpload, dismiss: dismissUpload } = useMediaUploads({ folder: 'articles' });
-  const [loadError,   setLoadError]   = useState<string | null>(null);
 
   // Alt text editing for the selected item
   const [editAlt,     setEditAlt]     = useState('');
   const [savingAlt,   setSavingAlt]   = useState(false);
 
-  // ── Load media ──────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getMediaLibrary({ page, pageSize: 24, search: search || undefined });
-      setItems(res.items);
-      setTotalPages(res.totalPages);
-      setLoadError(null);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Could not load the media library.');
-    }
-    finally { setLoading(false); }
-  }, [page, search]);
+  // ── Load media (cached; search applied 300 ms after typing stops) ──────
+  const [appliedSearch, setAppliedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data, error: loadError, loading, retry } = useCachedQuery(
+    open ? `media:picker:${page}:${appliedSearch}` : null,
+    () => getMediaLibrary({ page, pageSize: 24, search: appliedSearch || undefined }),
+  );
+  const items      = data?.items ?? [];
+  const totalPages = data?.totalPages ?? 0;
+  const load       = retry;
 
   // Reset only when the picker opens (previously this re-ran on every search
   // keystroke/page change and wiped the search box, selection and uploads).
@@ -70,10 +69,6 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
     if (open) { setSelected(null); setPage(1); setSearch(''); }
   }, [open]);
 
-  // (Re)load the grid while open, after search/page changes
-  useEffect(() => {
-    if (open) load();
-  }, [open, load]);
 
   // Sync alt text when selection changes
   useEffect(() => {
@@ -87,6 +82,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
       setSelected(uploaded[0]);           // auto-select the first new image
       setPage(1);
       setSearch('');
+      setAppliedSearch('');
       load();
     }
     if (failed > 0) showToast(`${failed} upload${failed > 1 ? 's' : ''} failed — see the message under the file.`, 'error');
@@ -170,7 +166,11 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
               <div className="mt-2">
                 <UploadProgressList items={uploads} onCancel={cancelUpload} onDismiss={dismissUpload} compact />
               </div>
-              {loadError && <p className="mt-2 text-xs text-[#C0392B]" role="alert">{loadError}</p>}
+              {loadError && (
+                <p className="mt-2 text-xs text-[#C0392B]" role="alert">
+                  Could not load images: {loadError} <button type="button" onClick={retry} className="underline font-medium">Retry</button>
+                </p>
+              )}
             </div>
 
             {/* Grid */}
@@ -197,8 +197,8 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                       >
                         <div className="aspect-square bg-[#F4F6F8] flex items-center justify-center overflow-hidden">
                           {item.mime_type.startsWith('image/') ? (
-                            <img
-                              src={getResponsiveMediaUrl(item.storage_path, { width: 200, quality: 60 })}
+                            <MediaThumb
+                              storagePath={item.storage_path}
                               alt={item.alt_text ?? item.original_filename}
                               className="w-full h-full object-cover"
                               loading="lazy"
@@ -260,8 +260,8 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                 {/* Preview */}
                 <div className="rounded-lg overflow-hidden bg-[#F4F6F8] border border-[#DDE3EA]">
                   {selected.mime_type.startsWith('image/') && (
-                    <img
-                      src={getResponsiveMediaUrl(selected.storage_path, { width: 256, quality: 70 })}
+                    <MediaThumb
+                      storagePath={selected.storage_path}
                       alt={selected.alt_text ?? selected.original_filename}
                       className="w-full h-auto"
                       loading="lazy"

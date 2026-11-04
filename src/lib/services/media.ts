@@ -19,6 +19,7 @@
 
 import { supabase, supabaseStorage, MEDIA_BUCKET, SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabase';
 import type { Media, MediaInsert, MediaUpdate } from '../../types/article';
+import { invalidate } from '../cache';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,6 +38,13 @@ const ALLOWED_MIME_TYPES = new Set(Object.keys(MIME_EXTENSIONS));
 const ACCEPTED_LABEL = 'JPEG, PNG, WebP, GIF, AVIF or SVG';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB — same as the bucket's file_size_limit
+
+/** Longest side of stored photos. Larger uploads are scaled down in the browser. */
+const MAX_IMAGE_DIMENSION = 2400;
+/** Longest side of the thumbnail used by grids, the picker and article cards. */
+const THUMB_DIMENSION = 640;
+/** Formats the browser can re-encode (AVIF/GIF/SVG are stored as uploaded). */
+const RESIZABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const STORAGE_HOST = (() => { try { return new URL(SUPABASE_URL).host; } catch { return SUPABASE_URL; } })();
 
@@ -157,6 +165,108 @@ export function describeStorageError(status: number, responseText: string): stri
 }
 
 // ---------------------------------------------------------------------------
+// Image preparation (resize + thumbnail) — runs in the browser
+// ---------------------------------------------------------------------------
+
+/**
+ * Thumbnail object path for a stored image, or null for formats without one.
+ * Deterministic, so no extra database column is needed:
+ *   articles/2026/11/123-uuid.jpg → articles/2026/11/123-uuid.thumb.webp
+ */
+export function thumbPathFor(storagePath: string): string | null {
+  return /\.(jpe?g|png|webp|avif)$/i.test(storagePath) ? storagePath.replace(/\.[^./]+$/, '.thumb.webp') : null;
+}
+
+async function decodeImage(file: Blob): Promise<ImageBitmap | null> {
+  try {
+    // from-image applies the camera's EXIF rotation (sideways phone photos)
+    return await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions);
+  } catch {
+    return null;
+  }
+}
+
+function drawScaled(bitmap: ImageBitmap, maxDim: number, opaque: boolean): HTMLCanvasElement {
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext('2d')!;
+  if (opaque) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+const toBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
+  new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+
+interface PreparedImage {
+  main:      Blob;
+  mainType:  string;
+  width:     number | null;
+  height:    number | null;
+  thumb:     Blob | null;
+  thumbType: string | null;
+}
+
+/**
+ * Scale large photos down to MAX_IMAGE_DIMENSION (re-encoding also strips
+ * EXIF data such as GPS location) and build a THUMB_DIMENSION thumbnail.
+ * Falls back to the untouched original whenever processing is not possible
+ * or would not make the file smaller.
+ */
+async function prepareImage(file: File, mime: string): Promise<PreparedImage> {
+  const original: PreparedImage = { main: file, mainType: mime, width: null, height: null, thumb: null, thumbType: null };
+  if (mime === 'image/svg+xml' || mime === 'image/gif') {
+    if (mime === 'image/gif') {
+      try { const d = await getImageDimensions(file); original.width = d.width; original.height = d.height; } catch { /* non-fatal */ }
+    }
+    return original;
+  }
+
+  const bitmap = await decodeImage(file);
+  if (!bitmap) {
+    try { const d = await getImageDimensions(file); original.width = d.width; original.height = d.height; } catch { /* non-fatal */ }
+    return original;
+  }
+
+  try {
+    const result = { ...original, width: bitmap.width, height: bitmap.height };
+    const longest = Math.max(bitmap.width, bitmap.height);
+
+    // ── Main image ─────────────────────────────────────────────────────
+    const tooBig = longest > MAX_IMAGE_DIMENSION || (file.size > 1_500_000 && mime !== 'image/png');
+    if (RESIZABLE.has(mime) && tooBig) {
+      const canvas = drawScaled(bitmap, MAX_IMAGE_DIMENSION, mime === 'image/jpeg');
+      const blob = await toBlob(canvas, mime, mime === 'image/png' ? undefined : 0.85);
+      if (blob && blob.type === mime && blob.size < file.size) {
+        result.main = blob;
+        result.width = canvas.width;
+        result.height = canvas.height;
+      }
+    }
+
+    // ── Thumbnail (WebP; JPEG where the browser cannot encode WebP) ────
+    const thumbCanvas = drawScaled(bitmap, THUMB_DIMENSION, false);
+    let thumb = await toBlob(thumbCanvas, 'image/webp', 0.78);
+    if (!thumb || thumb.type !== 'image/webp') {
+      thumb = await toBlob(drawScaled(bitmap, THUMB_DIMENSION, true), 'image/jpeg', 0.8);
+    }
+    if (thumb && thumb.size < result.main.size) {
+      result.thumb = thumb;
+      result.thumbType = thumb.type || 'image/jpeg';
+    }
+    return result;
+  } catch {
+    return original;
+  } finally {
+    bitmap.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Upload with progress + cancellation
 // ---------------------------------------------------------------------------
 
@@ -166,7 +276,7 @@ export function describeStorageError(status: number, responseText: string): stri
  */
 async function uploadWithProgress(
   storagePath: string,
-  file: File,
+  file: Blob,
   contentType: string,
   onProgress?: UploadProgressFn,
   signal?: AbortSignal,
@@ -203,13 +313,13 @@ async function uploadWithProgress(
   });
 }
 
-/** Remove an uploaded object (best effort) so failed uploads leave nothing behind. */
-async function removeStorageObject(storagePath: string): Promise<void> {
+/** Remove uploaded objects (best effort) so failed uploads leave nothing behind. */
+async function removeStorageObjects(paths: string[]): Promise<void> {
   try {
-    const { error } = await supabaseStorage.media().remove([storagePath]);
-    if (error) console.warn(`[media] Could not remove ${storagePath}: ${error.message}`);
+    const { error } = await supabaseStorage.media().remove(paths);
+    if (error) console.warn(`[media] Could not remove ${paths.join(', ')}: ${error.message}`);
   } catch (e) {
-    console.warn(`[media] Could not remove ${storagePath}:`, e);
+    console.warn(`[media] Could not remove ${paths.join(', ')}:`, e);
   }
 }
 
@@ -235,23 +345,31 @@ export async function uploadMedia(opts: {
   // ── Validate (type from content, size) ─────────────────────────────────
   const mime = await validateImageFile(file);
 
+  // ── Resize large photos + build thumbnail (in the browser) ─────────────
+  const prepared = await prepareImage(file, mime);
+
   // ── Unique storage path: <folder>/<yyyy>/<mm>/<timestamp>-<uuid>.<ext> ──
   const now = new Date();
   const storagePath = `${folder}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/` +
-    `${now.getTime()}-${crypto.randomUUID()}.${MIME_EXTENSIONS[mime]}`;
+    `${now.getTime()}-${crypto.randomUUID()}.${MIME_EXTENSIONS[prepared.mainType]}`;
+  const thumbPath = prepared.thumb ? thumbPathFor(storagePath) : null;
+  const uploaded: string[] = [];
 
-  // ── Dimensions (read locally before upload; non-fatal) ─────────────────
-  let widthPx: number | null = null;
-  let heightPx: number | null = null;
-  if (mime !== 'image/svg+xml') {
-    try { ({ width: widthPx, height: heightPx } = await getImageDimensions(file)); } catch { /* non-fatal */ }
-  }
-
-  // ── Upload ─────────────────────────────────────────────────────────────
-  await uploadWithProgress(storagePath, file, mime, onProgress, signal);
+  // ── Upload (image with progress, then its small thumbnail) ─────────────
+  await uploadWithProgress(storagePath, prepared.main, prepared.mainType, onProgress, signal);
+  uploaded.push(storagePath);
 
   // ── Register metadata ──────────────────────────────────────────────────
   try {
+    if (thumbPath && prepared.thumb) {
+      try {
+        await uploadWithProgress(thumbPath, prepared.thumb, prepared.thumbType!, undefined, signal);
+        uploaded.push(thumbPath);
+      } catch (e) {
+        if ((e as MediaUploadError).cancelled) throw e;
+        console.warn('[media] Thumbnail upload failed; the original will be used in grids.', e);
+      }
+    }
     if (signal?.aborted) throw new MediaUploadError('Upload cancelled.', { cancelled: true });
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new MediaUploadError('You were signed out during the upload. Sign in again and retry.');
@@ -259,10 +377,10 @@ export async function uploadMedia(opts: {
     const insert: MediaInsert = {
       storage_path:      storagePath,
       original_filename: file.name,
-      mime_type:         mime,
-      file_size_bytes:   file.size,
-      width_px:          widthPx,
-      height_px:         heightPx,
+      mime_type:         prepared.mainType,
+      file_size_bytes:   prepared.main.size,
+      width_px:          prepared.width,
+      height_px:         prepared.height,
       alt_text:          altText?.trim() || null,
       caption:           caption?.trim() || null,
       credit:            credit?.trim()  || null,
@@ -275,9 +393,10 @@ export async function uploadMedia(opts: {
         ? `The image was uploaded but could not be registered: permission denied. Only active CMS admins can add media. (${error.message})`
         : `The image was uploaded but could not be registered in the media library: ${error.message}`);
     }
+    invalidate('media:');
     return data as Media;
   } catch (e) {
-    await removeStorageObject(storagePath);   // failed upload cleanup
+    await removeStorageObjects(uploaded);   // failed upload cleanup (image + thumbnail)
     throw e;
   }
 }
@@ -296,6 +415,7 @@ export async function updateMediaMetadata(id: string, payload: MediaUpdate): Pro
 
   if (error) throw new Error(`Saving image details failed: ${error.message}`);
   if (!data || data.length === 0) throw new Error('Saving image details failed: image not found or permission denied.');
+  invalidate('media:');
 }
 
 /** Fetch a single media record by ID. */
@@ -329,7 +449,9 @@ export async function deleteMedia(id: string): Promise<void> {
     throw new Error('Delete failed: the image was not found, or your account is not allowed to delete media (admins only).');
   }
 
-  const { error: storageError } = await supabaseStorage.media().remove([data[0].storage_path]);
+  invalidate('media:');
+  const thumb = thumbPathFor(data[0].storage_path);
+  const { error: storageError } = await supabaseStorage.media().remove(thumb ? [data[0].storage_path, thumb] : [data[0].storage_path]);
   if (storageError) {
     console.warn(`[media] Storage object may be orphaned: ${data[0].storage_path} — ${storageError.message}`);
   }
@@ -483,6 +605,18 @@ export function getMediaUrl(storagePath: string): string {
  */
 const IMAGE_TRANSFORMS = (import.meta.env.VITE_SUPABASE_IMAGE_TRANSFORMS as string | undefined) === 'true';
 const isUntransformable = (p: string) => /\.(svgz?|gif)$/i.test(p);
+
+/**
+ * URL for a small preview (grids, picker, article cards): the 640 px
+ * thumbnail stored next to the image. Images uploaded before thumbnails
+ * existed have none — render them with <MediaThumb>, which falls back to the
+ * original URL automatically.
+ */
+export function getMediaThumbUrl(storagePath: string): string {
+  if (IMAGE_TRANSFORMS && !isUntransformable(storagePath)) return getResponsiveMediaUrl(storagePath, { width: 640, quality: 70 });
+  const thumb = thumbPathFor(storagePath);
+  return thumb ? supabaseStorage.getPublicUrl(thumb) : getMediaUrl(storagePath);
+}
 
 /** Public URL for an image, resized when transformations are enabled. */
 export function getResponsiveMediaUrl(

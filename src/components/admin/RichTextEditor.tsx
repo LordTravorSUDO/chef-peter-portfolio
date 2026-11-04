@@ -17,7 +17,7 @@
  * The editor produces clean HTML which is stored in the articles.body column.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -36,6 +36,12 @@ interface Props {
   /** Called when the user clicks the image toolbar button — opens the media picker */
   onInsertImage?: (editor: Editor) => void;
   placeholder?: string;
+  /**
+   * true as soon as there are edits not yet reported through onChange, false
+   * once reported. Lets the form show "Unsaved changes" and arm the
+   * leave-page warning immediately, without serialising on every keystroke.
+   */
+  onPendingChange?: (pending: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +83,34 @@ function Divider() {
   return <span className="w-px h-5 bg-[#DDE3EA] mx-0.5" />;
 }
 
-export default function RichTextEditor({ value, onChange, onInsertImage, placeholder }: Props) {
+/** Typing pause after which the editor reports its HTML to the form. */
+const EMIT_DELAY_MS = 250;
+
+export default function RichTextEditor({ value, onChange, onInsertImage, placeholder, onPendingChange }: Props) {
+  // Serialising a long article to HTML on every keystroke (and re-rendering
+  // the whole form) made typing lag. Changes are reported after a short pause,
+  // and immediately when the editor loses focus — clicking Save/Publish/Preview
+  // blurs the editor first, so those actions always see the latest text.
+  const emitted   = useRef(value);            // last HTML reported to / received from the form
+  const pending   = useRef(false);
+  const timer     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onChangeR = useRef(onChange);
+  onChangeR.current = onChange;
+  const onPendingR = useRef(onPendingChange);
+  onPendingR.current = onPendingChange;
+  const editorR   = useRef<Editor | null>(null);
+
+  const flush = useCallback(() => {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+    const ed = editorR.current;
+    if (!pending.current || !ed || ed.isDestroyed) return;
+    pending.current = false;
+    const html = ed.getHTML();
+    emitted.current = html;
+    onChangeR.current(html);
+    onPendingR.current?.(false);
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -96,9 +129,15 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
       }),
     ],
     content: value,
+    onCreate: ({ editor }) => { editorR.current = editor; },
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      editorR.current = editor;
+      if (!pending.current) onPendingR.current?.(true);   // once per typing burst
+      pending.current = true;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(flush, EMIT_DELAY_MS);
     },
+    onBlur: () => flush(),
     editorProps: {
       attributes: {
         class: 'prose-editor focus:outline-none min-h-[400px] px-5 py-4 text-[#1A2B40] leading-relaxed',
@@ -106,9 +145,15 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
     },
   });
 
-  // Sync external value changes (e.g. loading an article)
+  // Report any pending change before unmounting (e.g. navigating away)
+  useEffect(() => () => flush(), [flush]);
+
+  // Sync genuinely external value changes (e.g. a restored revision). Values
+  // that came from this editor are skipped, so no extra serialisation runs.
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
+    if (editor && value !== emitted.current) {
+      emitted.current = value;
+      pending.current = false;
       editor.commands.setContent(value || '', false);
     }
   }, [editor, value]);

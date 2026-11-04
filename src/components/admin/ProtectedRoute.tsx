@@ -15,7 +15,8 @@ import Spinner from './ui/Spinner';
 /** Inner component — reads auth state from context */
 function ProtectedContent() {
   const location = useLocation();
-  const { session, loading, isAdmin, profile, signOut } = React.useContext(AuthContext);
+  const { session, loading, isAdmin, profile, profileError, signOut, refreshProfile } = React.useContext(AuthContext);
+  const [retrying, setRetrying] = React.useState(false);
 
   if (loading) {
     return (
@@ -35,6 +36,27 @@ function ProtectedContent() {
         state={{ from: location.pathname }}
         replace
       />
+    );
+  }
+
+  // The account could not be checked (network problem or timeout) — this is
+  // not the same as "not an admin", so offer a retry instead.
+  if (!isAdmin && profileError) {
+    return (
+      <div className="min-h-screen bg-[#F4F6F8] flex items-center justify-center px-4">
+        <div className="max-w-md bg-white rounded-xl border border-[#DDE3EA] p-6 space-y-3 text-sm text-[#1A2B40]" role="alert">
+          <h1 className="text-lg font-bold text-[#1B365D]">Could not verify your account</h1>
+          <p>{profileError}</p>
+          <button
+            type="button"
+            disabled={retrying}
+            onClick={async () => { setRetrying(true); try { await refreshProfile(); } finally { setRetrying(false); } }}
+            className="text-sm font-medium text-white bg-[#1B365D] rounded-lg px-3 py-1.5 disabled:opacity-60"
+          >
+            {retrying ? 'Retrying…' : 'Retry'}
+          </button>
+        </div>
+      </div>
     );
   }
 
