@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronRight, Eye } from 'lucide-react';
-import { getArticleByIdAdmin } from '../../lib/services/articles';
+import { getArticleByIdAdmin, type ArticleServerState } from '../../lib/services/articles';
 import ArticleForm from '../../components/admin/ArticleForm';
 import Spinner from '../../components/admin/ui/Spinner';
 import type { ArticleWithRelations } from '../../types/article';
@@ -14,6 +14,9 @@ export default function AdminEditArticle() {
   const [article, setArticle]    = useState<ArticleWithRelations | null>(null);
   const [loading, setLoading]    = useState(true);
   const [error,   setError]      = useState<string | null>(null);
+  // Bumped only for an explicit reload (e.g. revision restore) so the form
+  // re-initialises from the database. Normal saves never remount the form.
+  const [formKey, setFormKey]    = useState(0);
 
   const loadArticle = useCallback(async () => {
     if (!id) return;
@@ -22,7 +25,7 @@ export default function AdminEditArticle() {
     try {
       const data = await getArticleByIdAdmin(id);
       if (!data) setError('Article not found.');
-      else setArticle(data);
+      else { setArticle(data); setFormKey((k) => k + 1); }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load article.');
     } finally {
@@ -34,11 +37,12 @@ export default function AdminEditArticle() {
     loadArticle();
   }, [loadArticle]);
 
-  // Refresh the article from the DB after a save/publish/unpublish so the
-  // form always shows the current server state (e.g. updated_at, status, reading_time_minutes)
-  const handleSaved = useCallback((_savedId: string) => {
-    loadArticle();
-  }, [loadArticle]);
+  // After a save/publish/unpublish the form reports what the database stored.
+  // Merge it in place (keeps the "View live" link and breadcrumb current)
+  // WITHOUT showing the spinner, so the editor is never unmounted mid-edit.
+  const handleServerState = useCallback((state: ArticleServerState) => {
+    setArticle((prev) => (prev ? { ...prev, ...state } : prev));
+  }, []);
 
   if (loading) {
     return (
@@ -85,7 +89,9 @@ export default function AdminEditArticle() {
         )}
       </div>
 
-      <ArticleForm article={article} onSaved={handleSaved} />
+      <React.Fragment key={formKey}>
+        <ArticleForm article={article} onServerState={handleServerState} onReloadRequest={loadArticle} />
+      </React.Fragment>
     </div>
   );
 }

@@ -44,7 +44,7 @@ type TimelineEntry =
   | { kind: 'event';    data: ArticleEvent };
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('en-GB', {
+  return new Date(iso).toLocaleString('en-GB', { timeZone: 'Africa/Kampala',
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
@@ -168,7 +168,7 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
                         </p>
                         {scheduledFor && (
                           <p className="text-[10px] text-[#6B7A8D] mt-0.5">
-                            For: {new Date(scheduledFor).toLocaleString('en-GB', {
+                            For: {new Date(scheduledFor).toLocaleString('en-GB', { timeZone: 'Africa/Kampala',
                               day: '2-digit', month: 'short', year: 'numeric',
                               hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
                             })}

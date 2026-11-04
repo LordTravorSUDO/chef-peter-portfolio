@@ -234,6 +234,8 @@ export interface ArticleWithCategory extends Article {
 
 /** Article with all relations for the full article page render */
 export interface ArticleWithRelations extends ArticleWithAuthor, ArticleWithFeaturedImage {
+  /** Social share image — present when the query embeds it */
+  social_image?: Pick<Media, 'id' | 'storage_path' | 'alt_text' | 'width_px' | 'height_px'> | null;
   article_categories: Array<{
     is_primary: boolean;
     categories: Category | null;

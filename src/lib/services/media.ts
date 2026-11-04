@@ -134,18 +134,25 @@ async function validateFile(file: File): Promise<void> {
  * Upload a single file to Supabase Storage with progress tracking.
  * Uses XMLHttpRequest because the Supabase JS SDK does not expose upload progress.
  */
-function uploadWithProgress(
+async function uploadWithProgress(
   storagePath: string,
   file: File,
   onProgress?: UploadProgressFn
 ): Promise<void> {
+  // Storage RLS only allows uploads from signed-in users, so the request must
+  // carry the user's access token. (Sending the anon key as the bearer token
+  // made every upload run as the anonymous role and be rejected.)
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new MediaUploadError('You are not signed in. Sign in again, then upload.');
+
   return new Promise((resolve, reject) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/+$/, '');
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${supabaseUrl}/storage/v1/object/${MEDIA_BUCKET}/${storagePath}`);
-    xhr.setRequestHeader('Authorization', `Bearer ${supabaseAnonKey}`);
+    xhr.setRequestHeader('apikey', supabaseAnonKey);
+    xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
     xhr.setRequestHeader('Content-Type', file.type);
     xhr.setRequestHeader('x-upsert', 'false');
 
@@ -165,9 +172,12 @@ function uploadWithProgress(
           // Supabase returns 'message' or 'error' fields
           if (res.message) msg = res.message;
           else if (res.error) msg = res.error;
-          // Make the "bucket not found" error more actionable
-          if (msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('container')) {
-            msg = `Storage bucket "${MEDIA_BUCKET}" not found. Please create it in Supabase Dashboard → Storage → New bucket. See docs/supabase-setup.md Step 7.`;
+          // Only a genuine "Bucket not found" gets the setup hint; every other
+          // error (e.g. an RLS policy rejection) is shown as returned.
+          if (/bucket not found/i.test(msg)) {
+            msg = `Storage bucket "${MEDIA_BUCKET}" was not found in Supabase. Create it (Dashboard → Storage → New bucket, public) — see docs/storage-setup.md. (${msg})`;
+          } else {
+            msg = `Upload failed (HTTP ${xhr.status}): ${msg}`;
           }
         } catch { /* ignore JSON parse error */ }
         reject(new MediaUploadError(msg));

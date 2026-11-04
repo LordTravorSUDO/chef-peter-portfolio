@@ -48,19 +48,23 @@ export async function getCurrentUser(): Promise<User | null> {
   return user;
 }
 
+/** Fetch a profile row by user id (includes role). No auth network round-trip. */
+export async function getProfileById(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw new Error(`getProfileById: ${error.message}`);
+  return data as Profile | null;
+}
+
 /** Fetch the profile row for the current user (includes role). */
 export async function getCurrentProfile(): Promise<Profile | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (error) throw new Error(`getCurrentProfile: ${error.message}`);
-  return data as Profile | null;
+  return getProfileById(user.id);
 }
 
 /** Subscribe to auth state changes. Returns the unsubscribe function. */

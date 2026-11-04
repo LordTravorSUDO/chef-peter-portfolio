@@ -7,7 +7,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { getCurrentProfile, signOut as authSignOut } from '../lib/services/auth';
+import { getProfileById, signOut as authSignOut } from '../lib/services/auth';
 import type { Profile } from '../types/article';
 
 // ---------------------------------------------------------------------------
@@ -49,62 +49,73 @@ export function useAuth(): AuthContextValue {
 // ---------------------------------------------------------------------------
 
 export function useAuthState(): AuthContextValue {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user,    setUser]    = useState<User    | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session,        setSession]        = useState<Session | null>(null);
+  const [profile,        setProfile]        = useState<Profile | null>(null);
+  const [sessionLoaded,  setSessionLoaded]  = useState(false);
+  const [profileUserId,  setProfileUserId]  = useState<string | null>(null);
 
-  const loadProfile = useCallback(async (u: User | null) => {
-    if (!u) { setProfile(null); return; }
+  const user   = session?.user ?? null;
+  const userId = user?.id ?? null;
+
+  const loadProfile = useCallback(async (uid: string | null) => {
+    if (!uid) { setProfile(null); setProfileUserId(null); return; }
     try {
-      const p = await getCurrentProfile();
-      setProfile(p);
+      setProfile(await getProfileById(uid));
     } catch {
       setProfile(null);
+    } finally {
+      setProfileUserId(uid);
     }
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    const { data: { user: u } } = await supabase.auth.getUser();
-    await loadProfile(u);
-  }, [loadProfile]);
+    await loadProfile(userId);
+  }, [loadProfile, userId]);
 
+  // 1. Session tracking.
+  //
+  // IMPORTANT: the onAuthStateChange callback must stay synchronous and must
+  // not call other Supabase methods. supabase-js holds its auth lock while the
+  // callback runs, so awaiting a Supabase call inside it can deadlock every
+  // later request (the cause of the endless "Verifying session…" spinner and
+  // of saves that never finish). The callback only stores the session; the
+  // profile is fetched by the effect below.
   useEffect(() => {
     let mounted = true;
 
-    // 1. Restore from localStorage immediately (no network round-trip)
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
       if (!mounted) return;
       setSession(s);
-      setUser(s?.user ?? null);
-      await loadProfile(s?.user ?? null);
-      if (mounted) setLoading(false);
+      setSessionLoaded(true);
     });
 
-    // 2. Keep in sync with auth events (token refresh, sign-out from another tab)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
-        if (!mounted) return;
-        setSession(s);
-        setUser(s?.user ?? null);
-        await loadProfile(s?.user ?? null);
-        if (mounted) setLoading(false);
-      }
-    );
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!mounted) return;
+      setSession(s);
+      setSessionLoaded(true);
+    });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, []);
+
+  // 2. Profile — loaded once per signed-in user (token refreshes keep the same
+  // user id, so they do not trigger another profile request).
+  useEffect(() => {
+    if (!sessionLoaded) return;
+    loadProfile(userId);
+  }, [sessionLoaded, userId, loadProfile]);
 
   const signOut = useCallback(async () => {
     await authSignOut();
     setSession(null);
-    setUser(null);
     setProfile(null);
+    setProfileUserId(null);
   }, []);
 
+  const loading = !sessionLoaded || (userId !== null && profileUserId !== userId);
   const isAdmin = profile?.role === 'admin' && profile.is_active === true;
 
   return { session, user, profile, loading, isAdmin, signOut, refreshProfile };

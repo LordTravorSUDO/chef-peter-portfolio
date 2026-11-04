@@ -22,7 +22,63 @@
  */
 
 import { supabase } from '../supabase';
-import type { ArticleCard, ArticleWithRelations, ArticleInsert, ArticleUpdate } from '../../types/article';
+import type { ArticleCard, ArticleWithRelations, ArticleInsert, ArticleUpdate, ArticleStatus } from '../../types/article';
+
+// ---------------------------------------------------------------------------
+// Error handling
+// ---------------------------------------------------------------------------
+
+interface DbError { code?: string; message: string; details?: string | null; hint?: string | null; }
+
+/**
+ * Turn a Supabase/PostgREST error into a message an editor can act on.
+ * The raw database message is kept in brackets so problems stay diagnosable.
+ */
+export function describeDbError(action: string, err: DbError): string {
+  const raw = err.message ?? 'Unknown database error';
+  let friendly: string;
+  switch (err.code) {
+    case '23505':
+      friendly = /slug/i.test(raw + (err.details ?? ''))
+        ? 'Another article already uses this URL slug. Choose a different slug.'
+        : 'This record conflicts with an existing one.';
+      break;
+    case '23514':
+      if (/slug_format/.test(raw))           friendly = 'The URL slug may only contain lowercase letters, numbers and single hyphens, and cannot start or end with a hyphen.';
+      else if (/seo_title/.test(raw))        friendly = 'The SEO title must be 70 characters or fewer.';
+      else if (/meta_description/.test(raw)) friendly = 'The meta description must be 160 characters or fewer.';
+      else if (/title/.test(raw))            friendly = 'The title must be between 1 and 255 characters.';
+      else if (/scheduled/.test(raw))        friendly = 'The scheduled time is not valid. Choose a future date and time.';
+      else                                   friendly = 'One of the fields has an invalid value.';
+      break;
+    case '42501':
+      friendly = 'Permission denied. Your account must be an active CMS admin to do this.';
+      break;
+    case 'PGRST116':
+      friendly = 'The article was not found, or your account does not have permission to change it.';
+      break;
+    default:
+      friendly = raw;
+  }
+  return friendly === raw ? `${action} failed: ${raw}` : `${action} failed: ${friendly} (${raw})`;
+}
+
+/**
+ * Columns the editor needs back after any write, so the UI always reflects
+ * what the database actually stored (status, dates, reading time).
+ */
+const ADMIN_STATE_COLUMNS =
+  'id, slug, status, published_at, scheduled_for, updated_at, reading_time_minutes' as const;
+
+export interface ArticleServerState {
+  id:                   string;
+  slug:                 string;
+  status:               ArticleStatus;
+  published_at:         string | null;
+  scheduled_for:        string | null;
+  updated_at:           string;
+  reading_time_minutes: number;
+}
 
 // ---------------------------------------------------------------------------
 // Public queries (work under anon key; RLS restricts to published articles)
@@ -40,16 +96,24 @@ export async function getPublishedArticles(opts: {
   const from = (page - 1) * pageSize;
   const to   = from + pageSize - 1;
 
+  // When filtering by category/tag the embedded relation must be !inner,
+  // otherwise PostgREST only filters the embedded rows and still returns
+  // every article.
+  const catJoin = categorySlug ? 'article_categories!inner' : 'article_categories';
+  const catRel  = categorySlug ? 'categories!inner' : 'categories';
+  const tagJoin = tagSlug ? 'article_tags!inner' : 'article_tags';
+  const tagRel  = tagSlug ? 'tags!inner' : 'tags';
+
   let query = supabase
     .from('articles')
     .select(`
       id, slug, title, excerpt, reading_time_minutes, published_at, status, featured_image_id,
-      article_categories (
+      ${catJoin} (
         is_primary,
-        categories ( id, slug, name )
+        ${catRel} ( id, slug, name )
       ),
-      article_tags (
-        tags ( id, slug, name )
+      ${tagJoin} (
+        ${tagRel} ( id, slug, name )
       ),
       featured_image:media!articles_featured_image_id_fkey ( storage_path, alt_text )
     `, { count: 'exact' })
@@ -155,9 +219,9 @@ export async function getRelatedArticles(
     .from('articles')
     .select(`
       id, slug, title, excerpt, reading_time_minutes, published_at, featured_image_id,
-      article_categories (
+      ${categorySlug ? 'article_categories!inner' : 'article_categories'} (
         is_primary,
-        categories ( id, slug, name )
+        ${categorySlug ? 'categories!inner' : 'categories'} ( id, slug, name )
       ),
       featured_image:media!articles_featured_image_id_fkey ( storage_path, alt_text )
     `)
@@ -218,13 +282,15 @@ export async function getArticleByIdAdmin(id: string) {
     .from('articles')
     .select(`
       *,
+      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, width_px, height_px ),
+      social_image:media!articles_social_image_id_fkey ( id, storage_path, alt_text, width_px, height_px ),
       article_categories ( is_primary, categories ( * ) ),
       article_tags ( tags ( * ) )
     `)
     .eq('id', id)
     .maybeSingle();
 
-  if (error) throw new Error(`getArticleByIdAdmin: ${error.message}`);
+  if (error) throw new Error(describeDbError('Loading the article', error));
   return data as ArticleWithRelations | null;
 }
 
@@ -255,26 +321,38 @@ export async function getArticleByIdForPreview(id: string) {
   return data as ArticleWithRelations | null;
 }
 
-/** Create a new article draft. Returns the created article ID. */
-export async function createArticle(payload: ArticleInsert) {
+/**
+ * Insert a new article. Returns the stored row's state.
+ * Only resolves once the database has confirmed the insert.
+ */
+export async function createArticle(payload: ArticleInsert): Promise<ArticleServerState> {
   const { data, error } = await supabase
     .from('articles')
     .insert(payload)
-    .select('id')
+    .select(ADMIN_STATE_COLUMNS)
     .single();
 
-  if (error) throw new Error(`createArticle: ${error.message}`);
-  return data.id as string;
+  if (error) throw new Error(describeDbError('Creating the article', error));
+  return data as unknown as ArticleServerState;
 }
 
-/** Update an existing article. */
-export async function updateArticle(id: string, payload: ArticleUpdate) {
-  const { error } = await supabase
+/**
+ * Update an existing article and return its stored state.
+ *
+ * `.select().single()` makes the database confirm that exactly one row was
+ * changed. Without it, an update blocked by RLS (or for a deleted id) "succeeds"
+ * silently with zero rows affected.
+ */
+export async function updateArticle(id: string, payload: ArticleUpdate): Promise<ArticleServerState> {
+  const { data, error } = await supabase
     .from('articles')
     .update(payload)
-    .eq('id', id);
+    .eq('id', id)
+    .select(ADMIN_STATE_COLUMNS)
+    .single();
 
-  if (error) throw new Error(`updateArticle: ${error.message}`);
+  if (error) throw new Error(describeDbError('Saving the article', error));
+  return data as unknown as ArticleServerState;
 }
 
 // ---------------------------------------------------------------------------
@@ -284,36 +362,20 @@ export async function updateArticle(id: string, payload: ArticleUpdate) {
 /**
  * Publish an article immediately.
  *
- * Preserves the original published_at if it already exists (re-publishing an
- * article that was previously unpublished). Only sets published_at to now()
- * if it has never been published before.
- *
- * Clears scheduled_for — the article is now live.
+ * A single UPDATE. The `articles_publish` trigger keeps an existing
+ * published_at (re-publishing keeps the original date) and sets it to NOW()
+ * only for a first publication. scheduled_for is cleared.
  */
-export async function publishArticle(id: string): Promise<void> {
-  // First, read the current article to preserve published_at if it exists
-  const { data: article, error: fetchErr } = await supabase
+export async function publishArticle(id: string): Promise<ArticleServerState> {
+  const { data, error } = await supabase
     .from('articles')
-    .select('published_at')
+    .update({ status: 'published', scheduled_for: null })
     .eq('id', id)
+    .select(ADMIN_STATE_COLUMNS)
     .single();
 
-  if (fetchErr || !article) {
-    throw new Error(`publishArticle: could not read article — ${fetchErr?.message ?? 'not found'}`);
-  }
-
-  const publishedAt = article.published_at ?? new Date().toISOString();
-
-  const { error } = await supabase
-    .from('articles')
-    .update({
-      status:       'published',
-      published_at: publishedAt,
-      scheduled_for: null,
-    })
-    .eq('id', id);
-
-  if (error) throw new Error(`publishArticle: ${error.message}`);
+  if (error) throw new Error(describeDbError('Publishing', error));
+  return data as unknown as ArticleServerState;
 }
 
 /**
@@ -323,72 +385,71 @@ export async function publishArticle(id: string): Promise<void> {
  * publication date is retained for re-publishing. The article immediately
  * becomes invisible to the public because RLS requires status='published'.
  */
-export async function unpublishArticle(id: string): Promise<void> {
-  const { error } = await supabase
+export async function unpublishArticle(id: string): Promise<ArticleServerState> {
+  const { data, error } = await supabase
     .from('articles')
     .update({
       status:        'draft',
       // published_at is intentionally NOT cleared
       scheduled_for: null,
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select(ADMIN_STATE_COLUMNS)
+    .single();
 
-  if (error) throw new Error(`unpublishArticle: ${error.message}`);
+  if (error) throw new Error(describeDbError('Unpublishing', error));
+  return data as unknown as ArticleServerState;
 }
 
 /**
  * Schedule an article for future publication.
  *
- * Sets status='scheduled' with a future scheduled_for timestamp.
- * The article is NOT visible to the public until a server-side mechanism
- * changes the status to 'published' at the scheduled time.
- *
- * ⚠️ SCHEDULING NOTE:
- *   Supabase does not have a built-in cron/scheduler. To actually publish
- *   scheduled articles at their scheduled_for time, you need ONE of:
- *     a) A Supabase Edge Function triggered by a cron schedule (pg_cron
- *        extension or Supabase's scheduled functions).
- *     b) An external cron job (Vercel Cron, GitHub Actions, etc.) that
- *        calls a server endpoint to flip scheduled → published.
- *   Until that is set up, scheduled articles remain in 'scheduled' status
- *   indefinitely — they are NOT visible to the public, which is the safe
- *   default. See docs/scheduling.md for the implementation guide.
+ * Sets status='scheduled' with a future scheduled_for timestamp (UTC).
+ * The article stays invisible to the public until the daily Vercel Cron job
+ * (api/cron/publish-scheduled.ts -> publish_scheduled_articles()) publishes
+ * it. That function only touches rows still in 'scheduled' status whose
+ * scheduled_for has passed, so an article is never published twice.
  */
-export async function scheduleArticle(id: string, scheduledFor: string): Promise<void> {
-  // Validate the scheduled time is in the future
-  const scheduledDate = new Date(scheduledFor);
+export async function scheduleArticle(id: string, scheduledForUtc: string): Promise<ArticleServerState> {
+  const scheduledDate = new Date(scheduledForUtc);
   if (isNaN(scheduledDate.getTime())) {
-    throw new Error('Invalid scheduled date/time.');
+    throw new Error('Scheduling failed: the date/time is not valid.');
   }
   if (scheduledDate <= new Date()) {
-    throw new Error('Scheduled time must be in the future.');
+    throw new Error('Scheduling failed: the scheduled time must be in the future.');
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('articles')
     .update({
       status:        'scheduled',
       scheduled_for: scheduledDate.toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select(ADMIN_STATE_COLUMNS)
+    .single();
 
-  if (error) throw new Error(`scheduleArticle: ${error.message}`);
+  if (error) throw new Error(describeDbError('Scheduling', error));
+  return data as unknown as ArticleServerState;
 }
 
 /**
  * Cancel a scheduled publication, returning the article to draft.
  * Preserves any previously-set published_at.
  */
-export async function cancelSchedule(id: string): Promise<void> {
-  const { error } = await supabase
+export async function cancelSchedule(id: string): Promise<ArticleServerState> {
+  const { data, error } = await supabase
     .from('articles')
     .update({
       status:        'draft',
       scheduled_for: null,
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select(ADMIN_STATE_COLUMNS)
+    .single();
 
-  if (error) throw new Error(`cancelSchedule: ${error.message}`);
+  if (error) throw new Error(describeDbError('Cancelling the schedule', error));
+  return data as unknown as ArticleServerState;
 }
 
 /** Archive an article (sets status = 'archived'). */
@@ -468,7 +529,13 @@ export function slugify(title: string): string {
     .trim()
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .substring(0, 80);
+    .substring(0, 80)
+    .replace(/^-+|-+$/g, '');         // DB check forbids leading/trailing hyphens
+}
+
+/** Mirrors the articles_slug_format CHECK constraint in the database. */
+export function isValidSlug(slug: string): boolean {
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug);
 }
 
 /** Check whether a slug is already in use (for the admin editor). */

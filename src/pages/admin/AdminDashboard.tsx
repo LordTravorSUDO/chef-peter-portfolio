@@ -39,7 +39,7 @@ function StatCard({ label, value, icon, color, to }: StatCardProps) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
+  return new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Africa/Kampala',
     day: '2-digit', month: 'short', year: 'numeric',
   });
 }

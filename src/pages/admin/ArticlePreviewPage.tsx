@@ -19,7 +19,7 @@ import { enhanceImageHtml } from '../../components/blog/ResponsiveImage';
 
 function formatDate(iso: string | null) {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-GB', {
+  return new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Africa/Kampala',
     day: '2-digit', month: 'long', year: 'numeric',
   });
 }
