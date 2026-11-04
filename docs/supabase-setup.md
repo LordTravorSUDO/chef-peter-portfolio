@@ -115,47 +115,30 @@ After running all migrations, verify the tables exist:
 
 ---
 
-## Step 7 — Create the Storage Bucket
+## Step 7 — Storage bucket and policies (one migration)
 
-1. Go to **Storage → New bucket**
-2. Settings:
-   - **Name:** `article-media`  ← must match exactly (used in code)
-   - **Public bucket:** ✅ **Yes** — images must be publicly readable for the website
-   - **File size limit:** `10485760` (10 MB)
-   - **Allowed MIME types:** `image/jpeg, image/png, image/webp, image/gif, image/avif, image/svg+xml`
-3. Click **Create bucket**
+Run `supabase/migrations/20261104000000_storage_article_media.sql` in the
+SQL Editor (after the other migrations). It:
+
+- creates the public-read `article-media` bucket (10 MB limit, image types
+  only) — or, if the project already has other buckets, stops and lists them
+  so you never end up with a duplicate image bucket;
+- creates bucket-scoped policies: anyone can read, only active CMS admins can
+  upload or delete, nobody can overwrite;
+- restricts the `media` table to admins.
+
+Do **not** create the old dashboard policies with definition `true` — those
+applied to every bucket and let any signed-in user upload.
+
+To check a live project without changing anything, run
+`supabase/diagnostics/storage_diagnostics.sql`.
 
 ---
 
-## Step 8 — Set Storage Bucket Policies
+## Step 8 — Verify storage
 
-In **Storage → article-media → Policies**, create these policies:
-
-### Policy 1: Public read (SELECT)
-- **Policy name:** `Public read media`
-- **Allowed operation:** SELECT
-- **Target roles:** `anon`, `authenticated`
-- **Policy definition:** `true`
-
-### Policy 2: Authenticated upload (INSERT)
-- **Policy name:** `Authenticated users upload`
-- **Allowed operation:** INSERT
-- **Target roles:** `authenticated`
-- **Policy definition:** `true`
-
-### Policy 3: Owner or admin delete (DELETE)
-- **Policy name:** `Owner or admin delete`
-- **Allowed operation:** DELETE
-- **Target roles:** `authenticated`
-- **Policy definition:**
-  ```sql
-  auth.uid()::text = (storage.foldername(name))[1]
-  OR public.is_admin()
-  ```
-
-> Note: Storage policies use the SQL Editor-style syntax in the Supabase
-> dashboard. If the UI policy builder doesn't support the above, switch to
-> "custom" policy and paste the SQL directly.
+Run `supabase/tests/storage_policies.sql` — it ends with
+`STORAGE POLICIES: ALL CHECKS PASSED` and rolls back everything it creates.
 
 ---
 

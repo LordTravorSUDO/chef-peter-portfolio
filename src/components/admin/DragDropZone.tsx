@@ -16,7 +16,8 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { UploadCloud, Image as ImageIcon } from 'lucide-react';
 
-const ACCEPTED_MIME = 'image/jpeg,image/png,image/webp,image/gif,image/avif,image/svg+xml';
+// .jfif/.jpe are JPEGs; listed so the file dialog shows them on every OS.
+const ACCEPTED_MIME = 'image/jpeg,image/png,image/webp,image/gif,image/avif,image/svg+xml,.jpg,.jpeg,.jfif,.jpe,.png,.webp,.gif,.avif,.svg';
 const ACCEPTED_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG';
 const MAX_SIZE = 10 * 1024 * 1024;
 
@@ -45,7 +46,9 @@ export default function DragDropZone({ onFiles, className = '', compact = false,
     const errors: string[] = [];
 
     for (const file of Array.from(fileList)) {
-      if (!file.type.startsWith('image/')) {
+      // Some browsers report no type for valid images (e.g. .jfif). Let those
+      // through: the upload service identifies the real type from the content.
+      if (file.type && !file.type.startsWith('image/')) {
         errors.push(`${file.name}: not an image file`);
         continue;
       }

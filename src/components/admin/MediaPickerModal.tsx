@@ -14,21 +14,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getMediaLibrary, uploadMedia, getMediaUrl, getResponsiveMediaUrl, updateMediaMetadata } from '../../lib/services/media';
+import { getMediaLibrary, getMediaUrl, getResponsiveMediaUrl, updateMediaMetadata } from '../../lib/services/media';
+import { useMediaUploads } from '../../hooks/useMediaUploads';
+import UploadProgressList from './UploadProgressList';
 import type { Media } from '../../types/article';
 import Spinner from './ui/Spinner';
 import Button from './ui/Button';
 import DragDropZone from './DragDropZone';
 import Textarea from './ui/Textarea';
 import { useToast } from './ui/Toast';
-
-interface UploadItem {
-  id:       string;
-  filename:  string;
-  progress:  number;
-  status:   'uploading' | 'done' | 'failed';
-  error?:   string;
-}
 
 interface Props {
   open:         boolean;
@@ -49,7 +43,8 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
   const [page,        setPage]       = useState(1);
   const [totalPages,  setTotalPages]  = useState(0);
 
-  const [uploads,     setUploads]     = useState<UploadItem[]>([]);
+  const { items: uploads, uploadFiles, cancel: cancelUpload, dismiss: dismissUpload } = useMediaUploads({ folder: 'articles' });
+  const [loadError,   setLoadError]   = useState<string | null>(null);
 
   // Alt text editing for the selected item
   const [editAlt,     setEditAlt]     = useState('');
@@ -62,12 +57,22 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
       const res = await getMediaLibrary({ page, pageSize: 24, search: search || undefined });
       setItems(res.items);
       setTotalPages(res.totalPages);
-    } catch { /* silent */ }
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Could not load the media library.');
+    }
     finally { setLoading(false); }
   }, [page, search]);
 
+  // Reset only when the picker opens (previously this re-ran on every search
+  // keystroke/page change and wiped the search box, selection and uploads).
   useEffect(() => {
-    if (open) { load(); setSelected(null); setUploads([]); setPage(1); setSearch(''); }
+    if (open) { setSelected(null); setPage(1); setSearch(''); }
+  }, [open]);
+
+  // (Re)load the grid while open, after search/page changes
+  useEffect(() => {
+    if (open) load();
   }, [open, load]);
 
   // Sync alt text when selection changes
@@ -75,37 +80,17 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
     setEditAlt(selected?.alt_text ?? '');
   }, [selected?.id]);
 
-  // ── Handle drag-and-drop uploads ────────────────────────────────────────
+  // ── Uploads (progress, cancel, clear errors) ────────────────────────────
   const handleFiles = useCallback(async (files: File[]) => {
-    const newUploads: UploadItem[] = files.map((f) => ({
-      id: `${Date.now()}-${f.name}-${Math.random()}`,
-      filename: f.name, progress: 0, status: 'uploading',
-    }));
-    setUploads((prev) => [...newUploads, ...prev]);
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const uid  = newUploads[i].id;
-      try {
-        const media = await uploadMedia({
-          file,
-          folder: 'articles',
-          onProgress: (up, total) => {
-            const pct = total > 0 ? Math.round((up / total) * 100) : 0;
-            setUploads((prev) => prev.map((u) => u.id === uid ? { ...u, progress: pct } : u));
-          },
-        });
-        setUploads((prev) => prev.map((u) => u.id === uid ? { ...u, status: 'done', progress: 100 } : u));
-        // Auto-select the first uploaded image
-        if (i === 0) setSelected(media);
-      } catch (err) {
-        setUploads((prev) => prev.map((u) =>
-          u.id === uid ? { ...u, status: 'failed', error: err instanceof Error ? err.message : 'Failed' } : u
-        ));
-      }
+    const { uploaded, failed } = await uploadFiles(files);
+    if (uploaded.length > 0) {
+      setSelected(uploaded[0]);           // auto-select the first new image
+      setPage(1);
+      setSearch('');
+      load();
     }
-    load(); // Refresh grid
-  }, [load]);
+    if (failed > 0) showToast(`${failed} upload${failed > 1 ? 's' : ''} failed — see the message under the file.`, 'error');
+  }, [uploadFiles, load, showToast]);
 
   // ── Save alt text on selected image ─────────────────────────────────────
   const handleSaveAlt = useCallback(async () => {
@@ -182,29 +167,10 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
             <div className="px-4 py-3 border-b border-[#DDE3EA]">
               <DragDropZone onFiles={handleFiles} compact />
 
-              {/* Upload progress */}
-              {uploads.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {uploads.map((u) => (
-                    <div key={u.id} className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[10px] text-[#1A2B40] truncate">{u.filename}</span>
-                          <span className={`text-[10px] font-medium ml-1 ${u.status === 'done' ? 'text-emerald-600' : u.status === 'failed' ? 'text-[#C0392B]' : 'text-[#4A777A]'}`}>
-                            {u.status === 'done' ? '✓' : u.status === 'failed' ? '✗' : `${u.progress}%`}
-                          </span>
-                        </div>
-                        <div className="h-1 bg-[#F4F6F8] rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${u.status === 'failed' ? 'bg-[#C0392B]' : u.status === 'done' ? 'bg-emerald-500' : 'bg-[#4A777A]'}`}
-                            style={{ width: `${u.status === 'done' ? 100 : u.progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="mt-2">
+                <UploadProgressList items={uploads} onCancel={cancelUpload} onDismiss={dismissUpload} compact />
+              </div>
+              {loadError && <p className="mt-2 text-xs text-[#C0392B]" role="alert">{loadError}</p>}
             </div>
 
             {/* Grid */}

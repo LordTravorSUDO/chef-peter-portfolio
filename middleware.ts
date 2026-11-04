@@ -139,12 +139,11 @@ async function fetchTag(slug: string, url: string, key: string): Promise<{ name:
 // ---------------------------------------------------------------------------
 // Image URL builder (mirrors getResponsiveMediaUrl from src/lib/services/media)
 // ---------------------------------------------------------------------------
-function imgUrl(storagePath: string, supabaseUrl: string, width?: number): string {
-  const base = `${supabaseUrl}/storage/v1/object/public/article-media/${storagePath}`;
-  if (!storagePath.endsWith('.svg') && !storagePath.endsWith('.gif') && width) {
-    return `${base}?width=${width}&quality=80`;
-  }
-  return base;
+// Social previews use the original public image: width parameters on
+// /object/public URLs are ignored without the paid image-transform add-on.
+function imgUrl(storagePath: string, supabaseUrl: string, _width?: number): string {
+  const bucket = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_MEDIA_BUCKET) || 'article-media';
+  return `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${storagePath}`;
 }
 
 // ---------------------------------------------------------------------------

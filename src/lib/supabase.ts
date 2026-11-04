@@ -49,7 +49,11 @@ if (!supabaseAnonKey || supabaseAnonKey.includes('YOUR_SUPABASE')) {
   );
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+/** Project URL without a trailing slash (a trailing slash produced "//storage" URLs). */
+export const SUPABASE_URL      = supabaseUrl.replace(/\/+$/, '');
+export const SUPABASE_ANON_KEY = supabaseAnonKey;
+
+export const supabase = createClient<Database>(SUPABASE_URL, supabaseAnonKey, {
   auth: {
     persistSession:     true,   // store session in localStorage
     autoRefreshToken:   true,   // silently refresh before expiry
@@ -71,11 +75,14 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 export const supabaseAuth = supabase.auth;
 
 /**
- * Typed convenience re-export for Supabase Storage.
- * Bucket name is centralised here so it never needs to be repeated as a
- * string literal across the codebase.
+ * Supabase Storage bucket for CMS images.
+ * Defaults to "article-media" (created by the storage migration). Set
+ * VITE_SUPABASE_MEDIA_BUCKET only if the project's existing image bucket has a
+ * different name — do not create a second bucket for the same purpose.
+ * The bucket is public-read: article images are shown on the public website.
  */
-export const MEDIA_BUCKET = 'article-media' as const;
+export const MEDIA_BUCKET: string =
+  ((import.meta.env.VITE_SUPABASE_MEDIA_BUCKET as string | undefined) || 'article-media').trim();
 
 export const supabaseStorage = {
   /** Returns the storage client for the article-media bucket */

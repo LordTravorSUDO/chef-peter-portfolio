@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { getMediaSrcset, getResponsiveMediaUrl, getMediaUrl } from '../../lib/services/media';
+import { getMediaSrcset, getResponsiveMediaUrl, getMediaUrl, MEDIA_BUCKET } from '../../lib/services/media';
 import type { Media } from '../../types/article';
 
 interface Props {
@@ -109,45 +109,26 @@ export function enhanceImageHtml(html: string): string {
 
     const src = srcMatch[1];
 
-    // Check if this is a Supabase storage URL (contains our bucket or storage path)
-    // Supabase URLs look like: https://xxxxx.supabase.co/storage/v1/object/public/article-media/...
-    if (!src.includes('supabase') && !src.includes('/article-media/')) return match;
+    // Only enhance images stored in our media bucket:
+    //   https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
+    const marker = `/storage/v1/object/public/${MEDIA_BUCKET}/`;
+    const at = src.indexOf(marker);
+    if (at === -1) return match;
+    const storagePath = decodeURIComponent(src.slice(at + marker.length).split(/[?#]/)[0]);
 
-    // Extract the storage path from the URL
-    // The path is everything after /article-media/
-    const pathMatch = src.match(/\/article-media\/(.+)$/);
-    if (!pathMatch) return match;
+    const lazy = (a: string) =>
+      a + (/\bloading\s*=/i.test(a) ? '' : ' loading="lazy"') + (/\bdecoding\s*=/i.test(a) ? '' : ' decoding="async"');
 
-    const storagePath = pathMatch[1];
+    // Without image transformations there is nothing to resize: keep the
+    // original URL and only add lazy-loading.
+    const srcset = getMediaSrcset(storagePath);
+    if (!srcset) return `<img${lazy(attrs)}>`;
 
-    // Skip SVG and GIF (no transforms)
-    if (storagePath.endsWith('.svg') || storagePath.endsWith('.svgz') || storagePath.endsWith('.gif')) {
-      // Just add loading and decoding
-      if (!/\bloading\s*=/i.test(attrs)) {
-        attrs += ' loading="lazy"';
-      }
-      if (!/\bdecoding\s*=/i.test(attrs)) {
-        attrs += ' decoding="async"';
-      }
-      return `<img${attrs}>`;
-    }
-
-    // Generate srcset
-    const widths = [400, 800, 1200, 1600];
-    const srcset = widths
-      .map((w) => `${getResponsiveMediaUrl(storagePath, { width: w, quality: 80 })} ${w}w`)
-      .join(', ');
-
-    // Add responsive attributes
     const newAttrs = attrs
       .replace(/\bsrc\s*=\s*["'][^"']+["']/i, `src="${getResponsiveMediaUrl(storagePath, { width: 1200, quality: 80 })}"`)
       + ` srcset="${srcset}"`
       + ` sizes="(max-width: 768px) 100vw, (max-width: 1200px) 768px, 1200px"`;
-
-    // Add loading and decoding if not present
-    const finalAttrs = newAttrs
-      + (/\bloading\s*=/i.test(newAttrs) ? '' : ' loading="lazy"')
-      + (/\bdecoding\s*=/i.test(newAttrs) ? '' : ' decoding="async"');
+    const finalAttrs = lazy(newAttrs);
 
     return `<img${finalAttrs}>`;
   });

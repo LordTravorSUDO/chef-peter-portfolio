@@ -5,7 +5,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Image as ImageIcon, Search, Trash2, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { getMediaLibrary, uploadMedia, deleteMedia, getMediaUrl, getResponsiveMediaUrl } from '../../lib/services/media';
+import { getMediaLibrary, deleteMedia, getMediaUrl, getResponsiveMediaUrl } from '../../lib/services/media';
+import { useMediaUploads } from '../../hooks/useMediaUploads';
+import UploadProgressList from '../../components/admin/UploadProgressList';
 import type { Media } from '../../types/article';
 import Button from '../../components/admin/ui/Button';
 import EmptyState from '../../components/admin/ui/EmptyState';
@@ -13,18 +15,6 @@ import Spinner from '../../components/admin/ui/Spinner';
 import DragDropZone from '../../components/admin/DragDropZone';
 import MediaMetadataEditor from '../../components/admin/MediaMetadataEditor';
 import { ToastContainer, useToast } from '../../components/admin/ui/Toast';
-
-// ---------------------------------------------------------------------------
-// Upload progress item
-// ---------------------------------------------------------------------------
-
-interface UploadItem {
-  id:       string;
-  filename:  string;
-  progress:  number;  // 0–100
-  status:   'uploading' | 'done' | 'failed';
-  error?:   string;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,7 +47,7 @@ export default function AdminMediaPage() {
   const [showFilters,  setShowFilters]  = useState(false);
 
   // Upload state
-  const [uploads,     setUploads]     = useState<UploadItem[]>([]);
+  const { items: uploads, uploadFiles, cancel: cancelUpload, dismiss: dismissUpload } = useMediaUploads({ folder: 'articles' });
 
   // Selected item (detail panel)
   const [selected,    setSelected]    = useState<Media | null>(null);
@@ -88,57 +78,15 @@ export default function AdminMediaPage() {
 
   // ── Handle uploaded files ───────────────────────────────────────────────
   const handleFiles = useCallback(async (files: File[]) => {
-    // Create upload progress entries
-    const newUploads: UploadItem[] = files.map((f) => ({
-      id: `${Date.now()}-${f.name}-${Math.random()}`,
-      filename: f.name,
-      progress: 0,
-      status: 'uploading',
-    }));
-    setUploads((prev) => [...newUploads, ...prev]);
-
-    // Upload each file sequentially
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const uploadId = newUploads[i].id;
-
-      try {
-        await uploadMedia({
-          file,
-          folder: 'articles',
-          onProgress: (uploaded, total) => {
-            const pct = total > 0 ? Math.round((uploaded / total) * 100) : 0;
-            setUploads((prev) =>
-              prev.map((u) => u.id === uploadId ? { ...u, progress: pct } : u)
-            );
-          },
-        });
-
-        setUploads((prev) =>
-          prev.map((u) => u.id === uploadId ? { ...u, status: 'done', progress: 100 } : u)
-        );
-      } catch (err) {
-        setUploads((prev) =>
-          prev.map((u) => u.id === uploadId
-            ? { ...u, status: 'failed', error: err instanceof Error ? err.message : 'Upload failed' }
-            : u
-          )
-        );
-      }
-    }
-
-    // Refresh the grid
-    setRefreshTick((t) => t + 1);
-    showToast(`${files.length} file${files.length > 1 ? 's' : ''} processed.`, 'success');
-  }, [showToast]);
-
-  // Clear completed uploads after a delay
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setUploads((prev) => prev.filter((u) => u.status === 'uploading'));
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [uploads]);
+    const { uploaded, failed, cancelled } = await uploadFiles(files);
+    if (uploaded.length > 0) setRefreshTick((t) => t + 1);
+    const parts = [
+      uploaded.length ? `${uploaded.length} uploaded` : '',
+      failed ? `${failed} failed` : '',
+      cancelled ? `${cancelled} cancelled` : '',
+    ].filter(Boolean).join(', ');
+    showToast(parts || 'Nothing uploaded.', failed ? 'error' : uploaded.length ? 'success' : 'info');
+  }, [uploadFiles, showToast]);
 
   // ── Handle metadata update / delete ─────────────────────────────────────
   const handleMetadataUpdated = useCallback(() => {
@@ -192,35 +140,7 @@ export default function AdminMediaPage() {
       {uploads.length > 0 && (
         <div className="bg-white rounded-xl border border-[#DDE3EA] p-4 space-y-2">
           <p className="text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Uploads</p>
-          {uploads.map((u) => (
-            <div key={u.id} className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-xs text-[#1A2B40] truncate">{u.filename}</p>
-                  <span className={`text-xs font-medium ml-2 shrink-0 ${
-                    u.status === 'done' ? 'text-emerald-600' :
-                    u.status === 'failed' ? 'text-[#C0392B]' :
-                    'text-[#4A777A]'
-                  }`}>
-                    {u.status === 'done' ? '✓ Done' : u.status === 'failed' ? '✗ Failed' : `${u.progress}%`}
-                  </span>
-                </div>
-                <div className="h-1.5 bg-[#F4F6F8] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      u.status === 'failed' ? 'bg-[#C0392B]' :
-                      u.status === 'done' ? 'bg-emerald-500' :
-                      'bg-[#4A777A]'
-                    }`}
-                    style={{ width: `${u.status === 'done' ? 100 : u.progress}%` }}
-                  />
-                </div>
-                {u.status === 'failed' && u.error && (
-                  <p className="text-xs text-[#C0392B] mt-0.5">{u.error}</p>
-                )}
-              </div>
-            </div>
-          ))}
+          <UploadProgressList items={uploads} onCancel={cancelUpload} onDismiss={dismissUpload} />
         </div>
       )}
 

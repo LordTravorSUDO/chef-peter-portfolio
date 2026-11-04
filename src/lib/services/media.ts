@@ -1,192 +1,216 @@
 /**
- * Media data-access service — production version.
+ * Media data-access service.
  *
- * Handles uploading files to Supabase Storage and registering them
- * in the media metadata table.
+ * Storage provider: Supabase Storage, bucket MEDIA_BUCKET ("article-media"),
+ * public-read. File bytes live in Storage; the `media` table holds metadata.
+ *
+ * Upload request:
+ *   POST {VITE_SUPABASE_URL}/storage/v1/object/{bucket}/{folder}/{unique-name}
+ *   headers: apikey (anon key) + Authorization: Bearer <signed-in user's token>
  *
  * Security:
- *   - Uploads require an authenticated session (RLS enforced).
+ *   - Only active admins may upload/delete: enforced server-side by the
+ *     storage.objects and media RLS policies (see the storage migration).
+ *   - The bucket enforces the size limit and MIME allow-list server-side.
  *   - The service-role key is NEVER used here.
- *   - storage_path and uploaded_by are immutable after insert (RLS WITH CHECK).
- *   - File MIME types are validated both by extension AND by file content
- *     (magic bytes) to prevent disguised uploads.
- *
- * Features:
- *   - Upload with per-file progress tracking
- *   - Search by filename and date range
- *   - Reference checking (warn before deleting images used by articles)
- *   - Responsive image URL generation via Supabase image transforms
- *   - Duplicate prevention via unique storage paths
+ *   - File type is taken from the file's content (magic bytes), not from its
+ *     name or the browser-reported type.
  */
 
-import { supabase, supabaseStorage, MEDIA_BUCKET } from '../supabase';
+import { supabase, supabaseStorage, MEDIA_BUCKET, SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabase';
 import type { Media, MediaInsert, MediaUpdate } from '../../types/article';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/avif',
-  'image/svg+xml',
-]);
+/** Accepted types → file extension used for the stored object. Keep in sync with the bucket's allowed_mime_types. */
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/jpeg':    'jpg',
+  'image/png':     'png',
+  'image/webp':    'webp',
+  'image/gif':     'gif',
+  'image/avif':    'avif',
+  'image/svg+xml': 'svg',
+};
+const ALLOWED_MIME_TYPES = new Set(Object.keys(MIME_EXTENSIONS));
+const ACCEPTED_LABEL = 'JPEG, PNG, WebP, GIF, AVIF or SVG';
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB — same as the bucket's file_size_limit
 
-// File signature (magic bytes) for each accepted type
-const FILE_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> = [
-  { mime: 'image/jpeg',  bytes: [0xFF, 0xD8, 0xFF],           offset: 0 },
-  { mime: 'image/png',   bytes: [0x89, 0x50, 0x4E, 0x47],     offset: 0 },
-  { mime: 'image/gif',   bytes: [0x47, 0x49, 0x46, 0x38],     offset: 0 }, // GIF8
-  { mime: 'image/webp',  bytes: [0x52, 0x49, 0x46, 0x46],     offset: 0 }, // RIFF (WebP container)
-  { mime: 'image/avif',  bytes: [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66], offset: 4 }, // ftypavif
-  // SVG is text-based, no magic bytes — validated by extension only
-];
+const STORAGE_HOST = (() => { try { return new URL(SUPABASE_URL).host; } catch { return SUPABASE_URL; } })();
 
 // ---------------------------------------------------------------------------
-// Error class
+// Errors
 // ---------------------------------------------------------------------------
 
 export class MediaUploadError extends Error {
-  constructor(message: string) {
+  /** true when the user cancelled the upload */
+  readonly cancelled: boolean;
+  constructor(message: string, opts: { cancelled?: boolean } = {}) {
     super(message);
     this.name = 'MediaUploadError';
+    this.cancelled = opts.cancelled ?? false;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Upload progress callback type
-// ---------------------------------------------------------------------------
 
 export type UploadProgressFn = (uploadedBytes: number, totalBytes: number) => void;
 
 // ---------------------------------------------------------------------------
-// File validation
+// File type detection & validation
 // ---------------------------------------------------------------------------
 
+const ascii = (b: Uint8Array, from: number, len: number) =>
+  String.fromCharCode(...Array.from(b.subarray(from, from + len)));
+
 /**
- * Validate a file's declared MIME type against its actual content by reading
- * the first few bytes (magic bytes). This prevents uploading a renamed .exe
- * as a .jpg, for example.
- *
- * SVG files are validated by extension only (they are text-based XML).
+ * Identify an image by its content. Returns the MIME type, or null.
+ * HEIC/HEIF is recognised only so the user gets a helpful message.
  */
+export async function detectImageType(file: Blob): Promise<string | null> {
+  const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
+  if (head.length < 4) return null;
+  if (head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF) return 'image/jpeg';
+  if (head[0] === 0x89 && ascii(head, 1, 3) === 'PNG') return 'image/png';
+  if (ascii(head, 0, 4) === 'GIF8') return 'image/gif';
+  if (ascii(head, 0, 4) === 'RIFF' && ascii(head, 8, 4) === 'WEBP') return 'image/webp';
+  if (ascii(head, 4, 4) === 'ftyp') {
+    const brand = ascii(head, 8, 4);
+    if (brand === 'avif' || brand === 'avis') return 'image/avif';
+    if (['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand)) return 'image/heic';
+  }
+  const text = new TextDecoder().decode(head).replace(/^﻿/, '').trimStart();
+  if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE svg[^>]*>\s*)?<svg[\s>]/i.test(text)) return 'image/svg+xml';
+  return null;
+}
+
+/** @deprecated kept for existing callers — use detectImageType */
 export async function validateFileContent(file: File): Promise<boolean> {
-  // SVG has no magic bytes — check by extension
-  if (file.type === 'image/svg+xml') {
-    return file.name.toLowerCase().endsWith('.svg') || file.name.toLowerCase().endsWith('.svgz');
-  }
-
-  // Read first 32 bytes
-  const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
-
-  for (const sig of FILE_SIGNATURES) {
-    if (sig.offset + sig.bytes.length > header.length) continue;
-    let match = true;
-    for (let i = 0; i < sig.bytes.length; i++) {
-      if (header[sig.offset + i] !== sig.bytes[i]) { match = false; break; }
-    }
-    if (match) {
-      // For WebP, also check for 'WEBP' at offset 8
-      if (sig.mime === 'image/webp') {
-        const webpTag = String.fromCharCode(header[8], header[9], header[10], header[11]);
-        return webpTag === 'WEBP';
-      }
-      return true;
-    }
-  }
-
-  return false; // No known signature matched
+  const t = await detectImageType(file);
+  return t !== null && ALLOWED_MIME_TYPES.has(t);
 }
 
 /**
- * Validate a file before upload. Throws MediaUploadError on failure.
+ * Validate a file before upload. Returns the content-detected MIME type.
+ * Throws MediaUploadError with a message the editor can act on.
  */
-async function validateFile(file: File): Promise<void> {
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    throw new MediaUploadError(
-      `File type "${file.type}" is not allowed. Accepted: JPEG, PNG, WebP, GIF, AVIF, SVG.`
-    );
-  }
+export async function validateImageFile(file: File): Promise<string> {
+  if (file.size === 0) throw new MediaUploadError(`"${file.name}" is empty.`);
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    throw new MediaUploadError(
-      `"${file.name}" exceeds the 10 MB size limit (${(file.size / 1_048_576).toFixed(1)} MB).`
-    );
+    throw new MediaUploadError(`"${file.name}" is ${(file.size / 1_048_576).toFixed(1)} MB. The maximum is 10 MB — resize or compress it and try again.`);
   }
-  // Validate file content matches declared MIME type
-  const contentValid = await validateFileContent(file);
-  if (!contentValid) {
-    throw new MediaUploadError(
-      `"${file.name}" content does not match its declared type (${file.type}). The file may be corrupted or misnamed.`
-    );
+  const detected = await detectImageType(file);
+  if (detected === 'image/heic') {
+    throw new MediaUploadError(`"${file.name}" is a HEIC/HEIF photo, which web browsers cannot display. Export it as JPEG (on iPhone: Settings → Camera → Formats → Most Compatible) and upload again.`);
   }
+  if (!detected || !ALLOWED_MIME_TYPES.has(detected)) {
+    throw new MediaUploadError(`"${file.name}" is not a supported image. Upload ${ACCEPTED_LABEL} files (max 10 MB).`);
+  }
+  return detected;
 }
 
 // ---------------------------------------------------------------------------
-// Upload with progress tracking
+// Storage error → clear message
 // ---------------------------------------------------------------------------
 
 /**
- * Upload a single file to Supabase Storage with progress tracking.
- * Uses XMLHttpRequest because the Supabase JS SDK does not expose upload progress.
+ * Explain a failed Storage request precisely. The raw server response is kept
+ * at the end so the cause can always be diagnosed.
+ */
+export function describeStorageError(status: number, responseText: string): string {
+  let raw = responseText?.slice(0, 300) ?? '';
+  let isJson = false;
+  try {
+    const body = JSON.parse(responseText);
+    raw = [body.error, body.message].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(': ') || raw;
+    isJson = true;
+  } catch { /* not JSON */ }
+  const where = `bucket "${MEDIA_BUCKET}" at ${STORAGE_HOST}`;
+  const detail = `(HTTP ${status}${raw ? `: ${raw}` : ''})`;
+  const text = raw.toLowerCase();
+
+  if (status === 0) {
+    return `Could not reach Supabase Storage at ${STORAGE_HOST}. Check your internet connection. If it persists, VITE_SUPABASE_URL may be wrong in the deployment settings.`;
+  }
+  if (!isJson) {
+    return `The upload address ${STORAGE_HOST} did not answer like Supabase Storage. VITE_SUPABASE_URL is probably set to the wrong address in the deployment settings. ${detail}`;
+  }
+  if (/bucket not found|no such bucket|nosuchbucket|container/.test(text) || (status === 404 && !/object/.test(text))) {
+    return `Storage ${where} does not exist in this Supabase project. Run the storage migration (supabase/migrations/20261104000000_storage_article_media.sql), or if your images are in a bucket with another name, set VITE_SUPABASE_MEDIA_BUCKET to that name. ${detail}`;
+  }
+  if (/row-level security|row level security|unauthorized|not authorized|permission/.test(text) || status === 403) {
+    return `Permission denied by the storage policies for ${where}. Only active CMS admins may upload — check your profile role and that the storage migration has been applied. ${detail}`;
+  }
+  if (/jwt|token|expired|invalid signature/.test(text) || status === 401) {
+    return `Your session has expired or is invalid. Sign out, sign in again, then retry the upload. ${detail}`;
+  }
+  if (/size|too large|payload/.test(text) || status === 413) {
+    return `The file is larger than the bucket allows (10 MB). Compress it and try again. ${detail}`;
+  }
+  if (/mime|content type|not supported|invalid_mime/.test(text) || status === 415) {
+    return `The bucket does not accept this file type. Upload ${ACCEPTED_LABEL}. ${detail}`;
+  }
+  if (/already exists|duplicate/.test(text) || status === 409) {
+    return `A file with the same storage path already exists. Please try again. ${detail}`;
+  }
+  return `Upload to ${where} failed. ${detail}`;
+}
+
+// ---------------------------------------------------------------------------
+// Upload with progress + cancellation
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload one file to Storage. XMLHttpRequest is used because it reports upload
+ * progress and can be aborted. The request is authorised as the signed-in user.
  */
 async function uploadWithProgress(
   storagePath: string,
   file: File,
-  onProgress?: UploadProgressFn
+  contentType: string,
+  onProgress?: UploadProgressFn,
+  signal?: AbortSignal,
 ): Promise<void> {
-  // Storage RLS only allows uploads from signed-in users, so the request must
-  // carry the user's access token. (Sending the anon key as the bearer token
-  // made every upload run as the anonymous role and be rejected.)
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new MediaUploadError('You are not signed in. Sign in again, then upload.');
+  if (signal?.aborted) throw new MediaUploadError('Upload cancelled.', { cancelled: true });
 
   return new Promise((resolve, reject) => {
-    const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/+$/, '');
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${supabaseUrl}/storage/v1/object/${MEDIA_BUCKET}/${storagePath}`);
-    xhr.setRequestHeader('apikey', supabaseAnonKey);
+    const onAbort = () => xhr.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
+    const done = () => signal?.removeEventListener('abort', onAbort);
+
+    const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(MEDIA_BUCKET)}/${encodedPath}`);
+    xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
     xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-    xhr.setRequestHeader('Content-Type', file.type);
-    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('x-upsert', 'false');                  // never overwrite an existing file
+    xhr.setRequestHeader('cache-control', 'max-age=31536000');  // paths are unique → safe to cache
 
     xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(e.loaded, e.total);
-      }
+      if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
     };
-
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        let msg = `Upload failed (HTTP ${xhr.status})`;
-        try {
-          const res = JSON.parse(xhr.responseText);
-          // Supabase returns 'message' or 'error' fields
-          if (res.message) msg = res.message;
-          else if (res.error) msg = res.error;
-          // Only a genuine "Bucket not found" gets the setup hint; every other
-          // error (e.g. an RLS policy rejection) is shown as returned.
-          if (/bucket not found/i.test(msg)) {
-            msg = `Storage bucket "${MEDIA_BUCKET}" was not found in Supabase. Create it (Dashboard → Storage → New bucket, public) — see docs/storage-setup.md. (${msg})`;
-          } else {
-            msg = `Upload failed (HTTP ${xhr.status}): ${msg}`;
-          }
-        } catch { /* ignore JSON parse error */ }
-        reject(new MediaUploadError(msg));
-      }
+      done();
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new MediaUploadError(describeStorageError(xhr.status, xhr.responseText)));
     };
-
-    xhr.onerror = () => reject(new MediaUploadError('Network error during upload.'));
+    xhr.onerror = () => { done(); reject(new MediaUploadError(describeStorageError(0, ''))); };
+    xhr.onabort = () => { done(); reject(new MediaUploadError('Upload cancelled.', { cancelled: true })); };
     xhr.send(file);
   });
+}
+
+/** Remove an uploaded object (best effort) so failed uploads leave nothing behind. */
+async function removeStorageObject(storagePath: string): Promise<void> {
+  try {
+    const { error } = await supabaseStorage.media().remove([storagePath]);
+    if (error) console.warn(`[media] Could not remove ${storagePath}: ${error.message}`);
+  } catch (e) {
+    console.warn(`[media] Could not remove ${storagePath}:`, e);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -194,10 +218,8 @@ async function uploadWithProgress(
 // ---------------------------------------------------------------------------
 
 /**
- * Validate, upload and register a media file.
- * Returns the created Media row.
- *
- * @param onProgress Optional callback for upload progress (0–100)
+ * Validate, upload and register an image. Returns the created Media row.
+ * On any failure after the file reached Storage, the file is removed again.
  */
 export async function uploadMedia(opts: {
   file:        File;
@@ -206,65 +228,58 @@ export async function uploadMedia(opts: {
   credit?:     string;
   folder?:     string;
   onProgress?: UploadProgressFn;
+  signal?:     AbortSignal;
 }): Promise<Media> {
-  const { file, altText, caption, credit, folder = 'uploads', onProgress } = opts;
+  const { file, altText, caption, credit, folder = 'uploads', onProgress, signal } = opts;
 
-  // ── Validate ──────────────────────────────────────────────────────────
-  await validateFile(file);
+  // ── Validate (type from content, size) ─────────────────────────────────
+  const mime = await validateImageFile(file);
 
-  // ── Build collision-resistant storage path ─────────────────────────────
-  const ext          = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
-  const safeFilename = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-  const storagePath  = `${folder}/${safeFilename}`;
+  // ── Unique storage path: <folder>/<yyyy>/<mm>/<timestamp>-<uuid>.<ext> ──
+  const now = new Date();
+  const storagePath = `${folder}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/` +
+    `${now.getTime()}-${crypto.randomUUID()}.${MIME_EXTENSIONS[mime]}`;
 
-  // ── Upload to Storage with progress ────────────────────────────────────
-  await uploadWithProgress(storagePath, file, onProgress);
-
-  // ── Get image dimensions (browser only, best-effort) ────────────────────
-  let widthPx:  number | null = null;
+  // ── Dimensions (read locally before upload; non-fatal) ─────────────────
+  let widthPx: number | null = null;
   let heightPx: number | null = null;
-
-  if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
-    try {
-      const dims = await getImageDimensions(file);
-      widthPx  = dims.width;
-      heightPx = dims.height;
-    } catch { /* non-fatal */ }
+  if (mime !== 'image/svg+xml') {
+    try { ({ width: widthPx, height: heightPx } = await getImageDimensions(file)); } catch { /* non-fatal */ }
   }
 
-  // ── Get authenticated user ID ──────────────────────────────────────────
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    await supabaseStorage.media().remove([storagePath]).catch(() => {});
-    throw new MediaUploadError('Not authenticated. Cannot register media.');
+  // ── Upload ─────────────────────────────────────────────────────────────
+  await uploadWithProgress(storagePath, file, mime, onProgress, signal);
+
+  // ── Register metadata ──────────────────────────────────────────────────
+  try {
+    if (signal?.aborted) throw new MediaUploadError('Upload cancelled.', { cancelled: true });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new MediaUploadError('You were signed out during the upload. Sign in again and retry.');
+
+    const insert: MediaInsert = {
+      storage_path:      storagePath,
+      original_filename: file.name,
+      mime_type:         mime,
+      file_size_bytes:   file.size,
+      width_px:          widthPx,
+      height_px:         heightPx,
+      alt_text:          altText?.trim() || null,
+      caption:           caption?.trim() || null,
+      credit:            credit?.trim()  || null,
+      uploaded_by:       session.user.id,
+    };
+
+    const { data, error } = await supabase.from('media').insert(insert).select().single();
+    if (error) {
+      throw new MediaUploadError(error.code === '42501'
+        ? `The image was uploaded but could not be registered: permission denied. Only active CMS admins can add media. (${error.message})`
+        : `The image was uploaded but could not be registered in the media library: ${error.message}`);
+    }
+    return data as Media;
+  } catch (e) {
+    await removeStorageObject(storagePath);   // failed upload cleanup
+    throw e;
   }
-
-  // ── Insert metadata row ─────────────────────────────────────────────────
-  const insert: MediaInsert = {
-    storage_path:      storagePath,
-    original_filename: file.name,
-    mime_type:         file.type,
-    file_size_bytes:   file.size,
-    width_px:          widthPx,
-    height_px:         heightPx,
-    alt_text:          altText ?? null,
-    caption:           caption ?? null,
-    credit:            credit  ?? null,
-    uploaded_by:       user.id,
-  };
-
-  const { data, error: dbError } = await supabase
-    .from('media')
-    .insert(insert)
-    .select()
-    .single();
-
-  if (dbError) {
-    await supabaseStorage.media().remove([storagePath]).catch(() => {});
-    throw new MediaUploadError(`Metadata insert failed: ${dbError.message}`);
-  }
-
-  return data as Media;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,12 +288,14 @@ export async function uploadMedia(opts: {
 
 /** Update mutable metadata fields on an existing media record. */
 export async function updateMediaMetadata(id: string, payload: MediaUpdate): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('media')
     .update(payload)
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
 
-  if (error) throw new Error(`updateMediaMetadata: ${error.message}`);
+  if (error) throw new Error(`Saving image details failed: ${error.message}`);
+  if (!data || data.length === 0) throw new Error('Saving image details failed: image not found or permission denied.');
 }
 
 /** Fetch a single media record by ID. */
@@ -295,30 +312,27 @@ export async function getMediaById(id: string): Promise<Media | null> {
 
 /**
  * Delete a media record AND remove the file from Storage.
- * Admin-only (RLS enforced).
+ * Admin-only (RLS on both the media table and storage.objects).
  * Use checkMediaReferences() first to warn the user if the image is in use.
  */
 export async function deleteMedia(id: string): Promise<void> {
-  const { data, error: fetchError } = await supabase
-    .from('media')
-    .select('storage_path')
-    .eq('id', id)
-    .single();
-
-  if (fetchError || !data) throw new Error('deleteMedia: media record not found');
-
-  // Delete DB row first (RLS protects this — admin only)
-  const { error: dbError } = await supabase
+  // .select() makes the database confirm the row was really deleted; an
+  // RLS-blocked delete otherwise "succeeds" with zero rows.
+  const { data, error } = await supabase
     .from('media')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('storage_path');
 
-  if (dbError) throw new Error(`deleteMedia: ${dbError.message}`);
+  if (error) throw new Error(`Delete failed: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error('Delete failed: the image was not found, or your account is not allowed to delete media (admins only).');
+  }
 
-  // Remove from Storage (best-effort)
-  await supabaseStorage.media().remove([data.storage_path]).catch(() => {
-    console.warn(`[media] Storage object may be orphaned: ${data.storage_path}`);
-  });
+  const { error: storageError } = await supabaseStorage.media().remove([data[0].storage_path]);
+  if (storageError) {
+    console.warn(`[media] Storage object may be orphaned: ${data[0].storage_path} — ${storageError.message}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -457,48 +471,37 @@ export async function checkMediaReferences(mediaId: string): Promise<MediaRefere
 // URL helpers
 // ---------------------------------------------------------------------------
 
-/** Resolve a storage_path to a public CDN URL. */
+/** Resolve a storage_path to its public URL (the bucket is public-read). */
 export function getMediaUrl(storagePath: string): string {
   return supabaseStorage.getPublicUrl(storagePath);
 }
 
 /**
- * Generate a responsive image URL with Supabase Storage image transformations.
- *
- * Supabase supports on-the-fly resizing via URL query params:
- *   /storage/v1/render/image/{bucket}/{path}?width=400&height=300&quality=80
- *
- * For SVG and GIF (animated), the original is returned (transforms not supported).
- *
- * @param storagePath  The media.storage_path
- * @param opts.width   Target width in pixels (height auto-scales to preserve aspect ratio)
- * @param opts.quality JPEG/WebP quality 1–100
+ * Supabase image transformations (/render/image/…) are a paid add-on, so they
+ * are opt-in via VITE_SUPABASE_IMAGE_TRANSFORMS=true. Without them, width
+ * parameters on the plain public URL are ignored, so the original URL is used.
  */
+const IMAGE_TRANSFORMS = (import.meta.env.VITE_SUPABASE_IMAGE_TRANSFORMS as string | undefined) === 'true';
+const isUntransformable = (p: string) => /\.(svgz?|gif)$/i.test(p);
+
+/** Public URL for an image, resized when transformations are enabled. */
 export function getResponsiveMediaUrl(
   storagePath: string,
   opts: { width?: number; quality?: number } = {}
 ): string {
   const baseUrl = getMediaUrl(storagePath);
-
-  // SVG and GIF: return original (transforms not supported for SVG; GIF would lose animation)
-  if (storagePath.endsWith('.svg') || storagePath.endsWith('.svgz') || storagePath.endsWith('.gif')) {
-    return baseUrl;
-  }
+  if (!IMAGE_TRANSFORMS || isUntransformable(storagePath) || (!opts.width && !opts.quality)) return baseUrl;
 
   const params = new URLSearchParams();
   if (opts.width)   params.set('width',   String(opts.width));
   if (opts.quality) params.set('quality', String(opts.quality));
-
-  return params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+  return `${baseUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')}?${params.toString()}`;
 }
 
-/**
- * Generate a srcset string for responsive images.
- * Produces entries at common breakpoints: 400w, 800w, 1200w, 1600w.
- */
-export function getMediaSrcset(storagePath: string): string {
-  const widths = [400, 800, 1200, 1600];
-  return widths
+/** srcset at 400/800/1200/1600w, or undefined when transformations are off. */
+export function getMediaSrcset(storagePath: string): string | undefined {
+  if (!IMAGE_TRANSFORMS || isUntransformable(storagePath)) return undefined;
+  return [400, 800, 1200, 1600]
     .map((w) => `${getResponsiveMediaUrl(storagePath, { width: w, quality: 80 })} ${w}w`)
     .join(', ');
 }
@@ -517,4 +520,4 @@ function getImageDimensions(file: File): Promise<{ width: number; height: number
   });
 }
 
-export { MEDIA_BUCKET, MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES };
+export { MEDIA_BUCKET, MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES, ACCEPTED_LABEL };

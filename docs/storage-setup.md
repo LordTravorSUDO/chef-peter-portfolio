@@ -1,109 +1,51 @@
-# Supabase Storage Bucket Setup
+# Supabase Storage Setup (CMS images)
 
-## Problem
+## How image storage works
 
-Image uploads fail with "container not found" or "Bucket not found" because the
-`article-media` storage bucket has not yet been created in your Supabase project.
+| Item | Value |
+|---|---|
+| Provider | Supabase Storage (same project as the database) |
+| Bucket | `article-media` (override with `VITE_SUPABASE_MEDIA_BUCKET`) |
+| Access | Public read (images appear on the public website); upload/delete: active CMS admins only |
+| Upload endpoint | `POST {VITE_SUPABASE_URL}/storage/v1/object/article-media/articles/YYYY/MM/<time>-<uuid>.<ext>` |
+| Upload auth | `apikey: <anon key>` + `Authorization: Bearer <signed-in user's access token>` |
+| Public URL | `{VITE_SUPABASE_URL}/storage/v1/object/public/article-media/<path>` |
+| Limits | 10 MB; JPEG, PNG, WebP, GIF, AVIF, SVG (checked in the browser by file content and by the bucket on the server) |
+| Metadata | `public.media` row per file (path, type, size, dimensions, alt text, caption, credit) |
 
-## Solution
+## Setup
 
-Create the bucket in Supabase Dashboard. You only need to do this once.
+1. Run `supabase/migrations/20261104000000_storage_article_media.sql` in the
+   Supabase SQL Editor (after the earlier migrations).
+   - If it stops with *"bucket article-media does not exist, but this project
+     already has: …"*, one of the listed buckets may already hold the images.
+     Point the app at it instead of creating a new one: set `v_bucket` in the
+     migration and `VITE_SUPABASE_MEDIA_BUCKET` in Vercel to that name, then re-run.
+   - If it stops because the bucket is **private**: the website loads images
+     from public URLs, so the bucket must be public-read. Set
+     `v_confirm_make_public := TRUE` and re-run.
+2. Run `supabase/tests/storage_policies.sql` — expect `ALL CHECKS PASSED`.
 
----
+## Environment variables (Vercel → Settings → Environment Variables)
 
-## Step 1 — Create the bucket
+| Variable | Required | Notes |
+|---|---|---|
+| `VITE_SUPABASE_URL` | yes | Must be the project where the bucket and tables live (compare the project ref with Dashboard → Settings → API). |
+| `VITE_SUPABASE_ANON_KEY` | yes | Public anon key of the same project. |
+| `VITE_SUPABASE_MEDIA_BUCKET` | no | Only if the image bucket is not called `article-media`. |
+| `VITE_SUPABASE_IMAGE_TRANSFORMS` | no | `true` only if the Supabase image-transformation add-on is enabled; then resized images and `srcset` are used. |
 
-1. Open **Supabase Dashboard** → **Storage** → **New bucket**
-2. Set these values exactly:
+The service-role key is never used for uploads and must never have a `VITE_` prefix.
 
-   | Field | Value |
-   |---|---|
-   | **Name** | `article-media` |
-   | **Public bucket** | ✅ YES (images must be publicly readable for the website) |
-   | **File size limit** | `10485760` (10 MB) |
-   | **Allowed MIME types** | `image/jpeg, image/png, image/webp, image/gif, image/avif, image/svg+xml` |
+## Diagnosing upload errors
 
-3. Click **Create bucket**
+The upload error message names the bucket, the Supabase host and the raw
+server response, e.g. `(HTTP 404: Bucket not found)`. For a full read-only
+report run `supabase/diagnostics/storage_diagnostics.sql`.
 
-> ⚠️ The bucket name **must be exactly** `article-media` — the code references
-> this name directly in `src/lib/supabase.ts` (`MEDIA_BUCKET = 'article-media'`).
-> Do not use a different name.
-
----
-
-## Step 2 — Set Storage policies
-
-In **Storage → article-media → Policies**, create three policies:
-
-### Policy 1: Public read (SELECT)
-- Name: `Public read media`
-- Operation: SELECT
-- Roles: `anon`, `authenticated`
-- Expression: `true`
-
-### Policy 2: Authenticated upload (INSERT)
-- Name: `Authenticated users upload`
-- Operation: INSERT
-- Roles: `authenticated`
-- Expression: `true`
-
-### Policy 3: Admin delete (DELETE)
-- Name: `Admin delete media`
-- Operation: DELETE
-- Roles: `authenticated`
-- Expression: `(auth.uid() IS NOT NULL)`
-
----
-
-## Step 3 — Test
-
-After creating the bucket:
-
-1. Go to `/admin/media` in the CMS
-2. Drag an image onto the upload zone or click "Upload"
-3. The image should upload and appear in the grid
-
-If it still fails, check:
-- Is `VITE_SUPABASE_URL` pointing to the correct Supabase project?
-- Is the bucket named exactly `article-media`?
-- Is the bucket set to **public**?
-
----
-
-## SQL alternative (run in Supabase SQL Editor)
-
-If you prefer SQL over the dashboard UI:
-
-```sql
--- This creates the bucket if it does not already exist
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'article-media',
-  'article-media',
-  TRUE,
-  10485760,
-  ARRAY['image/jpeg','image/png','image/webp','image/gif','image/avif','image/svg+xml']
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Public read policy
-CREATE POLICY "Public read media" ON storage.objects
-  FOR SELECT USING (bucket_id = 'article-media');
-
--- Authenticated upload policy
-CREATE POLICY "Authenticated upload media" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'article-media'
-    AND auth.role() = 'authenticated'
-  );
-
--- Admin delete policy
-CREATE POLICY "Admin delete media" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'article-media'
-    AND auth.uid() IS NOT NULL
-  );
-```
-
-> ⚠️ Run `ON CONFLICT (id) DO NOTHING` — this is safe to re-run if the bucket
-> already exists. It will not overwrite it or lose existing files.
+| Message | Cause | Fix |
+|---|---|---|
+| bucket … does not exist in this Supabase project | Bucket missing in the project `VITE_SUPABASE_URL` points to | Run the storage migration, or set `VITE_SUPABASE_MEDIA_BUCKET` |
+| Permission denied by the storage policies | Account is not an active admin, or policies missing | Check `profiles.role`; run the storage migration |
+| did not answer like Supabase Storage | `VITE_SUPABASE_URL` points somewhere else | Fix the variable in Vercel and redeploy |
+| session has expired | Expired login | Sign out and in again |

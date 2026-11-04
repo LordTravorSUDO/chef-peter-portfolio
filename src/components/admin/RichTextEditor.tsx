@@ -38,6 +38,45 @@ interface Props {
   placeholder?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Toolbar button — defined at module level so its identity is stable.
+// (It used to be declared inside the editor's render: every editor update
+// created a new component type, React replaced the button between mousedown
+// and mouseup, and the click — e.g. "Insert image" — was lost.)
+// ---------------------------------------------------------------------------
+function TBtn({
+  onClick, active, disabled, label, children,
+}: {
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      // Keep focus (and the cursor position) in the editor while clicking
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={`p-1.5 rounded transition ${
+        active
+          ? 'bg-[#1B365D] text-white'
+          : 'text-[#6B7A8D] hover:bg-[#F4F6F8] hover:text-[#1B365D]'
+      } disabled:opacity-30 disabled:cursor-not-allowed`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Divider() {
+  return <span className="w-px h-5 bg-[#DDE3EA] mx-0.5" />;
+}
+
 export default function RichTextEditor({ value, onChange, onInsertImage, placeholder }: Props) {
   const editor = useEditor({
     extensions: [
@@ -114,36 +153,6 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
       </div>
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Toolbar button component
-  // ---------------------------------------------------------------------------
-  const TBtn = ({
-    onClick, active, disabled, label, children,
-  }: {
-    onClick: () => void;
-    active?: boolean;
-    disabled?: boolean;
-    label: string;
-    children: React.ReactNode;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={`p-1.5 rounded transition ${
-        active
-          ? 'bg-[#1B365D] text-white'
-          : 'text-[#6B7A8D] hover:bg-[#F4F6F8] hover:text-[#1B365D]'
-      } disabled:opacity-30 disabled:cursor-not-allowed`}
-    >
-      {children}
-    </button>
-  );
-
-  const Divider = () => <span className="w-px h-5 bg-[#DDE3EA] mx-0.5" />;
 
   return (
     <div className="bg-white rounded-xl border border-[#DDE3EA] overflow-hidden">
