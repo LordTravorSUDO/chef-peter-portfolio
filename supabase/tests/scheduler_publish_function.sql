@@ -1,7 +1,7 @@
 -- =============================================================================
 -- SCHEDULER — publish_scheduled_articles() and article_events tests
 -- =============================================================================
--- Verifies migration 20261105000000_scheduler.sql.
+-- Verifies migration 20261104195708_scheduler.sql.
 --
 -- Runs as one DO block that ends with RAISE EXCEPTION, so every article,
 -- scheduler_runs row, article_events row and the temporary failure-injection

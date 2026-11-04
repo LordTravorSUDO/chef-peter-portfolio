@@ -96,7 +96,7 @@ Generate CRON_SECRET: `openssl rand -hex 32`
 
 In Supabase Dashboard → SQL Editor, run:
 ```
-supabase/migrations/20261105000000_scheduler.sql
+supabase/migrations/20261104195708_scheduler.sql
 ```
 
 This creates:

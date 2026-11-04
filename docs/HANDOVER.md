@@ -408,4 +408,4 @@ When a new migration file is added to `supabase/migrations/`:
 | 6 | 20260101000005_articles.sql | articles table, join tables, RLS |
 | 7 | 20260101000006_article_revisions.sql | article_revisions table, revision trigger |
 | 8 | 20260101000007_redirects.sql | redirects table |
-| 9 | 20261105000000_scheduler.sql | scheduler_runs, article_events, publish_scheduled_articles() (renamed from 20260201000000; not yet applied to production) |
+| 9 | 20261104195708_scheduler.sql | scheduler_runs, article_events, publish_scheduled_articles() (renamed from 20260201000000; applied to production as version 20261104195708) |

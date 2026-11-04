@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration 20261105000000: Scheduled publishing infrastructure (corrected)
+-- Migration: Scheduled publishing infrastructure (corrected)
 -- =============================================================================
 -- Replaces the never-applied 20260201000000_scheduler.sql (renamed in Git so
 -- the uncorrected version can never be applied by the Supabase CLI).
