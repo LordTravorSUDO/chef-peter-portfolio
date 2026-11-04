@@ -200,6 +200,9 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                             style={{ width: `${u.status === 'done' ? 100 : u.progress}%` }}
                           />
                         </div>
+                        {u.status === 'failed' && u.error && (
+                          <p className="text-[10px] text-[#C0392B] mt-0.5 leading-snug" role="alert">{u.error}</p>
+                        )}
                       </div>
                     </div>
                   ))}

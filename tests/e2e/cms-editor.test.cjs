@@ -3,7 +3,8 @@
  *
  * Covers: auth lifecycle (no deadlock after tab refocus / token refresh),
  * article create/save/publish, image preservation, autosave recovery and
- * serialisation, author byline handling, reading-time display and archive.
+ * serialisation, author byline handling, reading-time display, archive, and
+ * media uploads (session token, bucket, error reporting, picker selection).
  *
  * Runs the real application bundle in Chromium. ALL Supabase traffic is
  * intercepted and answered by an in-memory mock — no request ever reaches a
@@ -35,6 +36,10 @@ const DIST = path.resolve(process.argv[2] || 'node_modules/.cache/e2e-dist');
 const FILTER = process.argv[3] || '';
 const SB = 'https://testref.supabase.co';
 const STORAGE_KEY = 'sb-testref-auth-token';
+const ANON_KEY = 'test-anon-key';
+const BUCKET = 'article-media';
+// 1×1 transparent PNG (valid magic bytes, so client-side content validation passes)
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
 // ── static server with SPA fallback ─────────────────────────────────────────
 function startServer() {
@@ -90,6 +95,10 @@ function createMock(opts = {}) {
     articles: new Map(), log: [], inFlightPatches: 0, maxInFlightPatches: 0,
     failPatches: opts.failPatches || 0, patchDelayMs: opts.patchDelayMs || 0,
     postError: opts.postError || null,
+    media: [...(opts.media || [])],
+    storageMode: opts.storageMode || 'ok',  // ok | rls | bucket | jwt-expired-once
+    tokenFail: !!opts.tokenFail,
+    issuedTokens: [],
   };
   for (const a of opts.articles || []) state.articles.set(a.id, a);
 
@@ -115,19 +124,53 @@ function createMock(opts = {}) {
     const p = url.pathname;
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     const entry = { method, path: p, query: url.search, t: Date.now() };
-    if (method !== 'GET' && method !== 'HEAD') { try { entry.body = JSON.parse(req.postData() || 'null'); } catch { entry.body = req.postData(); } }
+    entry.headers = { authorization: req.headers()['authorization'], apikey: req.headers()['apikey'] };
+    if (p.startsWith('/storage/v1/object/') && method === 'POST') {
+      entry.bodySize = (req.postDataBuffer() || Buffer.alloc(0)).length;
+    } else if (method !== 'GET' && method !== 'HEAD') { try { entry.body = JSON.parse(req.postData() || 'null'); } catch { entry.body = req.postData(); } }
     state.log.push(entry);
     const wantsObject = (req.headers()['accept'] || '').includes('vnd.pgrst.object');
     const one = (rows) => (wantsObject ? rows[0] : rows);
 
     // Auth
     if (p === '/auth/v1/user') return json(route, 200, USER);
-    if (p === '/auth/v1/token') return json(route, 200, makeSession(3600));
+    if (p === '/auth/v1/token') {
+      if (state.tokenFail) return json(route, 400, { error: 'invalid_grant', error_description: 'Invalid Refresh Token: Refresh Token Not Found' });
+      const fresh = makeSession(3600);
+      state.issuedTokens.push(fresh.access_token);
+      return json(route, 200, fresh);
+    }
+
+    // Storage
+    if (p.startsWith('/storage/v1/object/')) {
+      if (method === 'POST') {
+        const sbErr = (statusCode, error, message) => json(route, 400, { statusCode, error, message });
+        if (state.storageMode === 'rls') return sbErr('403', 'Unauthorized', 'new row violates row-level security policy');
+        if (state.storageMode === 'bucket') return sbErr('404', 'Bucket not found', 'Bucket not found');
+        if (state.storageMode === 'jwt-expired-once') { state.storageMode = 'ok'; return sbErr('403', 'Unauthorized', 'jwt expired'); }
+        return json(route, 200, { Key: p.replace('/storage/v1/object/', ''), Id: 'obj-' + state.log.length });
+      }
+      if (method === 'DELETE') return json(route, 200, []);
+    }
+    if (p === '/rest/v1/media') {
+      const idEq = url.searchParams.get('id')?.replace(/^eq\./, '');
+      if (method === 'GET') {
+        const rows = idEq ? state.media.filter((m) => m.id === idEq) : state.media;
+        return json(route, 200, one(rows), { 'content-range': `0-${Math.max(rows.length - 1, 0)}/${rows.length}` });
+      }
+      if (method === 'POST') {
+        const row = { id: 'bbbbbbbb-0000-4000-8000-' + String(state.media.length + 1).padStart(12, '0'), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), caption: null, credit: null, ...entry.body };
+        state.media.unshift(row);
+        return json(route, 201, one([row]));
+      }
+      if (method === 'PATCH') { const m = state.media.find((x) => x.id === idEq); if (m) Object.assign(m, entry.body); return route.fulfill({ status: 204, headers: cors }); }
+      if (method === 'DELETE') { state.media = state.media.filter((x) => x.id !== idEq); return route.fulfill({ status: 204, headers: cors }); }
+    }
     if (p === '/auth/v1/logout') return route.fulfill({ status: 204, headers: cors });
 
     // PostgREST
     if (p === '/rest/v1/profiles') return json(route, 200, one([PROFILE]));
-    if (p === '/rest/v1/categories' || p === '/rest/v1/tags' || p === '/rest/v1/media' || p === '/rest/v1/article_revisions') return json(route, 200, []);
+    if (p === '/rest/v1/categories' || p === '/rest/v1/tags' || p === '/rest/v1/article_revisions') return json(route, 200, []);
     if (p === '/rest/v1/article_categories' || p === '/rest/v1/article_tags') return json(route, method === 'POST' ? 201 : 204, undefined);
 
     if (p === '/rest/v1/articles') {
@@ -180,11 +223,13 @@ async function withPage(browser, base, mockOpts, fn, { session = makeSession() }
   const context = await browser.newContext();
   const mock = createMock(mockOpts);
   await context.route(`${SB}/**`, mock.handler);
-  await context.addInitScript(([k, v]) => { if (!sessionStorage.getItem('__seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, [STORAGE_KEY, JSON.stringify(session)]);
+  if (session) {
+    await context.addInitScript(([k, v]) => { if (!sessionStorage.getItem('__seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, [STORAGE_KEY, JSON.stringify(session)]);
+  }
   const page = await context.newPage();
   const consoleErrors = [];
   page.on('pageerror', (e) => consoleErrors.push(String(e)));
-  try { await fn(page, mock.state, consoleErrors); } finally { await context.close(); }
+  try { await fn(page, mock.state, consoleErrors, session); } finally { await context.close(); }
 }
 function assert(cond, msg) { if (!cond) throw new Error('Assertion failed: ' + msg); }
 async function waitFor(pred, timeoutMs, label) {
@@ -193,6 +238,16 @@ async function waitFor(pred, timeoutMs, label) {
   throw new Error(`Timed out after ${timeoutMs} ms waiting for: ${label}`);
 }
 const writes = (s, m, pth = '/rest/v1/articles') => s.log.filter((e) => e.method === m && e.path === pth);
+const storageUploads = (s) => s.log.filter((e) => e.method === 'POST' && e.path.startsWith('/storage/v1/object/'));
+const LIBRARY_ITEM = {
+  id: 'cccccccc-0000-4000-8000-000000000001', storage_path: 'articles/rolex.webp', original_filename: 'rolex.webp',
+  mime_type: 'image/webp', file_size_bytes: 2048, width_px: 800, height_px: 600, alt_text: 'Rolex on a plate',
+  caption: null, credit: null, uploaded_by: '11111111-1111-4111-8111-111111111111',
+  created_at: '2026-11-02T09:00:00Z', updated_at: '2026-11-02T09:00:00Z',
+};
+async function chooseFile(scope, name = 'matooke.png') {
+  await scope.locator('input[type="file"]').first().setInputFiles({ name, mimeType: 'image/png', buffer: PNG_1PX });
+}
 async function refocusTab(page) {
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
@@ -456,6 +511,143 @@ const TESTS = {
       assert(!writes(s, 'PATCH').some((e) => e.body.status === 'archived'), 'no archive request sent');
       assert(/\/edit$/.test(page.url()), 'editor stays open');
       assert(await page.getByPlaceholder('A short summary', { exact: false }).inputValue() === 'Unsaveable edit', 'unsaved text still in the editor');
+    });
+  },
+
+  // 16. Upload uses the signed-in admin's token, the correct bucket and registers the media row.
+  async 'upload: admin upload uses the session token and the article-media bucket'(browser, base) {
+    await withPage(browser, base, {}, async (page, s, _errs, session) => {
+      await page.goto(`${base}/admin/media`);
+      await page.locator('[aria-label="Upload images — click or drag files here"]').first().waitFor({ timeout: 15000 });
+      await chooseFile(page);
+      await expectToast(page, '1 file uploaded.');
+      const ups = storageUploads(s);
+      assert(ups.length === 1, `one storage upload (got ${ups.length})`);
+      const u = ups[0];
+      assert(u.path.startsWith(`/storage/v1/object/${BUCKET}/articles/`) && u.path.endsWith('.png'), `correct bucket and folder (got ${u.path})`);
+      assert(!/Article%20Media|Article Media/.test(u.path), 'never the "Article Media" bucket');
+      assert(u.headers.authorization === `Bearer ${session.access_token}`, 'Authorization carries the signed-in user access token');
+      assert(u.headers.authorization !== `Bearer ${ANON_KEY}`, 'anon key is not used as the bearer token');
+      assert(u.headers.apikey === ANON_KEY, 'apikey header present (publishable key)');
+      assert(u.bodySize === PNG_1PX.length, 'file bytes sent');
+      const ins = writes(s, 'POST', '/rest/v1/media');
+      assert(ins.length === 1 && ins[0].body.uploaded_by === USER.id && u.path.endsWith(ins[0].body.storage_path), 'media row registered for the uploader with the stored path');
+      assert(!s.log.some((e) => e.path === '/auth/v1/user'), 'no getUser() round-trip');
+      await page.locator('img[alt="matooke.png"]').first().waitFor({ timeout: 5000 });
+    });
+  },
+
+  // 17. Unauthenticated visitors cannot reach the upload UI.
+  async 'upload: unauthenticated visitor is sent to login; no upload possible'(browser, base) {
+    await withPage(browser, base, {}, async (page, s) => {
+      await page.goto(`${base}/admin/media`);
+      await page.waitForURL(/\/admin\/login/, { timeout: 10000 });
+      assert(await page.locator('input[type="file"]').count() === 0, 'no upload control rendered');
+      assert(storageUploads(s).length === 0, 'no storage requests');
+    }, { session: null });
+  },
+
+  // 18. Session lost before uploading → refused before any bytes are sent.
+  async 'upload: expired, unrenewable session is refused before sending the file'(browser, base) {
+    await withPage(browser, base, { tokenFail: true }, async (page, s) => {
+      await page.goto(`${base}/admin/media`);
+      await page.locator('[aria-label="Upload images — click or drag files here"]').first().waitFor({ timeout: 15000 });
+      await page.evaluate((k) => { const v = JSON.parse(localStorage.getItem(k)); v.expires_at = Math.floor(Date.now() / 1000) - 60; localStorage.setItem(k, JSON.stringify(v)); }, STORAGE_KEY);
+      await chooseFile(page);
+      await waitFor(async () => /\/admin\/login/.test(page.url()) || (await page.getByText('not signed in', { exact: false }).count()) > 0, 10000, 'sign-in prompt or redirect to login');
+      assert(storageUploads(s).length === 0, `no file sent without a valid session (got ${storageUploads(s).length})`);
+      assert(writes(s, 'POST', '/rest/v1/media').length === 0, 'no media row created');
+    });
+  },
+
+  // 19. Token expired mid-session → refreshed once, upload retried with the new token.
+  async 'upload: expired token is refreshed and the upload retried once'(browser, base) {
+    await withPage(browser, base, { storageMode: 'jwt-expired-once' }, async (page, s, _errs, session) => {
+      await page.goto(`${base}/admin/media`);
+      await page.locator('[aria-label="Upload images — click or drag files here"]').first().waitFor({ timeout: 15000 });
+      await chooseFile(page);
+      await expectToast(page, '1 file uploaded.');
+      const ups = storageUploads(s);
+      assert(ups.length === 2, `exactly one retry (got ${ups.length} uploads)`);
+      assert(ups[0].headers.authorization === `Bearer ${session.access_token}`, 'first attempt used the original token');
+      assert(s.issuedTokens.length >= 1 && ups[1].headers.authorization === `Bearer ${s.issuedTokens[s.issuedTokens.length - 1]}`, 'retry used the refreshed token');
+    });
+  },
+
+  // 20. RLS denial is reported as a permission problem, not a missing bucket.
+  async 'upload: storage RLS denial shows an accurate permission error'(browser, base) {
+    await withPage(browser, base, { storageMode: 'rls' }, async (page, s) => {
+      await page.goto(`${base}/admin/media`);
+      await page.locator('[aria-label="Upload images — click or drag files here"]').first().waitFor({ timeout: 15000 });
+      await chooseFile(page);
+      await expectToast(page, 'Upload failed for 1 file');
+      const err = page.getByText('refused the upload (permission denied)', { exact: false }).first();
+      await err.waitFor({ timeout: 5000 });
+      const text = await err.textContent();
+      assert(text.includes('new row violates row-level security policy'), 'original Supabase message included');
+      assert(!/not found/i.test(text), 'not misreported as a missing bucket');
+      assert(writes(s, 'POST', '/rest/v1/media').length === 0, 'no media row for a failed upload');
+      await page.waitForTimeout(6000);
+      assert(await page.getByText('refused the upload (permission denied)', { exact: false }).count() > 0, 'failure stays visible after successful items are cleared');
+    });
+  },
+
+  // 21. Missing bucket is reported as such.
+  async 'upload: missing bucket is reported accurately'(browser, base) {
+    await withPage(browser, base, { storageMode: 'bucket' }, async (page) => {
+      await page.goto(`${base}/admin/media`);
+      await page.locator('[aria-label="Upload images — click or drag files here"]').first().waitFor({ timeout: 15000 });
+      await chooseFile(page);
+      await page.getByText(`The storage bucket "${BUCKET}" was not found`, { exact: false }).first().waitFor({ timeout: 8000 });
+    });
+  },
+
+  // 22. Picker: select an existing image, preview it, confirm; featured image set and saved.
+  async 'picker: existing media can be selected, previewed and used as featured image'(browser, base) {
+    await withPage(browser, base, { articles: [baseArticle({ featured_image_id: null })], media: [LIBRARY_ITEM] }, async (page, s) => {
+      await page.goto(`${base}/admin/articles/22222222-2222-4222-8222-222222222222/edit`);
+      await page.getByPlaceholder('Enter article title…').waitFor({ timeout: 15000 });
+      await page.getByRole('button', { name: 'Select featured image' }).click();
+      const dlg = page.getByRole('dialog');
+      await dlg.locator('img[alt="Rolex on a plate"]').first().click();
+      assert(await dlg.locator('img[src*="rolex.webp"]').count() >= 2, 'grid thumbnail and selection preview shown');
+      await dlg.getByRole('button', { name: 'Confirm' }).click();
+      await page.locator('img[src*="rolex.webp"]').first().waitFor({ timeout: 5000 });
+      await waitFor(() => writes(s, 'PATCH').some((e) => e.body.featured_image_id === LIBRARY_ITEM.id), 9000, 'autosave with the selected featured image');
+    });
+  },
+
+  // 23. Picker: upload inside the editor uses the session and auto-selects; errors shown in the picker.
+  async 'picker: upload from the editor auto-selects the new image; errors are shown'(browser, base) {
+    await withPage(browser, base, { articles: [baseArticle({ featured_image_id: null })] }, async (page, s, _errs, session) => {
+      await page.goto(`${base}/admin/articles/22222222-2222-4222-8222-222222222222/edit`);
+      await page.getByPlaceholder('Enter article title…').waitFor({ timeout: 15000 });
+      await page.getByRole('button', { name: 'Select featured image' }).click();
+      const dlg = page.getByRole('dialog');
+      await chooseFile(dlg, 'posho.png');
+      await waitFor(() => writes(s, 'POST', '/rest/v1/media').length === 1, 8000, 'media row created');
+      assert(storageUploads(s)[0].headers.authorization === `Bearer ${session.access_token}`, 'picker upload uses the session token');
+      await dlg.getByRole('button', { name: 'Confirm' }).waitFor({ state: 'visible' });
+      await waitFor(async () => await dlg.getByRole('button', { name: 'Confirm' }).isEnabled(), 5000, 'new upload auto-selected');
+      // now make the next upload fail and check the message is visible inside the picker
+      s.storageMode = 'rls';
+      await chooseFile(dlg, 'failing.png');
+      await dlg.getByText('refused the upload (permission denied)', { exact: false }).first().waitFor({ timeout: 8000 });
+    });
+  },
+
+  // 24. Media library: metadata editing and deletion still work.
+  async 'library: metadata can be edited and media deleted'(browser, base) {
+    await withPage(browser, base, { media: [{ ...LIBRARY_ITEM }] }, async (page, s) => {
+      await page.goto(`${base}/admin/media`);
+      await page.locator('img[alt="Rolex on a plate"]').first().click();
+      await page.getByPlaceholder('Caption displayed below the image', { exact: false }).fill('Kampala street food');
+      await page.getByRole('button', { name: 'Save metadata' }).click();
+      await waitFor(() => writes(s, 'PATCH', '/rest/v1/media').some((e) => e.body.caption === 'Kampala street food'), 6000, 'metadata PATCH');
+      await page.getByRole('button', { name: /^Delete image/ }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+      await waitFor(() => s.media.length === 0, 6000, 'media row deleted');
+      assert(s.log.some((e) => e.method === 'DELETE' && e.path.startsWith('/storage/v1/object/')), 'storage object removal requested');
     });
   },
 };
