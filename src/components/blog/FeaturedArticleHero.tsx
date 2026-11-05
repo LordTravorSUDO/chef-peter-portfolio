@@ -25,7 +25,7 @@ export default function FeaturedArticleHero({ article }: Props) {
   const featSrcset = img ? getMediaSrcset(img.storage_path) : undefined;
 
   return (
-    <div className="relative rounded-3xl overflow-hidden bg-[#141414] border border-[#C5A059]/15 group">
+    <div className="relative rounded-3xl overflow-hidden bg-card border border-gold/15 group">
       {/* Background image */}
       {featSrc ? (
         <div className="absolute inset-0">
@@ -41,10 +41,10 @@ export default function FeaturedArticleHero({ article }: Props) {
             decoding="async"
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0C0C0C] via-[#0C0C0C]/70 to-[#0C0C0C]/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-cream via-cream/70 to-cream/20" />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1A1A1A] to-[#0C0C0C]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-paper to-cream" />
       )}
 
       {/* Content overlay */}
@@ -52,13 +52,13 @@ export default function FeaturedArticleHero({ article }: Props) {
         <div className="max-w-2xl">
           {/* Featured label + category */}
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-[#D99B26] bg-[#D99B26]/10 border border-[#D99B26]/30 px-3 py-1 rounded-full">
+            <span className="text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-gold-deep bg-gold-wash border border-gold/40 px-3 py-1 rounded-full">
               Featured
             </span>
             {primaryCat && (
               <Link
                 to={`/category/${primaryCat.slug}`}
-                className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#A09E98] hover:text-[#D99B26] transition"
+                className="text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-ink-soft hover:text-gold-deep transition"
               >
                 {primaryCat.name}
               </Link>
@@ -66,10 +66,10 @@ export default function FeaturedArticleHero({ article }: Props) {
           </div>
 
           {/* Title */}
-          <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[#EAE7E2] leading-tight mb-3">
+          <h2 className="font-serif text-2xl sm:text-4xl font-bold text-ink leading-tight mb-3">
             <Link
               to={`/articles/${article.slug}`}
-              className="hover:text-[#D99B26] transition-colors duration-200"
+              className="hover:text-gold-deep transition-colors duration-200"
             >
               {article.title}
             </Link>
@@ -77,14 +77,14 @@ export default function FeaturedArticleHero({ article }: Props) {
 
           {/* Excerpt */}
           {article.excerpt && (
-            <p className="text-[#A09E98] text-sm sm:text-base leading-relaxed line-clamp-2 mb-5 max-w-xl">
+            <p className="text-ink-soft text-sm sm:text-base leading-relaxed line-clamp-2 mb-5 max-w-xl">
               {article.excerpt}
             </p>
           )}
 
           {/* Meta + CTA */}
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-3 text-xs text-[#6A6A6A] font-mono uppercase tracking-wide">
+            <div className="flex items-center gap-3 text-xs text-muted uppercase tracking-[0.08em]">
               {article.published_at && (
                 <time dateTime={article.published_at}>{formatDate(article.published_at)}</time>
               )}
@@ -97,7 +97,7 @@ export default function FeaturedArticleHero({ article }: Props) {
             </div>
             <Link
               to={`/articles/${article.slug}`}
-              className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black bg-[#D99B26] hover:bg-[#E6C687] px-4 py-2 rounded-full transition"
+              className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink bg-gold hover:bg-gold-light px-4 py-2 rounded-full transition"
             >
               Read article <ArrowRight className="w-3.5 h-3.5" />
             </Link>

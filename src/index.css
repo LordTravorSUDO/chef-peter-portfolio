@@ -1,64 +1,96 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   CHEF PETER THE TEACHER — DESIGN TOKENS ("Modern Culinary Editorial")
+   --------------------------------------------------------------------------
+   Every colour and font used by the public site is defined once here and
+   exposed as Tailwind utilities (bg-cream, text-ink, border-sand, font-serif…).
+   Contrast (WCAG 2.2): on cream/paper/card backgrounds use ink, ink-soft,
+   muted or gold-deep for text. `gold` is for fills, rules and accents only.
+   On charcoal backgrounds use cream, cream-soft, gold or gold-light.
+   The admin CMS has its own theme (src/components/admin/adminTheme.ts).
+   ========================================================================== */
+@theme {
+  --font-serif: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-sans: "Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-cream: #FBF8F3;        /* page background */
+  --color-paper: #F4EDE2;        /* alternate section background */
+  --color-card: #FFFFFF;         /* cards, forms */
+  --color-sand: #E4D9C6;         /* borders, dividers */
+  --color-sand-strong: #CDBDA3;  /* stronger borders, input outlines */
+
+  --color-ink: #1E1A16;          /* headings, primary text      16.3:1 on cream */
+  --color-ink-soft: #4B433A;     /* body text                    9.2:1 on cream */
+  --color-muted: #6B6155;        /* captions, meta               5.7:1 on cream */
+
+  --color-charcoal: #1C1A17;     /* dark bands, footer */
+  --color-charcoal-soft: #2A2723;
+  --color-cream-soft: #CFC8BD;   /* secondary text on charcoal  10.9:1 */
+
+  --color-gold: #C5A059;         /* brand accent: fills, rules  7.1:1 on charcoal */
+  --color-gold-deep: #87652A;    /* gold text on light           5.1:1 on cream */
+  --color-gold-light: #E3C688;   /* gold text on charcoal       10.5:1 */
+  --color-gold-wash: #F3E8D2;    /* soft accent background */
+
+  --color-whatsapp: #25D366;
+  --color-whatsapp-deep: #128C4A;
+  --color-danger: #A3362A;
+  --color-success: #2F6B3F;
+
+  --radius-card: 0.625rem;
+}
+
 @layer base {
-  :root {
-    --font-serif: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem; /* keeps anchored headings clear of the sticky header */
   }
 
   body {
     font-family: var(--font-sans);
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, .font-serif-heading {
     font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-deep);
+    outline-offset: 3px;
   }
 }
 
-/* Custom animations & subtle luxury scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #0C0C0C;
-}
-::-webkit-scrollbar-thumb {
-  background: #1A1A1A;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #C5A059;
+/* Respect visitors who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-@keyframes marquee {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
-}
+/* Utility: hide horizontal scrollbars on scrollable chip rows */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-@keyframes marquee-reverse {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0%); }
-}
-
-.animate-marquee {
-  animation: marquee 35s linear infinite;
-}
-
-.animate-marquee-reverse {
-  animation: marquee-reverse 35s linear infinite;
-}
-
-/* Pause marquee on hover for interactivity */
-.animate-marquee:hover, .animate-marquee-reverse:hover {
-  animation-play-state: paused;
-}
-
+/* Legacy utilities kept for any page still referencing them */
 .gold-gradient-text {
-  background: linear-gradient(135deg, #F5E8C7 0%, #C5A059 50%, #947230 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-gold-deep);
 }
-
 .gold-border-glow {
-  box-shadow: 0 0 25px -5px rgba(197, 160, 89, 0.2);
+  box-shadow: 0 0 0 1px rgba(197, 160, 89, 0.25);
 }

@@ -1,117 +1,83 @@
 import React from 'react';
-import { CHEF_PROFILE, ServiceItem } from '../data/chefProfile';
-import { Briefcase, UtensilsCrossed, GraduationCap, ShieldCheck, UserCheck, TrendingUp, CheckCircle, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { SERVICE_PATHWAYS, type ServicePathway } from '../data/siteContent';
+import { ExpertiseSection } from './ExpertiseSection';
+import { Container, Section, SectionHeader, btn, card } from './site/ui';
 
 interface ServicesSectionProps {
   onOpenConsultationModal: (serviceTitle?: string) => void;
 }
 
-const servicePagePaths: Record<string, string> = {
-  "Culinary & Baking Arts Classes (De'Chosen Academy)": '/cooking-classes-kampala',
-  "De'Chosen Hospitality & Events Advisory": '/hospitality-consultancy',
-  'Menu Engineering & Culinary Innovation': '/culinary-consultant-uganda',
-  'Kitchen Operations & High-Volume Logistics': '/hospitality-consultancy',
-  'Private Household Culinary Advisory': '/private-chef-uganda',
-  'Hospitality Strategy & Brand Transformation': '/hospitality-consultancy',
-};
+const GROUPS: Array<{ id: ServicePathway['group']; title: string; intro: string }> = [
+  {
+    id: 'learn',
+    title: 'Learn with Chef Peter',
+    intro: 'Practical classes for individuals, private chefs and kitchen or bakery teams.',
+  },
+  {
+    id: 'work',
+    title: 'Work with Chef Peter',
+    intro: 'Private dining, menu development, kitchen consultancy and hospitality advice.',
+  },
+];
 
 export const ServicesSection: React.FC<ServicesSectionProps> = ({ onOpenConsultationModal }) => {
-  const { services } = CHEF_PROFILE;
-
-  const getServiceIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Briefcase':
-        return <Briefcase className="w-6 h-6 text-[#d4af37]" />;
-      case 'UtensilsCrossed':
-        return <UtensilsCrossed className="w-6 h-6 text-[#d4af37]" />;
-      case 'GraduationCap':
-        return <GraduationCap className="w-6 h-6 text-[#d4af37]" />;
-      case 'ShieldCheck':
-        return <ShieldCheck className="w-6 h-6 text-[#d4af37]" />;
-      case 'UserCheck':
-        return <UserCheck className="w-6 h-6 text-[#d4af37]" />;
-      case 'TrendingUp':
-        return <TrendingUp className="w-6 h-6 text-[#d4af37]" />;
-      default:
-        return <Briefcase className="w-6 h-6 text-[#d4af37]" />;
-    }
-  };
-
   return (
-    <section id="services" className="py-24 bg-[#0C0C0C] relative overflow-hidden border-t border-[#C5A059]/20">
-      {/* Glow effect */}
-      <div className="absolute top-1/2 right-0 w-96 h-96 bg-[#C5A059]/5 blur-[120px] rounded-full pointer-events-none"></div>
+    <Section id="services" tone="cream" labelledBy="services-title">
+      <Container>
+        <SectionHeader
+          id="services-title"
+          eyebrow="Professional services"
+          title="How Chef Peter can help"
+          intro="Six clearly defined services, available in Kampala, across Uganda and — by arrangement — internationally."
+        />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#C5A059] bg-[#1A1A1A] px-3.5 py-1.5 rounded-full border border-[#C5A059]/30 inline-block mb-3">
-            Professional Services — Uganda &amp; Beyond
-          </span>
-          <h2 className="text-3xl sm:text-5xl font-serif font-bold text-[#EAE7E2] tracking-tight">
-            Professional Advisory Services
-          </h2>
-          <p className="text-sm sm:text-base text-[#A09E98] mt-3 font-light">
-            Private chef services, culinary consultancy, hospitality advisory, catering, menu development, kitchen operations, and culinary training — available in Kampala, Uganda and internationally.
-          </p>
-        </div>
-
-        {/* Services Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service) => (
-            <div
-              key={service.id}
-              className="bg-[#161616] rounded-2xl p-6 sm:p-8 border border-[#C5A059]/20 hover:border-[#C5A059] transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between group"
-            >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#1A1A1A] border border-[#C5A059]/30 flex items-center justify-center mb-6 group-hover:bg-[#C5A059]/10 group-hover:border-[#C5A059] transition-colors">
-                  {getServiceIcon(service.iconName)}
-                </div>
-
-                <h3 className="text-xl font-serif font-bold text-[#EAE7E2] mb-3 group-hover:text-[#C5A059] transition-colors">
-                  {service.title}
-                </h3>
-
-                <p className="text-xs sm:text-sm text-[#A09E98] font-light leading-relaxed mb-6">
-                  {service.fullDesc}
-                </p>
-
-                <div className="space-y-2 mb-6">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#C5A059] block">
-                    Strategic Deliverables
-                  </span>
-                  {service.outcomes.map((out, oIdx) => (
-                    <div key={oIdx} className="flex items-center gap-2 text-xs text-[#EAE7E2]/80">
-                      <CheckCircle className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
-                      <span>{out}</span>
+        {GROUPS.map((group) => {
+          const items = SERVICE_PATHWAYS.filter((s) => s.group === group.id);
+          return (
+            <div key={group.id} className="mt-14">
+              <div className="flex flex-col gap-1 border-b border-sand pb-4 sm:flex-row sm:items-baseline sm:justify-between">
+                <h3 className="font-serif text-[1.5rem] font-semibold text-ink">{group.title}</h3>
+                <p className="text-[0.975rem] text-muted">{group.intro}</p>
+              </div>
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
+                {items.map((service) => (
+                  <article key={service.id} className={`${card} flex flex-col border-t-2 border-t-gold p-6`}>
+                    <h4 className="font-serif text-[1.25rem] font-semibold leading-snug text-ink">{service.title}</h4>
+                    <p className="mt-3 text-[0.975rem] leading-relaxed text-ink-soft">{service.summary}</p>
+                    <p className="mt-4 text-[0.875rem] leading-snug text-muted">
+                      <span className="font-semibold text-ink-soft">For: </span>
+                      {service.forWhom}
+                    </p>
+                    <ul className="mt-4 space-y-1.5 border-t border-sand pt-4">
+                      {service.includes.map((item) => (
+                        <li key={item} className="flex gap-2.5 text-[0.9375rem] leading-snug text-ink-soft">
+                          <span aria-hidden="true" className="mt-[0.6em] h-px w-2.5 shrink-0 bg-gold" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-auto flex flex-col gap-3 pt-6">
+                      <button
+                        type="button"
+                        onClick={() => onOpenConsultationModal(service.enquiry)}
+                        className={`${btn.primary} w-full`}
+                      >
+                        Enquire<span className="sr-only"> about {service.title.toLowerCase()}</span>
+                      </button>
+                      <a href={service.href} className={`${btn.text} text-[0.9375rem]`}>
+                        {service.linkLabel} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </a>
                     </div>
-                  ))}
-                </div>
+                  </article>
+                ))}
               </div>
-
-              <div className="space-y-3 mt-4">
-                <a
-                  href={servicePagePaths[service.title] ?? '/#services'}
-                  className="w-full py-3 rounded-xl bg-[#C5A059] hover:bg-[#d4af37] text-xs font-semibold uppercase tracking-[0.2em] text-black transition-all flex items-center justify-center gap-2"
-                >
-                  <span>Learn More</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-                <button
-                  onClick={() => onOpenConsultationModal(service.title)}
-                  className="w-full py-3 rounded-xl bg-[#1A1A1A] hover:bg-[#C5A059] text-xs font-semibold uppercase tracking-[0.2em] text-[#C5A059] hover:text-black border border-[#C5A059]/30 hover:border-[#C5A059] transition-all flex items-center justify-center gap-2"
-                >
-                  <span>Inquire For This Service</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
             </div>
-          ))}
-        </div>
+          );
+        })}
 
-      </div>
-    </section>
+        <ExpertiseSection />
+      </Container>
+    </Section>
   );
 };

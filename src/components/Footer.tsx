@@ -1,90 +1,99 @@
 import React from 'react';
-import { Award, ArrowUp, Globe } from 'lucide-react';
+import { CHEF_PROFILE } from '../data/chefProfile';
+
+const EXPLORE = [
+  { label: 'About Chef Peter', href: '/#story' },
+  { label: 'Professional experience', href: '/#experience' },
+  { label: 'Services', href: '/#services' },
+  { label: 'Culinary gallery', href: '/#gallery' },
+  { label: 'Published books', href: '/#books' },
+  { label: 'Articles', href: '/articles' },
+  { label: 'Contact', href: '/#contact' },
+];
+
+const SERVICES = [
+  { label: 'Private chef in Uganda', href: '/private-chef-uganda' },
+  { label: 'Cooking classes in Kampala', href: '/cooking-classes-kampala' },
+  { label: 'Baking & pastry classes', href: '/baking-pastry-classes' },
+  { label: 'Culinary consultancy', href: '/culinary-consultant-uganda' },
+  { label: 'Hospitality consultancy', href: '/hospitality-consultancy' },
+  { label: 'Full professional profile', href: '/about-chef-peter' },
+  { label: 'Culinary books', href: '/culinary-books' },
+];
 
 export const Footer: React.FC = () => {
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const { contactDetails, companyName } = CHEF_PROFILE;
+  const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-[#0C0C0C] text-[#A09E98] border-t border-[#C5A059]/20 pt-16 pb-12 relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-[#C5A059]/20">
-          
-          {/* Brand Info */}
-          <div className="md:col-span-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#C5A059] p-[1px]">
-                <div className="w-full h-full bg-[#0C0C0C] rounded-full flex items-center justify-center text-[#C5A059]">
-                  <Award className="w-4 h-4" />
-                </div>
-              </div>
-              <span className="font-serif text-xl font-bold text-[#EAE7E2]">
-                Chef Peter <span className="text-[#C5A059]">the Teacher</span>
-              </span>
-            </div>
-
-            <p className="text-xs font-mono uppercase tracking-[0.2em] text-[#C5A059]">
-              Executive Hospitality Consultant | Culinary Innovator | Master Educator
+    <footer className="bg-charcoal text-cream-soft">
+      <div className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8">
+        <div className="grid gap-12 md:grid-cols-12">
+          <div className="md:col-span-5">
+            <p className="font-serif text-[1.5rem] font-semibold text-cream">
+              Chef Peter <em className="font-normal italic text-gold-light">the Teacher</em>
             </p>
-
-            <p className="text-xs text-[#A09E98] font-light max-w-md leading-relaxed">
-              Yiga Edward Peter Kirigwajjo Zimwanguyizza Mulindwa. Dedicated to culinary excellence, strategic hospitality advisory, technical publishing, and master mentorship across Uganda, Africa, and the Gulf.
+            <p className="mt-3 max-w-sm leading-relaxed">
+              Professional chef, culinary educator and hospitality consultant. Founder of {companyName}, Kampala, Uganda.
             </p>
-          </div>
-
-          {/* Quick Links */}
-          <div className="md:col-span-3">
-            <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-[#C5A059] mb-4">
-              Navigation
-            </h4>
-            <ul className="space-y-2 text-xs">
-              <li><a href="/#story" className="hover:text-[#C5A059] transition-colors">The Story</a></li>
-              <li><a href="/#journey" className="hover:text-[#C5A059] transition-colors">International Journey</a></li>
-              <li><a href="/#expertise" className="hover:text-[#C5A059] transition-colors">Core Expertise</a></li>
-              <li><a href="/#experience" className="hover:text-[#C5A059] transition-colors">Professional Experience</a></li>
-              <li><a href="/#gallery" className="hover:text-[#C5A059] transition-colors">Culinary Gallery</a></li>
+            <ul className="mt-6 space-y-1.5 text-[0.975rem]">
+              <li>
+                <a href={`tel:${contactDetails.phoneRaw}`} className="text-cream hover:text-gold-light hover:underline">
+                  {contactDetails.phoneDisplay}
+                </a>{' '}
+                <span className="text-cream-soft/80">(phone &amp; WhatsApp)</span>
+              </li>
+              <li>
+                <a href={`mailto:${contactDetails.email}`} className="break-all text-cream hover:text-gold-light hover:underline">
+                  {contactDetails.email}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://www.linkedin.com/in/yiga-edward-peter-49b09b433/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cream hover:text-gold-light hover:underline"
+                >
+                  LinkedIn<span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              </li>
             </ul>
           </div>
 
-          <div className="md:col-span-3">
-            <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-[#C5A059] mb-4">
-              Publications & Services
-            </h4>
-            <ul className="space-y-2 text-xs">
-              <li><a href="/#books" className="hover:text-[#C5A059] transition-colors">Published Works</a></li>
-              <li><a href="/#credentials" className="hover:text-[#C5A059] transition-colors">Academic Background</a></li>
-              <li><a href="/#services" className="hover:text-[#C5A059] transition-colors">Advisory Offerings</a></li>
-              <li><a href="/private-chef-uganda" className="hover:text-[#C5A059] transition-colors">Private Chef Uganda</a></li>
-              <li><a href="/cooking-classes-kampala" className="hover:text-[#C5A059] transition-colors">Cooking Classes Kampala</a></li>
-              <li><a href="/baking-pastry-classes" className="hover:text-[#C5A059] transition-colors">Baking &amp; Pastry Classes</a></li>
-              <li><a href="/culinary-consultant-uganda" className="hover:text-[#C5A059] transition-colors">Culinary Consultancy</a></li>
-              <li><a href="/hospitality-consultancy" className="hover:text-[#C5A059] transition-colors">Hospitality Consultancy</a></li>
-              <li><a href="/about-chef-peter" className="hover:text-[#C5A059] transition-colors">About Chef Peter</a></li>
-              <li><a href="/culinary-books" className="hover:text-[#C5A059] transition-colors">Culinary Books</a></li>
-              <li><a href="/articles" className="hover:text-[#C5A059] transition-colors">Articles</a></li>
-              <li><a href="/#contact" className="hover:text-[#C5A059] transition-colors">Direct Contact</a></li>
+          <nav aria-label="Explore" className="md:col-span-3">
+            <h2 className="font-sans text-[0.8125rem] font-semibold uppercase tracking-[0.14em] text-gold-light">Explore</h2>
+            <ul className="mt-4 space-y-2 text-[0.975rem]">
+              {EXPLORE.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} className="hover:text-cream hover:underline">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
             </ul>
-          </div>
+          </nav>
 
+          <nav aria-label="Services" className="md:col-span-4">
+            <h2 className="font-sans text-[0.8125rem] font-semibold uppercase tracking-[0.14em] text-gold-light">Services &amp; information</h2>
+            <ul className="mt-4 space-y-2 text-[0.975rem]">
+              {SERVICES.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} className="hover:text-cream hover:underline">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#A09E98]">
-          <p>
-            © 2026 Chef Peter the Teacher. All Rights Reserved.
-          </p>
-
-          <button
-            onClick={scrollToTop}
-            className="p-2.5 rounded-full bg-[#1A1A1A] hover:bg-[#C5A059] text-[#A09E98] hover:text-black border border-[#C5A059]/30 transition-all flex items-center gap-2 group"
-          >
-            <span className="text-[10px] uppercase font-bold tracking-[0.2em]">Top</span>
-            <ArrowUp className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
-          </button>
+        <div className="mt-14 flex flex-col gap-3 border-t border-cream/15 pt-6 text-[0.875rem] sm:flex-row sm:items-center sm:justify-between">
+          <p>© {year} Chef Peter the Teacher · {companyName}</p>
+          <a href="#" className="hover:text-cream hover:underline">
+            Back to top
+          </a>
         </div>
-
       </div>
     </footer>
   );

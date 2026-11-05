@@ -32,12 +32,12 @@ const PAGE_SIZE = 9;
 
 function FeaturedSkeleton() {
   return (
-    <div className="rounded-3xl overflow-hidden bg-[#141414] border border-[#C5A059]/10 min-h-[420px] sm:min-h-[500px] animate-pulse">
+    <div className="rounded-3xl overflow-hidden bg-card border border-gold/10 min-h-[420px] sm:min-h-[500px] animate-pulse">
       <div className="w-full h-full flex flex-col justify-end p-10 space-y-4">
         <div className="h-3 bg-[#222] rounded w-1/6" />
         <div className="h-8 bg-[#222] rounded w-3/5" />
-        <div className="h-4 bg-[#1E1E1E] rounded w-2/5" />
-        <div className="h-3 bg-[#1A1A1A] rounded w-1/4 mt-2" />
+        <div className="h-4 bg-paper rounded w-2/5" />
+        <div className="h-3 bg-paper rounded w-1/4 mt-2" />
       </div>
     </div>
   );
@@ -173,13 +173,13 @@ export default function BlogIndexPage() {
 
         {/* ── Page header ─────────────────────────────────────────────── */}
         <div className="text-center space-y-2 pt-2">
-          <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#D99B26]">
+          <p className="text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-gold-deep">
             De'Chosen Knowledge
           </p>
-          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-[#EAE7E2] tracking-tight">
+          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-ink tracking-tight">
             Articles
           </h1>
-          <p className="text-[#A09E98] text-base max-w-lg mx-auto leading-relaxed">
+          <p className="text-ink-soft text-base max-w-lg mx-auto leading-relaxed">
             Culinary insights, recipes, food history and hospitality knowledge from Chef Peter the Teacher.
           </p>
         </div>
@@ -196,7 +196,7 @@ export default function BlogIndexPage() {
         {/* ── Search bar ──────────────────────────────────────────────── */}
         <form onSubmit={handleSearch} role="search" className="max-w-xl mx-auto">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4A4A4A]" aria-hidden="true" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
             <input
               ref={searchRef}
               type="search"
@@ -204,14 +204,14 @@ export default function BlogIndexPage() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search articles by title or topic…"
               aria-label="Search articles"
-              className="w-full bg-[#141414] border border-[#C5A059]/20 rounded-2xl pl-11 pr-12 py-3 text-sm text-[#EAE7E2] placeholder:text-[#4A4A4A] focus:outline-none focus:border-[#C5A059]/60 transition"
+              className="w-full bg-card border border-gold/20 rounded-2xl pl-11 pr-12 py-3 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-gold/60 transition"
             />
             {searchInput && (
               <button
                 type="button"
                 onClick={() => { setSearchInput(''); setParam('q', ''); }}
                 aria-label="Clear search"
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#4A4A4A] hover:text-[#EAE7E2] transition"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -230,8 +230,8 @@ export default function BlogIndexPage() {
               onClick={() => setParam('category', '')}
               className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 !categorySlug
-                  ? 'bg-[#C5A059] text-black border-[#C5A059]'
-                  : 'border-[#C5A059]/20 text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2]'
+                  ? 'bg-gold text-ink border-gold'
+                  : 'border-gold/20 text-ink-soft hover:border-gold/50 hover:text-ink'
               }`}
               aria-pressed={!categorySlug}
             >
@@ -243,8 +243,8 @@ export default function BlogIndexPage() {
                 onClick={() => setParam('category', cat.slug)}
                 className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all ${
                   categorySlug === cat.slug
-                    ? 'bg-[#C5A059] text-black border-[#C5A059]'
-                    : 'border-[#C5A059]/20 text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2]'
+                    ? 'bg-gold text-ink border-gold'
+                    : 'border-gold/20 text-ink-soft hover:border-gold/50 hover:text-ink'
                 }`}
                 aria-pressed={categorySlug === cat.slug}
               >
@@ -256,23 +256,23 @@ export default function BlogIndexPage() {
 
         {/* ── Active filter pill ───────────────────────────────────────── */}
         {hasFilters && (
-          <div className="flex items-center justify-center gap-2 text-xs text-[#A09E98]">
+          <div className="flex items-center justify-center gap-2 text-xs text-ink-soft">
             {categorySlug && (
               <span>
                 Category:{' '}
-                <strong className="text-[#C5A059]">
+                <strong className="text-gold-deep">
                   {categories.find((c) => c.slug === categorySlug)?.name ?? categorySlug}
                 </strong>
               </span>
             )}
             {searchQuery && (
               <span>
-                Search: <strong className="text-[#C5A059]">"{searchQuery}"</strong>
+                Search: <strong className="text-gold-deep">"{searchQuery}"</strong>
               </span>
             )}
             <button
               onClick={clearFilters}
-              className="ml-1 underline text-[#6A6A6A] hover:text-[#EAE7E2] transition"
+              className="ml-1 underline text-muted hover:text-ink transition"
             >
               Clear all
             </button>
@@ -284,10 +284,10 @@ export default function BlogIndexPage() {
           {/* Error state */}
           {error && (
             <div className="text-center py-16 space-y-3">
-              <p className="text-[#A09E98]">{error}</p>
+              <p className="text-ink-soft">{error}</p>
               <button
                 onClick={load}
-                className="text-xs text-[#C5A059] hover:underline"
+                className="text-xs text-gold-deep hover:underline"
               >
                 Try again
               </button>
@@ -301,10 +301,10 @@ export default function BlogIndexPage() {
           {!loading && !error && articles.length === 0 && (
             <div className="text-center py-24 space-y-4">
               <p className="text-4xl">✍️</p>
-              <p className="font-serif text-xl text-[#EAE7E2]">
+              <p className="font-serif text-xl text-ink">
                 {hasFilters ? 'No articles match your filters.' : 'No articles published yet.'}
               </p>
-              <p className="text-sm text-[#6A6A6A] max-w-xs mx-auto">
+              <p className="text-sm text-muted max-w-xs mx-auto">
                 {hasFilters
                   ? 'Try a different category or search term, or browse all articles.'
                   : 'Chef Peter is working on new content. Check back soon.'}
@@ -312,7 +312,7 @@ export default function BlogIndexPage() {
               {hasFilters && (
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-[#C5A059] hover:underline"
+                  className="text-sm text-gold-deep hover:underline"
                 >
                   Show all articles
                 </button>
@@ -323,7 +323,7 @@ export default function BlogIndexPage() {
           {/* Results count + grid */}
           {!loading && !error && articles.length > 0 && (
             <div className="space-y-8">
-              <p className="text-xs text-[#4A4A4A] text-center" aria-live="polite">
+              <p className="text-xs text-muted text-center" aria-live="polite">
                 {total} article{total !== 1 ? 's' : ''}
                 {hasFilters ? ' matching your filters' : ''}
                 {totalPages > 1 ? ` — page ${page} of ${totalPages}` : ''}
@@ -340,7 +340,7 @@ export default function BlogIndexPage() {
               onClick={() => setPage(page - 1)}
               disabled={page <= 1}
               aria-label="Previous page"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C5A059]/20 text-xs text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2] transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gold/20 text-xs text-ink-soft hover:border-gold/50 hover:text-ink transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Previous
             </button>
@@ -366,8 +366,8 @@ export default function BlogIndexPage() {
                     aria-current={p === page ? 'page' : undefined}
                     className={`w-8 h-8 rounded-lg text-xs font-medium transition ${
                       p === page
-                        ? 'bg-[#C5A059] text-black'
-                        : 'text-[#6A6A6A] hover:text-[#EAE7E2] hover:bg-[#1A1A1A]'
+                        ? 'bg-gold text-ink'
+                        : 'text-muted hover:text-ink hover:bg-paper'
                     }`}
                   >
                     {p}
@@ -380,7 +380,7 @@ export default function BlogIndexPage() {
               onClick={() => setPage(page + 1)}
               disabled={page >= totalPages}
               aria-label="Next page"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C5A059]/20 text-xs text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2] transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gold/20 text-xs text-ink-soft hover:border-gold/50 hover:text-ink transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Next <ChevronRight className="w-3.5 h-3.5" />
             </button>

@@ -35,10 +35,10 @@ export default function ArticleCard({ article }: Props) {
     : null;
 
   return (
-    <article className="group bg-[#141414] border border-[#C5A059]/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#C5A059]/5 flex flex-col">
+    <article className="group bg-card border border-gold/10 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-300 hover:shadow-xl hover:shadow-gold/5 flex flex-col">
       {/* Thumbnail */}
       <Link to={`/articles/${article.slug}`} tabIndex={-1} aria-hidden="true">
-        <div className="aspect-[16/9] bg-[#1A1A1A] overflow-hidden">
+        <div className="aspect-[16/9] bg-paper overflow-hidden">
           {thumbUrl ? (
             <img
               src={thumbUrl}
@@ -51,7 +51,7 @@ export default function ArticleCard({ article }: Props) {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <span className="text-[#C5A059]/20 text-6xl font-serif font-bold select-none">
+              <span className="text-gold-deep/20 text-6xl font-serif font-bold select-none">
                 {article.title.charAt(0)}
               </span>
             </div>
@@ -65,14 +65,14 @@ export default function ArticleCard({ article }: Props) {
         {primaryCat && (
           <Link
             to={`/category/${primaryCat.slug}`}
-            className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#C5A059] hover:text-[#E6C687] transition mb-2 inline-block"
+            className="text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-gold-deep hover:text-gold-deep transition mb-2 inline-block"
           >
             {primaryCat.name}
           </Link>
         )}
 
         {/* Title */}
-        <h2 className="font-serif text-lg font-bold text-[#EAE7E2] leading-snug mb-2 group-hover:text-[#C5A059] transition-colors duration-200">
+        <h2 className="font-serif text-lg font-bold text-ink leading-snug mb-2 group-hover:text-gold-deep transition-colors duration-200">
           <Link to={`/articles/${article.slug}`}>
             {article.title}
           </Link>
@@ -80,13 +80,13 @@ export default function ArticleCard({ article }: Props) {
 
         {/* Excerpt */}
         {article.excerpt && (
-          <p className="text-sm text-[#A09E98] leading-relaxed line-clamp-3 mb-4 flex-1">
+          <p className="text-sm text-ink-soft leading-relaxed line-clamp-3 mb-4 flex-1">
             {article.excerpt}
           </p>
         )}
 
         {/* Meta */}
-        <div className="flex items-center gap-3 text-xs text-[#6A6A6A] mt-auto pt-4 border-t border-[#C5A059]/10">
+        <div className="flex items-center gap-3 text-xs text-muted mt-auto pt-4 border-t border-gold/10">
           {article.published_at && (
             <time dateTime={article.published_at}>{formatDate(article.published_at)}</time>
           )}

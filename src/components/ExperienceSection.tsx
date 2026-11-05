@@ -1,123 +1,107 @@
-import React, { useState } from 'react';
-import { CHEF_PROFILE, ExperienceItem } from '../data/chefProfile';
-import { Briefcase, Building, CheckCircle2, ChevronRight, Award } from 'lucide-react';
+import React from 'react';
+import { ChevronDown } from 'lucide-react';
+import { CAREER } from '../data/siteContent';
+import { CHEF_PROFILE } from '../data/chefProfile';
+import { Container, Section, SectionHeader, stripEmoji } from './site/ui';
+import { ReviewNote } from './site/ReviewNote';
 
+/**
+ * Professional experience — a readable career record grouped by sector,
+ * followed by country-by-country detail (anchor #journey, kept for old links).
+ */
 export const ExperienceSection: React.FC = () => {
-  const { experiences } = CHEF_PROFILE;
-  const [filter, setFilter] = useState<string>('all');
-
-  const filteredExperiences = filter === 'all'
-    ? experiences
-    : experiences.filter(exp => exp.category === filter);
-
   return (
-    <section id="experience" className="py-24 bg-[#0C0C0C] relative overflow-hidden border-t border-[#C5A059]/20">
-      {/* Glow background */}
-      <div className="absolute top-1/2 left-0 w-96 h-96 bg-[#C5A059]/5 blur-[120px] rounded-full pointer-events-none"></div>
+    <Section id="experience" tone="cream" labelledBy="experience-title">
+      <Container>
+        <SectionHeader
+          id="experience-title"
+          eyebrow="Professional experience"
+          title="Kitchens, clients and classrooms"
+          intro="Hotel kitchens, in-flight and high-volume catering, lodges, private households and international assignments — and, through De’Chosen Events Consultants, consultancy and teaching."
+        />
+        <ReviewNote>
+          Dates are not yet shown because they are missing from the profile. Please supply start and end years for each role.
+        </ReviewNote>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#C5A059] bg-[#1A1A1A] px-3.5 py-1.5 rounded-full border border-[#C5A059]/30 inline-block mb-3">
-            Track Record
-          </span>
-          <h2 className="text-3xl sm:text-5xl font-serif font-bold text-[#EAE7E2] tracking-tight">
-            Professional Experience
-          </h2>
-          <p className="text-sm sm:text-base text-[#A09E98] mt-3 font-light">
-            Proven leadership across luxury eco-lodges, international aviation catering, UN bases, marine ports, and luxury hotel groups.
-          </p>
-        </div>
-
-        {/* Timeline Filter Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-12">
-          {[
-            { id: 'all', label: 'All Operations' },
-            { id: 'consulting', label: 'Eco Lodges & Advisory' },
-            { id: 'international', label: 'International Training' },
-            { id: 'aviation', label: 'UN & Aviation Catering' },
-            { id: 'luxury', label: 'Luxury Hotel Groups & Ports' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setFilter(item.id)}
-              className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-[0.2em] transition-all ${
-                filter === item.id
-                  ? 'bg-[#C5A059] text-black shadow-md shadow-[#C5A059]/20'
-                  : 'bg-[#1A1A1A] text-[#EAE7E2]/80 border border-[#C5A059]/20 hover:border-[#C5A059]/50 hover:text-white'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Timeline List */}
-        <div className="space-y-8 relative before:absolute before:inset-0 before:left-4 sm:before:left-1/2 before:-ml-px before:w-0.5 before:bg-[#C5A059]/20">
-          {filteredExperiences.map((exp, idx) => {
-            const isEven = idx % 2 === 0;
-            return (
-              <div
-                key={exp.id}
-                className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group`}
-              >
-                {/* Timeline Dot Indicator */}
-                <div className="flex items-center justify-center w-9 h-9 rounded-full border-2 border-[#C5A059] bg-[#0C0C0C] shadow-lg text-[#C5A059] shrink-0 absolute left-0 sm:left-1/2 -translate-x-1/2 z-10 group-hover:bg-[#C5A059] group-hover:text-black transition-colors">
-                  <Briefcase className="w-4 h-4" />
-                </div>
-
-                {/* Content Box */}
-                <div className="w-[calc(100%-3rem)] sm:w-[calc(50%-2.5rem)] ml-12 sm:ml-0 bg-[#161616] border border-[#C5A059]/20 group-hover:border-[#C5A059]/50 rounded-2xl p-6 sm:p-8 shadow-xl transition-all">
-                  
-                  {/* Category Pill */}
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#1A1A1A] border border-[#C5A059]/30 text-[#C5A059] text-[10px] font-mono uppercase tracking-[0.2em] mb-3">
-                    <Building className="w-3 h-3" />
-                    <span>{exp.organization}</span>
-                  </div>
-
-                  {/* Title & Organization */}
-                  <h3 className="text-xl font-serif font-bold text-[#EAE7E2] group-hover:text-[#C5A059] transition-colors">
-                    {exp.role}
-                  </h3>
-
-                  <p className="text-xs sm:text-sm text-[#A09E98] mt-2 font-light leading-relaxed">
-                    {exp.description}
-                  </p>
-
-                  {/* Locations if present */}
-                  {exp.locations && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {exp.locations.map((loc, lIdx) => (
-                        <span key={lIdx} className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1A1A1A] text-[#C5A059] border border-[#C5A059]/20">
-                          📍 {loc}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Key Achievements */}
-                  {exp.achievements && (
-                    <div className="mt-4 pt-4 border-t border-[#C5A059]/20 space-y-2">
-                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#C5A059] block">
-                        Impact & Deliverables
-                      </span>
-                      {exp.achievements.map((ach, aIdx) => (
-                        <div key={aIdx} className="flex items-start gap-2 text-xs text-[#EAE7E2]/80">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
-                          <span>{ach}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
+        <ol className="mt-12 border-t border-sand">
+          {CAREER.map((entry) => (
+            <li key={entry.id} className="grid gap-4 border-b border-sand py-8 md:grid-cols-12 md:gap-8">
+              <div className="md:col-span-4">
+                <p className="text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-gold-deep">{entry.sector}</p>
+                <h3 className="mt-2 font-serif text-[1.375rem] font-semibold leading-snug text-ink">{entry.role}</h3>
               </div>
-            );
-          })}
-        </div>
+              <div className="md:col-span-8">
+                <ul className="space-y-1">
+                  {entry.organisations.map((org) => (
+                    <li key={org.name} className="text-[1rem]">
+                      <span className="font-semibold text-ink">{org.name}</span>
+                      <span className="text-muted"> · {org.location}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 leading-relaxed text-ink-soft">{entry.summary}</p>
+                <ul className="mt-3 space-y-1.5">
+                  {entry.responsibilities.map((item) => (
+                    <li key={item} className="flex gap-3 text-[0.975rem] leading-relaxed text-ink-soft">
+                      <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                {entry.review && <ReviewNote>{entry.review}</ReviewNote>}
+              </div>
+            </li>
+          ))}
+        </ol>
 
-      </div>
-    </section>
+        {/* Country detail — preserves the International Journey content */}
+        <div id="journey" className="mt-20 scroll-mt-24">
+          <div className="grid gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <h3 className="font-serif text-[1.75rem] font-semibold leading-tight text-ink">Experience by country</h3>
+              <p className="mt-3 leading-relaxed text-ink-soft">
+                Seven locations across East and Central Africa, the Horn of Africa and the Gulf. Select a country for details.
+              </p>
+            </div>
+            <div className="lg:col-span-8">
+              <ul className="divide-y divide-sand border-y border-sand">
+                {CHEF_PROFILE.locations.map((loc) => (
+                  <li key={loc.id}>
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 [&::-webkit-details-marker]:hidden">
+                        <span>
+                          <span className="font-serif text-[1.2rem] text-ink">{stripEmoji(loc.country)}</span>
+                          <span className="ml-3 text-[0.875rem] text-muted">{loc.region}</span>
+                        </span>
+                        <ChevronDown
+                          aria-hidden="true"
+                          className="h-5 w-5 shrink-0 text-gold-deep transition-transform group-open:rotate-180"
+                        />
+                      </summary>
+                      <div className="pb-6">
+                        <p className="leading-relaxed text-ink-soft">{loc.summary}</p>
+                        <ul className="mt-3 space-y-1.5">
+                          {loc.highlights.map((h) => (
+                            <li key={h} className="flex gap-3 text-[0.975rem] leading-relaxed text-ink-soft">
+                              <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
+                              <span>{h}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-3 text-[0.875rem] text-muted">
+                          <span className="font-semibold text-ink-soft">Roles: </span>
+                          {loc.roles.join(' · ')}
+                        </p>
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+              <ReviewNote>Confirm the role titles listed for each country.</ReviewNote>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </Section>
   );
 };

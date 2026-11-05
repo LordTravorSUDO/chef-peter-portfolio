@@ -74,9 +74,9 @@ export default function CategoryPage() {
         <title>Category Not Found | Chef Peter the Teacher</title>
         <meta name="robots" content="noindex, follow" />
         <div className="max-w-2xl mx-auto px-4 py-28 text-center space-y-6">
-          <p className="font-serif text-8xl font-bold text-[#C5A059]/20">404</p>
-          <h1 className="font-serif text-3xl font-bold text-[#EAE7E2]">Category not found</h1>
-          <Link to="/articles" className="inline-flex items-center gap-2 text-sm text-[#C5A059] hover:underline">
+          <p className="font-serif text-8xl font-bold text-gold-deep/20">404</p>
+          <h1 className="font-serif text-3xl font-bold text-ink">Category not found</h1>
+          <Link to="/articles" className="inline-flex items-center gap-2 text-sm text-gold-deep hover:underline">
             <ArrowLeft className="w-4 h-4" /> Browse all articles
           </Link>
         </div>
@@ -114,13 +114,13 @@ export default function CategoryPage() {
 
         {/* Page header */}
         <div className="space-y-3">
-          <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#D99B26]">Category</p>
-          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-[#EAE7E2]">{catName}</h1>
+          <p className="text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-gold-deep">Category</p>
+          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-ink">{catName}</h1>
           {catDesc && (
-            <p className="text-[#A09E98] leading-relaxed max-w-2xl">{catDesc}</p>
+            <p className="text-ink-soft leading-relaxed max-w-2xl">{catDesc}</p>
           )}
           {!loading && !error && (
-            <p className="text-xs text-[#4A4A4A]">
+            <p className="text-xs text-muted">
               {total} article{total !== 1 ? 's' : ''}
               {totalPages > 1 ? ` — page ${page} of ${totalPages}` : ''}
             </p>
@@ -130,8 +130,8 @@ export default function CategoryPage() {
         {/* Error */}
         {error && (
           <div className="text-center py-16 space-y-3">
-            <p className="text-[#A09E98]">{error}</p>
-            <button onClick={load} className="text-xs text-[#C5A059] hover:underline">Try again</button>
+            <p className="text-ink-soft">{error}</p>
+            <button onClick={load} className="text-xs text-gold-deep hover:underline">Try again</button>
           </div>
         )}
 
@@ -140,8 +140,8 @@ export default function CategoryPage() {
 
         {!loading && !error && articles.length === 0 && (
           <div className="text-center py-24 space-y-4">
-            <p className="font-serif text-xl text-[#EAE7E2]">No articles in this category yet.</p>
-            <Link to="/articles" className="text-sm text-[#C5A059] hover:underline">
+            <p className="font-serif text-xl text-ink">No articles in this category yet.</p>
+            <Link to="/articles" className="text-sm text-gold-deep hover:underline">
               Browse all articles
             </Link>
           </div>
@@ -157,17 +157,17 @@ export default function CategoryPage() {
             <button
               onClick={() => setPage(page - 1)}
               disabled={page <= 1}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C5A059]/20 text-xs text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2] transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gold/20 text-xs text-ink-soft hover:border-gold/50 hover:text-ink transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Previous
             </button>
-            <span className="text-xs text-[#6A6A6A]">
+            <span className="text-xs text-muted">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={() => setPage(page + 1)}
               disabled={page >= totalPages}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C5A059]/20 text-xs text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2] transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gold/20 text-xs text-ink-soft hover:border-gold/50 hover:text-ink transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Next <ChevronRight className="w-3.5 h-3.5" />
             </button>

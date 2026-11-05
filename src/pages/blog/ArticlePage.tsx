@@ -55,11 +55,11 @@ function ArticleSkeleton() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-6 animate-pulse">
       <div className="h-3 bg-[#222] rounded w-1/3" />
       <div className="h-8 bg-[#222] rounded w-4/5" />
-      <div className="h-4 bg-[#1E1E1E] rounded w-full" />
-      <div className="aspect-[16/9] bg-[#1A1A1A] rounded-2xl" />
+      <div className="h-4 bg-paper rounded w-full" />
+      <div className="aspect-[16/9] bg-paper rounded-2xl" />
       <div className="space-y-3 pt-4">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className={`h-4 bg-[#1E1E1E] rounded ${i % 3 === 2 ? 'w-4/5' : 'w-full'}`} />
+          <div key={i} className={`h-4 bg-paper rounded ${i % 3 === 2 ? 'w-4/5' : 'w-full'}`} />
         ))}
       </div>
     </div>
@@ -85,7 +85,7 @@ function ShareStrip({ url, title }: { url: string; title: string }) {
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#6A6A6A] flex items-center gap-1.5">
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted flex items-center gap-1.5">
         <Share2 className="w-3.5 h-3.5" /> Share
       </span>
       <a
@@ -93,7 +93,7 @@ function ShareStrip({ url, title }: { url: string; title: string }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Share on X (Twitter)"
-        className="p-2 rounded-full border border-[#C5A059]/20 text-[#6A6A6A] hover:text-[#EAE7E2] hover:border-[#C5A059]/50 transition"
+        className="p-2 rounded-full border border-gold/20 text-muted hover:text-ink hover:border-gold/50 transition"
       >
         <Twitter className="w-3.5 h-3.5" />
       </a>
@@ -102,14 +102,14 @@ function ShareStrip({ url, title }: { url: string; title: string }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Share on Facebook"
-        className="p-2 rounded-full border border-[#C5A059]/20 text-[#6A6A6A] hover:text-[#EAE7E2] hover:border-[#C5A059]/50 transition"
+        className="p-2 rounded-full border border-gold/20 text-muted hover:text-ink hover:border-gold/50 transition"
       >
         <Facebook className="w-3.5 h-3.5" />
       </a>
       <button
         onClick={copyLink}
         aria-label="Copy link to clipboard"
-        className="p-2 rounded-full border border-[#C5A059]/20 text-[#6A6A6A] hover:text-[#EAE7E2] hover:border-[#C5A059]/50 transition"
+        className="p-2 rounded-full border border-gold/20 text-muted hover:text-ink hover:border-gold/50 transition"
       >
         {copied
           ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -175,14 +175,14 @@ export default function ArticlePage() {
         <title>Article Not Found | Chef Peter the Teacher</title>
         <meta name="robots" content="noindex, follow" />
         <div className="max-w-2xl mx-auto px-4 py-28 text-center space-y-6">
-          <p className="font-serif text-8xl font-bold text-[#C5A059]/20">404</p>
-          <h1 className="font-serif text-3xl font-bold text-[#EAE7E2]">Article not found</h1>
-          <p className="text-[#A09E98] text-sm leading-relaxed max-w-sm mx-auto">
+          <p className="font-serif text-8xl font-bold text-gold-deep/20">404</p>
+          <h1 className="font-serif text-3xl font-bold text-ink">Article not found</h1>
+          <p className="text-ink-soft text-sm leading-relaxed max-w-sm mx-auto">
             This article may have been unpublished, moved to a new URL, or never existed.
           </p>
           <Link
             to="/articles"
-            className="inline-flex items-center gap-2 text-sm text-[#C5A059] hover:underline"
+            className="inline-flex items-center gap-2 text-sm text-gold-deep hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
             Browse all articles
@@ -297,26 +297,26 @@ export default function ArticlePage() {
         {primaryCat && (
           <Link
             to={`/category/${primaryCat.slug}`}
-            className="inline-block text-[10px] font-mono uppercase tracking-[0.35em] text-[#D99B26] hover:text-[#E6C687] transition mb-4"
+            className="inline-block text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-gold-deep hover:text-gold-deep transition mb-4"
           >
             {primaryCat.name}
           </Link>
         )}
 
         {/* H1 — article title is the only H1 on this page */}
-        <h1 className="font-serif text-3xl sm:text-[2.625rem] font-bold text-[#EAE7E2] leading-tight mb-4">
+        <h1 className="font-serif text-3xl sm:text-[2.625rem] font-bold text-ink leading-tight mb-4">
           {article.title}
         </h1>
 
         {/* Excerpt / standfirst */}
         {article.excerpt && (
-          <p className="text-lg text-[#A09E98] font-light leading-relaxed mb-6 border-l-2 border-[#C5A059]/30 pl-4">
+          <p className="text-lg text-ink-soft font-light leading-relaxed mb-6 border-l-2 border-gold/30 pl-4">
             {article.excerpt}
           </p>
         )}
 
         {/* Meta bar: author, date, reading time */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[#6A6A6A] pb-6 mb-8 border-b border-[#C5A059]/10 font-mono uppercase tracking-wide">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted pb-6 mb-8 border-b border-gold/10 uppercase tracking-[0.08em]">
           <span className="flex items-center gap-1.5">
             <User className="w-3.5 h-3.5" />
             {authorName}
@@ -328,7 +328,7 @@ export default function ArticlePage() {
             </time>
           )}
           {article.updated_at && article.updated_at !== article.published_at && (
-            <span className="text-[#4A4A4A]">
+            <span className="text-muted">
               Updated {formatDate(article.updated_at)}
             </span>
           )}
@@ -356,7 +356,7 @@ export default function ArticlePage() {
               className="w-full rounded-none sm:rounded-2xl object-cover max-h-[520px]"
             />
             {(featuredImg?.caption || featuredImg?.credit) && (
-              <figcaption className="mt-2.5 text-xs text-[#5A5A5A] text-center leading-relaxed">
+              <figcaption className="mt-2.5 text-xs text-muted text-center leading-relaxed">
                 {featuredImg.caption}
                 {featuredImg.caption && featuredImg.credit && ' · '}
                 {featuredImg.credit && <span className="italic">Credit: {featuredImg.credit}</span>}
@@ -367,22 +367,22 @@ export default function ArticlePage() {
 
         {/* Article body */}
         <div
-          className="article-body text-[#D5D2CD] leading-[1.85] text-[0.9375rem]"
+          className="article-body text-ink-soft leading-[1.8] text-[1.0625rem] sm:text-[1.125rem]"
           dangerouslySetInnerHTML={{ __html: enhancedBody }}
         />
 
         {/* Footer: categories + tags + share */}
-        <footer className="mt-14 pt-8 border-t border-[#C5A059]/10 space-y-6">
+        <footer className="mt-14 pt-8 border-t border-gold/10 space-y-6">
 
           {/* Categories */}
           {allCats.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#6A6A6A]">In:</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">In:</span>
               {allCats.map((cat) => cat && (
                 <Link
                   key={cat.id}
                   to={`/category/${cat.slug}`}
-                  className="px-3 py-1 rounded-full text-xs font-medium bg-[#1A1A1A] border border-[#C5A059]/20 text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#C5A059] transition"
+                  className="px-3 py-1 rounded-full text-xs font-medium bg-paper border border-gold/20 text-ink-soft hover:border-gold/50 hover:text-gold-deep transition"
                 >
                   {cat.name}
                 </Link>
@@ -393,14 +393,14 @@ export default function ArticlePage() {
           {/* Tags */}
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#6A6A6A] flex items-center gap-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted flex items-center gap-1">
                 <Tag className="w-3 h-3" /> Tags:
               </span>
               {tags.map((tag) => tag && (
                 <Link
                   key={tag.id}
                   to={`/tag/${tag.slug}`}
-                  className="px-3 py-1 rounded-full text-xs border border-[#C5A059]/15 text-[#6A6A6A] hover:border-[#C5A059]/40 hover:text-[#A09E98] transition"
+                  className="px-3 py-1 rounded-full text-xs border border-gold/15 text-muted hover:border-gold/40 hover:text-ink-soft transition"
                 >
                   #{tag.name}
                 </Link>
@@ -413,7 +413,7 @@ export default function ArticlePage() {
             <ShareStrip url={articleUrl} title={article.title} />
             <Link
               to="/articles"
-              className="inline-flex items-center gap-1.5 text-xs text-[#6A6A6A] hover:text-[#C5A059] transition"
+              className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-gold-deep transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               All articles
@@ -424,9 +424,9 @@ export default function ArticlePage() {
 
       {/* ── Related articles ────────────────────────────────────────────── */}
       {(relLoading || related.length > 0) && (
-        <section className="border-t border-[#C5A059]/10 mt-4 py-14" aria-label="Related articles">
+        <section className="border-t border-gold/10 mt-4 py-14" aria-label="Related articles">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
-            <h2 className="font-serif text-2xl font-bold text-[#EAE7E2]">
+            <h2 className="font-serif text-2xl font-bold text-ink">
               More to read
             </h2>
             {relLoading
@@ -441,16 +441,16 @@ export default function ArticlePage() {
       <style>{`
         .article-body h2 {
           font-family: 'Playfair Display', Georgia, serif;
-          font-size: 1.75rem; font-weight: 700; color: #EAE7E2;
+          font-size: 1.75rem; font-weight: 700; color: #1E1A16;
           margin: 2.25em 0 0.65em; line-height: 1.25;
         }
         .article-body h3 {
           font-family: 'Playfair Display', Georgia, serif;
-          font-size: 1.375rem; font-weight: 600; color: #EAE7E2;
+          font-size: 1.375rem; font-weight: 600; color: #1E1A16;
           margin: 1.9em 0 0.5em; line-height: 1.3;
         }
         .article-body h4 {
-          font-size: 1.125rem; font-weight: 600; color: #EAE7E2;
+          font-size: 1.125rem; font-weight: 600; color: #1E1A16;
           margin: 1.6em 0 0.4em; line-height: 1.35;
         }
         .article-body p  { margin: 0.9em 0; }
@@ -461,30 +461,30 @@ export default function ArticlePage() {
         .article-body blockquote {
           border-left: 3px solid #C5A059;
           padding: 0.8em 1.25em; margin: 1.5em 0;
-          color: #A09E98; font-style: italic;
+          color: #4B433A; font-style: italic;
           background: rgba(197,160,89,0.04);
           border-radius: 0 10px 10px 0;
         }
-        .article-body a { color: #C5A059; text-decoration: underline; text-underline-offset: 3px; }
-        .article-body a:hover { color: #E6C687; }
+        .article-body a { color: #1E1A16; text-decoration: underline; text-decoration-color: #C5A059; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+        .article-body a:hover { color: #87652A; }
         .article-body img { max-width: 100%; height: auto; border-radius: 12px; margin: 1.75em 0; }
         .article-body figure { margin: 1.75em 0; }
-        .article-body figcaption { text-align: center; font-size: 0.75rem; color: #5A5A5A; margin-top: 0.6em; }
+        .article-body figcaption { text-align: center; font-size: 0.75rem; color: #6B6155; margin-top: 0.6em; }
         .article-body hr { border: none; border-top: 1px solid rgba(197,160,89,0.12); margin: 2.25em 0; }
-        .article-body strong { color: #EAE7E2; font-weight: 600; }
-        .article-body em { color: #C5B88A; }
+        .article-body strong { color: #1E1A16; font-weight: 600; }
+        .article-body em { color: inherit; }
         .article-body code {
-          background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 4px;
-          padding: 0.15em 0.4em; font-size: 0.875em; color: #C5A059;
+          background: #F4EDE2; border: 1px solid #E4D9C6; border-radius: 4px;
+          padding: 0.15em 0.4em; font-size: 0.875em; color: #87652A;
         }
         .article-body pre {
-          background: #141414; border: 1px solid #2A2A2A; border-radius: 8px;
+          background: #F4EDE2; border: 1px solid #E4D9C6; border-radius: 8px;
           padding: 1em 1.25em; overflow-x: auto; margin: 1.5em 0;
         }
         .article-body pre code { background: none; border: none; padding: 0; }
         .article-body table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.875rem; }
-        .article-body th { text-align: left; padding: 0.6em 0.8em; color: #EAE7E2; border-bottom: 1px solid #2A2A2A; }
-        .article-body td { padding: 0.5em 0.8em; border-bottom: 1px solid #1A1A1A; color: #D5D2CD; }
+        .article-body th { text-align: left; padding: 0.6em 0.8em; color: #1E1A16; border-bottom: 1px solid #E4D9C6; }
+        .article-body td { padding: 0.5em 0.8em; border-bottom: 1px solid #F4EDE2; color: #4B433A; }
       `}</style>
     </BlogLayout>
   );

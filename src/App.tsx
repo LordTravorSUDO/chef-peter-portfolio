@@ -7,19 +7,19 @@ import { Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { StorySection } from './components/StorySection';
-import { InternationalJourneySection } from './components/InternationalJourneySection';
-import { ExpertiseSection } from './components/ExpertiseSection';
 import { ExperienceSection } from './components/ExperienceSection';
 import { GallerySection } from './components/GallerySection';
 import { BooksSection } from './components/BooksSection';
 import { EducationCredentialsSection } from './components/EducationCredentialsSection';
-import { PhilosophySection } from './components/PhilosophySection';
+import { TeachingSection } from './components/TeachingSection';
+import { ArticlesTeaserSection } from './components/ArticlesTeaserSection';
 import { ServicesSection } from './components/ServicesSection';
 import { ContactCTASection } from './components/ContactCTASection';
 import { Footer } from './components/Footer';
 import { ConsultationModal } from './components/ConsultationModal';
 import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
 import { SeoLandingPage } from './components/SeoLandingPage';
+import { ReviewBanner } from './components/site/ReviewNote';
 import { SEO_PAGES, type SeoPage } from './data/seoPages';
 
 // ---------------------------------------------------------------------------
@@ -74,54 +74,40 @@ function PortfolioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0C0C] text-[#EAE7E2] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
-      {/* Sticky Glass Navbar */}
+    <div className="min-h-screen bg-cream text-ink">
+      <ReviewBanner />
       <Navbar onOpenConsultationModal={handleOpenConsultationModal} />
 
-      {/* Hero Section */}
-      <HeroSection onOpenConsultationModal={() => handleOpenConsultationModal()} />
+      <main id="main">
+        {/* 1. Who Chef Peter is */}
+        <HeroSection />
+        {/* 2. Personal story (#story) */}
+        <StorySection />
+        {/* 3. Career record (#experience, #journey) */}
+        <ExperienceSection />
+        {/* 4. Education (#credentials) */}
+        <EducationCredentialsSection />
+        {/* 5. Services + specialist knowledge (#services, #expertise) */}
+        <ServicesSection onOpenConsultationModal={handleOpenConsultationModal} />
+        {/* 6. Teaching approach (#teaching) — includes the former Philosophy content */}
+        <TeachingSection />
+        {/* 7. Culinary gallery (#gallery) */}
+        <GallerySection />
+        {/* 8. Published books (#books) */}
+        <BooksSection onOpenConsultationModal={handleOpenConsultationModal} />
+        {/* 9. Latest CMS articles (#articles) */}
+        <ArticlesTeaserSection />
+        {/* 10. Contact (#contact) */}
+        <ContactCTASection />
+      </main>
 
-      {/* The Chef Peter Story */}
-      <StorySection />
-
-      {/* International Journey */}
-      <InternationalJourneySection />
-
-      {/* Expertise & Culinary Mastery */}
-      <ExpertiseSection />
-
-      {/* Professional Experience */}
-      <ExperienceSection />
-
-      {/* Culinary Gallery */}
-      <GallerySection />
-
-      {/* Published Works */}
-      <BooksSection onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Education & Credentials */}
-      <EducationCredentialsSection />
-
-      {/* Chef Philosophy */}
-      <PhilosophySection />
-
-      {/* Professional Advisory Services */}
-      <ServicesSection onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Contact & Executive Inquiry */}
-      <ContactCTASection />
-
-      {/* Footer */}
       <Footer />
 
-      {/* Quick Consultation Booking Modal */}
       <ConsultationModal
         isOpen={consultationModalOpen}
         initialService={modalServiceTitle}
         onClose={() => setConsultationModalOpen(false)}
       />
-
-      {/* Floating WhatsApp Quick Chat Button */}
       <FloatingWhatsAppButton />
     </div>
   );
@@ -132,8 +118,8 @@ function PortfolioPage() {
 // ---------------------------------------------------------------------------
 function PageLoader() {
   return (
-    <div className="min-h-screen bg-[#0C0C0C] flex items-center justify-center">
-      <div className="w-8 h-8 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" />
+    <div className="min-h-screen bg-cream flex items-center justify-center" role="status" aria-label="Loading">
+      <div className="w-8 h-8 rounded-full border-2 border-gold/30 border-t-gold-deep animate-spin" />
     </div>
   );
 }

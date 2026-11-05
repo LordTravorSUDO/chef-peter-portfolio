@@ -1,8 +1,11 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Phone, UtensilsCrossed, Users, ClipboardCheck, HelpCircle, Award, GraduationCap, BadgeCheck, Building2, MapPinned, BookOpen, Newspaper, Trophy, ChefHat } from 'lucide-react';
+import { ArrowRight, Phone, Plus } from 'lucide-react';
 import { SeoPage } from '../data/seoPages';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { Footer } from './Footer';
+import { SiteHeader } from './site/SiteHeader';
+import { Container, Eyebrow, btn, card } from './site/ui';
+import { ReviewNote, useReviewMode } from './site/ReviewNote';
 
 const SITE_URL = 'https://www.chefpetertheteacher.com';
 
@@ -18,51 +21,55 @@ function setMeta(selector: string, attribute: string, value: string) {
 }
 
 
-const EvidenceCard: React.FC<{
-  icon: React.ReactNode;
-  title: string;
-  items: Array<{ title: string; detail: string; status: 'verified' | 'confirmation-needed' }>;
-}> = ({ icon, title, items }) => (
-  <article className="mb-6 break-inside-avoid rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
-    <div className="flex items-center gap-3 text-[#C5A059]">
-      {icon}
-      <h3 className="font-serif text-2xl font-bold">{title}</h3>
-    </div>
-    <div className="mt-5 space-y-4">
-      {items.map(item => (
-        <div key={item.title} className="rounded-xl bg-black/20 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <h4 className="font-semibold text-[#EAE7E2]">{item.title}</h4>
-            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-              item.status === 'verified'
-                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
-            }`}>
-              {item.status === 'verified' ? 'Profile verified' : 'Confirmation needed'}
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-[#AFAAA2]">{item.detail}</p>
-        </div>
-      ))}
-    </div>
-  </article>
-);
+type EvidenceItem = { title: string; detail: string; status: 'verified' | 'confirmation-needed' };
 
-const ListCard: React.FC<{ icon: React.ReactNode; title: string; items: string[] }> = ({ icon, title, items }) => (
-  <article className="mb-6 break-inside-avoid rounded-2xl border border-[#C5A059]/20 bg-[#141414] p-6">
-    <div className="flex items-center gap-3 text-[#C5A059]">
-      {icon}
-      <h3 className="font-serif text-2xl font-bold">{title}</h3>
+/**
+ * Credential entries. The "verified / confirmation needed" status is shown
+ * only in content review mode, until supporting documents are supplied.
+ */
+const EvidenceBlock: React.FC<{ title: string; items: EvidenceItem[] }> = ({ title, items }) => {
+  const review = useReviewMode();
+  return (
+    <div className="break-inside-avoid pb-10">
+      <h3 className="font-serif text-[1.375rem] font-semibold text-ink">{title}</h3>
+      <dl className="mt-4 space-y-4">
+        {items.map((item) => (
+          <div key={item.title} className="border-l-2 border-gold pl-4">
+            <dt className="font-semibold text-ink">
+              {item.title}
+              {review && (
+                <span className="ml-2 rounded border border-dashed border-[#B7791F] bg-[#FFF7E6] px-1.5 py-0.5 align-middle text-[0.75rem] font-semibold text-[#7A4A0B]">
+                  {item.status === 'verified' ? 'Marked “verified” — documents still to be supplied' : 'Confirmation needed'}
+                </span>
+              )}
+            </dt>
+            <dd className="mt-1 text-[0.975rem] leading-relaxed text-ink-soft">{item.detail}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
-    <ul className="mt-5 grid gap-3">
-      {items.map(item => (
-        <li key={item} className="flex items-start gap-3 rounded-lg bg-black/20 p-3 text-sm leading-6 text-[#D0CCC4]">
-          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#C5A059]" />
+  );
+};
+
+const ListBlock: React.FC<{ title: string; items: string[] }> = ({ title, items }) => (
+  <div className="break-inside-avoid pb-10">
+    <h3 className="font-serif text-[1.375rem] font-semibold text-ink">{title}</h3>
+    <ul className="mt-4 space-y-1.5">
+      {items.map((item) => (
+        <li key={item} className="flex gap-3 text-[0.975rem] leading-relaxed text-ink-soft">
+          <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
           <span>{item}</span>
         </li>
       ))}
     </ul>
-  </article>
+  </div>
+);
+
+const Bullet: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <li className="flex gap-3 text-[0.975rem] leading-relaxed text-ink-soft">
+    <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
+    <span>{children}</span>
+  </li>
 );
 
 export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
@@ -114,169 +121,189 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
   const whatsapp = 'https://wa.me/256752345858?text=' + message;
 
   return (
-    <div className="min-h-screen bg-[#0C0C0C] text-[#EAE7E2]">
-      <header className="border-b border-[#C5A059]/20 bg-[#0C0C0C]/95 sticky top-0 z-40 backdrop-blur-lg">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <a href="/" className="font-serif text-lg sm:text-xl font-bold">
-            Chef Peter <span className="text-[#C5A059]">the Teacher</span>
-          </a>
-          <a href="/" className="inline-flex items-center gap-2 text-xs sm:text-sm text-[#C5A059] hover:text-[#E6C687]">
-            <ArrowLeft className="w-4 h-4" /> Back to portfolio
-          </a>
-        </div>
-      </header>
+    <div className="min-h-screen bg-cream text-ink">
+      <SiteHeader />
 
-      <main>
-        <section className="relative overflow-hidden border-b border-[#C5A059]/20">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(197,160,89,0.18),transparent_45%)]" />
-          <div className={`max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28 relative ${page.image ? 'grid lg:grid-cols-[1.15fr_0.85fr] items-center gap-12' : ''}`}>
-            <div>
-              <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-[#C5A059] mb-5">
-                <UtensilsCrossed className="w-4 h-4" /> {page.eyebrow}
-              </span>
-              <h1 className="text-4xl sm:text-6xl font-serif font-bold max-w-4xl leading-tight">{page.title}</h1>
-              <p className="mt-6 text-base sm:text-xl text-[#C8C4BC] max-w-3xl leading-relaxed">{page.introduction}</p>
+      <main id="main">
+        {/* Introduction */}
+        <section className="border-b border-sand">
+          <Container className={`py-16 sm:py-20 ${page.image ? 'grid items-center gap-12 lg:grid-cols-12' : ''}`}>
+            <div className={page.image ? 'lg:col-span-7' : 'max-w-3xl'}>
+              <nav aria-label="Breadcrumb" className="text-[0.875rem] text-muted">
+                <a href="/" className="hover:text-ink hover:underline">Home</a>
+                <span aria-hidden="true"> / </span>
+                <span aria-current="page">{page.title}</span>
+              </nav>
+              <Eyebrow className="mt-6">{page.eyebrow}</Eyebrow>
+              <h1 className="mt-3 font-serif text-[2.25rem] font-semibold leading-[1.1] text-ink sm:text-[3rem]">{page.title}</h1>
+              <p className="mt-6 max-w-2xl text-[1.125rem] leading-relaxed text-ink-soft">{page.introduction}</p>
               {page.experienceNote && (
-                <div className="mt-6 inline-flex items-center gap-3 text-[#E6C687] bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-xl px-4 py-3">
-                  <Award className="w-6 h-6 shrink-0" />
-                  <span className="text-sm font-semibold">{page.experienceNote}</span>
-                </div>
+                <>
+                  <p className="mt-5 border-l-2 border-gold pl-4 text-[1rem] font-semibold text-ink">{page.experienceNote}</p>
+                  <ReviewNote>Confirm total years of experience (the homepage previously said 15+; this page says 20+).</ReviewNote>
+                </>
               )}
-              <div className="mt-9 flex flex-wrap gap-3">
-                <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#C5A059] text-black font-bold px-6 py-3 hover:bg-[#E6C687] transition-colors">
-                  <WhatsAppIcon className="w-5 h-5" title="WhatsApp" /> Enquire on WhatsApp
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={btn.whatsapp}>
+                  <WhatsAppIcon className="h-5 w-5" /> Enquire on WhatsApp
+                  <span className="sr-only">(opens in a new tab)</span>
                 </a>
-                <a href="tel:+256752345858" className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/50 px-6 py-3 text-[#EAE7E2] hover:border-[#C5A059] transition-colors">
-                  <Phone className="w-5 h-5" /> Call Chef Peter
+                <a href="tel:+256752345858" className={btn.secondary}>
+                  <Phone className="h-4 w-4" aria-hidden="true" /> Call Chef Peter
                 </a>
               </div>
             </div>
             {page.image && (
-              <div className="relative max-w-md mx-auto lg:mx-0">
-                <div className="absolute -inset-3 border border-[#C5A059]/30 rounded-[2rem] rotate-3" />
-                <img src={page.image} alt={page.imageAlt ?? page.title} className="relative w-full aspect-[4/5] object-cover object-top rounded-[2rem] border border-[#C5A059]/40 shadow-2xl" />
-                <div className="absolute bottom-5 left-5 right-5 bg-black/80 backdrop-blur-md border border-[#C5A059]/30 rounded-xl p-4">
-                  <p className="text-[#C5A059] text-xs uppercase tracking-[0.2em]">Professional Consultant Chef</p>
-                  <p className="mt-1 font-serif text-xl font-bold">Over 20 years in culinary and hospitality</p>
+              <figure className="lg:col-span-5">
+                <div className="relative mx-auto max-w-[22rem] lg:max-w-none">
+                  <span aria-hidden="true" className="absolute -bottom-3 -right-3 h-full w-full rounded-lg border border-gold/70" />
+                  <img
+                    src={page.image}
+                    alt={page.imageAlt ?? page.title}
+                    width={1365}
+                    height={768}
+                    className="relative aspect-[4/5] w-full rounded-lg object-cover object-[51%_center]"
+                  />
                 </div>
-              </div>
+              </figure>
             )}
-          </div>
+          </Container>
         </section>
 
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {page.highlights.map(item => (
-              <div key={item} className="bg-[#161616] border border-[#C5A059]/20 rounded-xl p-5 flex gap-3">
-                <CheckCircle className="w-5 h-5 text-[#C5A059] shrink-0" />
-                <span className="text-sm leading-6">{item}</span>
-              </div>
+        {/* Highlights */}
+        <section aria-label="Highlights" className="bg-paper">
+          <Container className="py-10">
+            <ul className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+              {page.highlights.map((item) => (
+                <li key={item} className="flex gap-3 text-[1rem] font-semibold text-ink">
+                  <span aria-hidden="true" className="mt-[0.7em] h-px w-4 shrink-0 bg-gold" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </Container>
+        </section>
+
+        {/* Main sections */}
+        <Container className="py-16 sm:py-20">
+          <div className="max-w-3xl space-y-14">
+            {page.sections.map((section) => (
+              <article key={section.title}>
+                <h2 className="font-serif text-[1.75rem] font-semibold leading-snug text-ink sm:text-[2rem]">{section.title}</h2>
+                <p className="mt-4 text-[1.0625rem] leading-[1.75] text-ink-soft">{section.body}</p>
+                {section.points && (
+                  <ul className="mt-5 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+                    {section.points.map((point) => (
+                      <Bullet key={point}>{point}</Bullet>
+                    ))}
+                  </ul>
+                )}
+              </article>
             ))}
           </div>
-        </section>
+        </Container>
 
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 space-y-6">
-          {page.sections.map(section => (
-            <article key={section.title} className="bg-[#141414] border border-[#C5A059]/20 rounded-2xl p-6 sm:p-8">
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-[#E6C687]">{section.title}</h2>
-              <p className="mt-4 text-[#B8B4AD] leading-7">{section.body}</p>
-              {section.points && (
-                <ul className="mt-5 grid sm:grid-cols-2 gap-3">
-                  {section.points.map(point => (
-                    <li key={point} className="flex items-start gap-3 text-sm text-[#D0CCC4] bg-black/20 rounded-lg p-3">
-                      <CheckCircle className="w-4 h-4 mt-0.5 text-[#C5A059] shrink-0" />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
-          ))}
-        </section>
-
-
+        {/* Professional evidence (About page) */}
         {page.professionalEvidence && (
-          <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20" aria-labelledby="credentials-heading">
-            <div className="text-center max-w-3xl mx-auto mb-10">
-              <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059]">Professional Evidence</span>
-              <h2 id="credentials-heading" className="mt-3 text-3xl sm:text-4xl font-serif font-bold">Credentials, Experience and Professional Standing</h2>
-              <p className="mt-4 text-[#AFAAA2] leading-7">
-                This section separates information already documented in Chef Peter’s professional profile from details that still require supporting certificates, publication links or official references.
-              </p>
-            </div>
-
-            <div className="columns-1 lg:columns-2 gap-6">
-              <EvidenceCard icon={<GraduationCap className="w-6 h-6" />} title="Qualifications" items={page.professionalEvidence.qualifications} />
-              <EvidenceCard icon={<BadgeCheck className="w-6 h-6" />} title="Professional Certificates" items={page.professionalEvidence.certifications} />
-              <ListCard icon={<Building2 className="w-6 h-6" />} title="Professional Organisations and Operations" items={page.professionalEvidence.organizations} />
-              <ListCard icon={<MapPinned className="w-6 h-6" />} title="Countries of Professional Operation" items={page.professionalEvidence.countries} />
-              <ListCard icon={<BookOpen className="w-6 h-6" />} title="Published Culinary Books" items={page.professionalEvidence.books} />
-              <ListCard icon={<ChefHat className="w-6 h-6" />} title="Professional Capabilities" items={page.professionalEvidence.capabilities} />
-              <EvidenceCard icon={<Newspaper className="w-6 h-6" />} title="Media Appearances" items={page.professionalEvidence.media} />
-              <EvidenceCard icon={<Trophy className="w-6 h-6" />} title="Awards and Recognitions" items={page.professionalEvidence.awards} />
-            </div>
-
+          <section aria-labelledby="credentials-heading" className="border-t border-sand bg-paper">
+            <Container className="py-16 sm:py-20">
+              <div className="max-w-2xl">
+                <Eyebrow>Professional record</Eyebrow>
+                <h2 id="credentials-heading" className="mt-3 font-serif text-[2rem] font-semibold leading-tight text-ink sm:text-[2.5rem]">
+                  Credentials, experience and professional standing
+                </h2>
+                <span aria-hidden="true" className="mt-5 block h-px w-14 bg-gold" />
+                <p className="mt-5 leading-relaxed text-ink-soft">
+                  Qualifications, organisations, countries, publications and recognition from Chef Peter’s professional profile.
+                </p>
+              </div>
+              <div className="mt-12 gap-12 lg:columns-2">
+                <EvidenceBlock title="Qualifications" items={page.professionalEvidence.qualifications} />
+                <EvidenceBlock title="Professional certificates" items={page.professionalEvidence.certifications} />
+                <ListBlock title="Organisations and operations" items={page.professionalEvidence.organizations} />
+                <ListBlock title="Countries of professional work" items={page.professionalEvidence.countries} />
+                <ListBlock title="Published culinary books" items={page.professionalEvidence.books} />
+                <ListBlock title="Professional capabilities" items={page.professionalEvidence.capabilities} />
+                <EvidenceBlock title="Media appearances" items={page.professionalEvidence.media} />
+                <EvidenceBlock title="Awards and recognition" items={page.professionalEvidence.awards} />
+              </div>
+            </Container>
           </section>
         )}
 
-        <section className="border-y border-[#C5A059]/20 bg-[#121212]">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 grid lg:grid-cols-2 gap-12">
+        {/* Audience and process */}
+        <section className="bg-charcoal text-cream">
+          <Container className="grid gap-14 py-16 sm:py-20 lg:grid-cols-2">
             <div>
-              <div className="flex items-center gap-3 text-[#C5A059]">
-                <Users className="w-6 h-6" />
-                <h2 className="font-serif text-3xl font-bold">{page.audienceTitle}</h2>
-              </div>
-              <div className="mt-6 grid sm:grid-cols-2 gap-3">
-                {page.audience.map(item => (
-                  <div key={item} className="border border-[#C5A059]/20 rounded-xl p-4 text-sm text-[#D0CCC4]">{item}</div>
+              <h2 className="font-serif text-[1.875rem] font-semibold text-cream">{page.audienceTitle}</h2>
+              <span aria-hidden="true" className="mt-4 block h-px w-14 bg-gold" />
+              <ul className="mt-6 space-y-2">
+                {page.audience.map((item) => (
+                  <li key={item} className="flex gap-3 leading-relaxed text-cream-soft">
+                    <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
+                    <span>{item}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
             <div>
-              <div className="flex items-center gap-3 text-[#C5A059]">
-                <ClipboardCheck className="w-6 h-6" />
-                <h2 className="font-serif text-3xl font-bold">{page.processTitle}</h2>
-              </div>
-              <ol className="mt-6 space-y-4">
+              <h2 className="font-serif text-[1.875rem] font-semibold text-cream">{page.processTitle}</h2>
+              <span aria-hidden="true" className="mt-4 block h-px w-14 bg-gold" />
+              <ol className="mt-6">
                 {page.process.map((step, index) => (
-                  <li key={step.title} className="flex gap-4">
-                    <span className="w-9 h-9 rounded-full bg-[#C5A059] text-black font-bold flex items-center justify-center shrink-0">{index + 1}</span>
+                  <li key={step.title} className="grid grid-cols-[2.75rem_1fr] gap-3 border-t border-cream/15 py-5">
+                    <span className="font-serif text-[1.5rem] leading-none text-gold">{String(index + 1).padStart(2, '0')}</span>
                     <div>
-                      <h3 className="font-semibold text-[#EAE7E2]">{step.title}</h3>
-                      <p className="mt-1 text-sm leading-6 text-[#AFAAA2]">{step.description}</p>
+                      <h3 className="font-sans text-[1.0625rem] font-semibold text-cream">{step.title}</h3>
+                      <p className="mt-1 leading-relaxed text-cream-soft">{step.description}</p>
                     </div>
                   </li>
                 ))}
               </ol>
             </div>
-          </div>
+          </Container>
         </section>
 
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
-          <div className="flex items-center gap-3 text-[#C5A059] mb-8">
-            <HelpCircle className="w-6 h-6" />
-            <h2 className="font-serif text-3xl font-bold">Frequently asked questions</h2>
-          </div>
-          <div className="space-y-4">
-            {page.faqs.map(faq => (
-              <details key={faq.question} className="group bg-[#141414] border border-[#C5A059]/20 rounded-xl p-5">
-                <summary className="font-semibold cursor-pointer list-none flex justify-between gap-4">
-                  {faq.question}
-                  <span className="text-[#C5A059] group-open:rotate-45 transition-transform text-2xl leading-none">+</span>
-                </summary>
-                <p className="mt-4 text-[#B8B4AD] leading-7 border-t border-[#C5A059]/10 pt-4">{faq.answer}</p>
-              </details>
-            ))}
+        {/* FAQs */}
+        <Container className="py-16 sm:py-20">
+          <div className="max-w-3xl">
+            <h2 className="font-serif text-[1.875rem] font-semibold text-ink sm:text-[2.25rem]">Frequently asked questions</h2>
+            <span aria-hidden="true" className="mt-4 block h-px w-14 bg-gold" />
+            <div className="mt-8 divide-y divide-sand border-y border-sand">
+              {page.faqs.map((faq) => (
+                <details key={faq.question} className="group">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-5 text-[1.0625rem] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                    {faq.question}
+                    <Plus aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-gold-deep transition-transform group-open:rotate-45" />
+                  </summary>
+                  <p className="pb-6 leading-relaxed text-ink-soft">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
           </div>
 
-          <div className="text-center border border-[#C5A059]/30 rounded-2xl p-8 sm:p-10 mt-14 bg-[radial-gradient(circle_at_top,rgba(197,160,89,0.12),transparent_65%)]">
-            <h2 className="font-serif text-3xl font-bold">Discuss your requirements with Chef Peter</h2>
-            <p className="text-[#A09E98] mt-3 max-w-2xl mx-auto">Share your location, preferred date, number of people and the service or training you require. Chef Peter will respond with the next steps.</p>
-            <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#C5A059] text-black font-bold px-7 py-3 hover:bg-[#E6C687] transition-colors">
-              <WhatsAppIcon className="w-5 h-5" title="WhatsApp" /> Start an enquiry
-            </a>
+          {/* Enquiry */}
+          <div className={`${card} mt-16 p-8 sm:p-10`}>
+            <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <h2 className="font-serif text-[1.75rem] font-semibold text-ink">Discuss your requirements with Chef Peter</h2>
+                <p className="mt-2 max-w-2xl leading-relaxed text-ink-soft">
+                  Share your location, preferred date, number of people and the service or training you require. Chef Peter will
+                  respond with the next steps.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
+                <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={btn.whatsapp}>
+                  <WhatsAppIcon className="h-5 w-5" /> Start an enquiry
+                  <span className="sr-only">(opens in a new tab)</span>
+                </a>
+                <a href="/#contact" className={btn.secondary}>
+                  Use the enquiry form <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </div>
+            </div>
           </div>
-        </section>
+        </Container>
       </main>
       <Footer />
     </div>
