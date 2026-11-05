@@ -28,6 +28,7 @@ import BlogLayout from '../../components/blog/BlogLayout';
 import ArticleGrid, { ArticleGridSkeleton } from '../../components/blog/ArticleGrid';
 import ArticleCard from '../../components/blog/ArticleCard';
 import FeaturedArticleHero from '../../components/blog/FeaturedArticleHero';
+import { IDS } from '../../lib/seo/schema';
 import {
   CategoryTiles,
   EducatorPanel,
@@ -42,9 +43,9 @@ import {
 const PAGE_SIZE = 12;
 const LATEST_COUNT = 6;
 
-const META_TITLE = `${LIBRARY_NAME} — culinary articles, recipes and techniques | Chef Peter the Teacher`;
+const META_TITLE = 'Culinary Library: Recipes, Techniques & Training | Chef Peter';
 const META_DESC =
-  'Practical culinary lessons from Chef Peter the Teacher: cooking techniques, pastry and bakery, ingredients, food safety, international cuisines and professional kitchen skills.';
+  'Culinary lessons from Chef Peter the Teacher: cooking techniques, baking and pastry, ingredients, food safety, international cuisine and kitchen skills.';
 
 type TagInUse = { id: string; slug: string; name: string; count: number };
 
@@ -163,8 +164,9 @@ export default function BlogIndexPage() {
     name: LIBRARY_NAME,
     url: `${SITE_URL}/articles`,
     description: META_DESC,
-    isPartOf: { '@type': 'WebSite', name: 'Chef Peter the Teacher', url: SITE_URL },
-    author: { '@type': 'Person', name: 'Chef Peter the Teacher', url: `${SITE_URL}/about-chef-peter` },
+    // References the site-wide WebSite and Person entities (defined once in index.html)
+    isPartOf: { '@id': IDS.website },
+    author: { '@id': IDS.person },
   };
 
   return (

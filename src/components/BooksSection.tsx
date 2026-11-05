@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { PUBLISHED_BOOKS } from '../data/booksData';
 import { BOOK_SUBJECT_AREAS, BOOKS_REVIEW } from '../data/siteContent';
 import { ImageWithFallback } from './ImageWithFallback';
+import { optimisedImage } from '../data/imageVariants';
 import { Container, Section, SectionHeader, btn } from './site/ui';
 import { ReviewNote } from './site/ReviewNote';
 
@@ -35,12 +36,13 @@ export const BooksSection: React.FC<BooksSectionProps> = ({ onOpenConsultationMo
             >
               <div className={`md:col-span-4 ${i % 2 === 1 ? 'md:order-2' : ''}`}>
                 <ImageWithFallback
-                  src={book.coverImage}
+                  src={optimisedImage(book.coverImage)?.src ?? book.coverImage}
+                  fallbackSrc={book.coverImage}
                   alt={`Cover of “${book.title}” by Chef Peter the Teacher`}
                   fallbackText={book.title}
                   loading="lazy"
-                  width={896}
-                  height={1200}
+                  width={optimisedImage(book.coverImage)?.width ?? 896}
+                  height={optimisedImage(book.coverImage)?.height ?? 1200}
                   className="mx-auto aspect-[3/4] max-w-[16rem] rounded-sm shadow-[0_18px_40px_-18px_rgba(28,26,23,0.55)] ring-1 ring-ink/10 md:max-w-none"
                 />
               </div>

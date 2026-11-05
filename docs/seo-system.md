@@ -70,41 +70,42 @@ It would be bundled into the client-side JavaScript and expose full database acc
 
 ## Dynamic Sitemap
 
-The sitemap at `/sitemap.xml` is now served by `/api/sitemap` (via a Vercel redirect).
+`/sitemap.xml` redirects to `/api/sitemap`, which builds the XML with
+`src/lib/seo/sitemap.ts` (unit-tested in `tests/unit/seo-sitemap.test.ts`).
 
 It includes:
-- Homepage (`/`)
-- Articles index (`/articles`)
-- All published, non-noindex article URLs
+- Homepage (`/`) and the library (`/articles`)
+- Every prerendered landing page (`SEO_PAGES` in `src/data/seoPages.ts`)
+- Published, indexable articles (`published_at` in the past, `noindex = false`)
+- Category pages that contain at least one such article and are not hidden
 
-It excludes:
-- Drafts
-- Scheduled articles
-- noindex articles
-- Admin pages
-- API pages
+It excludes drafts, scheduled, archived and noindex articles, tag pages
+(noindex), search/filter URLs, admin and API routes.
 
-The sitemap updates automatically — no manual action is needed after publishing
-or unpublishing an article. The sitemap is cached at the Vercel edge for 30 minutes.
+`lastmod` is only given where a real date is known (the article's last update,
+or the newest article in a category) — never "now".
+
+`robots.txt` disallows `/api/` but explicitly allows `/api/sitemap`, so crawlers
+can follow the `/sitemap.xml` redirect. **A sitemap helps discovery; it does not
+guarantee that a page is indexed.** Check indexing in Google Search Console.
+
+The sitemap is cached at the Vercel edge for 30 minutes. If Supabase is
+unavailable, the static pages are still listed.
 
 ---
 
 ## Platform Limitation — HTTP Status Codes
 
-Vercel SPA rewrites (`"source": "/(.*)", "destination": "/index.html"`) always
-return HTTP 200 for every URL, including missing article slugs. The middleware
-cannot override this to return a true HTTP 404.
+Vercel SPA rewrites return HTTP 200 for unknown URLs, so a missing article
+cannot return a true 404 without a server-rendered route.
 
 **What is implemented instead:**
-- Missing articles: `X-Robots-Tag: noindex, follow` header prevents Google from
-  indexing the 404 page
-- The React app renders a clear 404 UI for users
-- The `useRedirect` hook checks the `redirects` table and navigates to the new
-  URL if a redirect rule exists
-
-**If true 404 HTTP responses are required:** Remove the catch-all rewrite from
-`vercel.json` and add individual Vercel Function routes for each public path.
-This would require more infrastructure but is possible without Next.js.
+- Missing articles, categories and tags: `X-Robots-Tag: noindex, follow` and a
+  `noindex` meta tag, so the "not found" page is never indexed
+- **Moved** articles, categories and tags: the Edge middleware looks up the
+  `redirects` table and returns a real **301/302** with a `Location` header
+- The React app also follows redirects client-side (`useRedirect`) and renders
+  a clear "not found" page for visitors
 
 ---
 
@@ -127,21 +128,19 @@ suggestions in a collapsible panel. These check for:
 
 ## Redirects
 
-When an article slug changes after publication:
+- **Automatic:** when the slug of an article that has been published is
+  changed in the editor, a 301 redirect from the old address to the new one is
+  created (`recordSlugChange` in `src/lib/services/redirects.ts`). Older
+  redirects that pointed at the old address are repointed, so there are no
+  redirect chains.
+- **Manual:** Admin → SEO health → Redirects lets an administrator add, switch
+  off or delete redirects. Only same-site paths are accepted; loops and
+  duplicates are rejected.
+- **Served by the Edge middleware** as real HTTP 301/302 responses for
+  `/articles/*`, `/category/*` and `/tag/*` when the page no longer exists.
+  Redirect targets must be root-relative paths (no external redirects).
 
-1. Go to Admin → (article edit page or manage via Supabase)
-2. Add a row to the `redirects` table:
-   ```sql
-   INSERT INTO public.redirects (from_path, to_path, status_code)
-   VALUES ('/articles/old-slug', '/articles/new-slug', 301);
-   ```
-3. For immediate server-side 3xx redirects, also add to `vercel.json`:
-   ```json
-   { "source": "/articles/old-slug", "destination": "/articles/new-slug", "permanent": true }
-   ```
-
-The `useRedirect` hook handles client-side resolution for rules in the database
-but not yet in `vercel.json`.
+`vercel.json` no longer needs to be edited for article redirects.
 
 ---
 
@@ -191,7 +190,7 @@ Expected: Correct article title, description, and featured image.
 
 After deployment:
 
-1. Submit the sitemap: Search Console → Sitemaps → `https://www.chefpetertheteacher.com/sitemap.xml`
+1. **With the owner's approval**, submit the sitemap: Search Console → Sitemaps → `https://www.chefpetertheteacher.com/sitemap.xml`
 2. Request indexing for the articles index: URL Inspection → `/articles` → Request indexing
 3. Monitor Coverage report for any crawl errors after first publish
 4. If changing the domain or canonical URLs, add a Change of Address in Search Console
@@ -200,17 +199,15 @@ After deployment:
 
 ## Structured Data: Recipe Schema
 
-The task mentioned Recipe structured data. This has NOT been implemented because:
+Recipe structured data is emitted only for genuine recipes: articles whose type
+is "Recipe" and whose recipe details include ingredients and method steps
+(`qualifiesForRecipeSchema` in `src/lib/knowledge/recipe.ts`). Times, yield and
+other fields are included only when the author has entered them — nothing is
+invented.
 
-- There are currently no articles in the database with confirmed recipe content
-- Google's Recipe schema requires: `name`, `recipeIngredient`, `recipeInstructions`, and `totalTime`
-- Inventing these fields (preparation times, ingredient lists) would be dishonest
-  and could result in Google manual action for misleading structured data
+HowTo structured data is **not** used: Google retired HowTo rich results, and
+step-by-step tutorials are already described by the Article markup and their
+headings.
 
-When Chef Peter publishes a genuine recipe article:
-1. Add a `recipe_data` JSONB column to the articles table (optional metadata)
-2. The admin editor would show a "Recipe details" panel to fill in ingredients,
-   instructions, and times
-3. The middleware would detect `recipe_data` and inject a `Recipe` schema block
-
-This is tracked as a future enhancement once recipe content exists.
+The full structured-data graph (WebSite, Person, Organization, Books, Service,
+FAQ, Breadcrumbs) is described in `docs/seo-strategy.md`.

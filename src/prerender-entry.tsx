@@ -30,3 +30,17 @@ export function renderSeoPage(pathname: string) {
     page
   };
 }
+
+/**
+ * Renders any route of the app to static HTML (used for the homepage).
+ * Uses the same full <App /> tree as the browser so hydration matches.
+ */
+export function renderRoute(pathname: string): string {
+  return renderToString(
+    <React.StrictMode>
+      <StaticRouter location={pathname}>
+        <App />
+      </StaticRouter>
+    </React.StrictMode>
+  );
+}

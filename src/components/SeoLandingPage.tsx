@@ -4,8 +4,11 @@ import { SeoPage } from '../data/seoPages';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { Footer } from './Footer';
 import { SiteHeader } from './site/SiteHeader';
+import { jsonLdString, landingGraph } from '../lib/seo/schema';
 import { Container, Eyebrow, btn, card } from './site/ui';
 import { ReviewNote, useReviewMode } from './site/ReviewNote';
+import { headingId } from '../lib/knowledge/articleHtml';
+import { landingRelatedLinks } from '../data/internalLinks';
 
 const SITE_URL = 'https://www.chefpetertheteacher.com';
 
@@ -91,30 +94,7 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
     }
     canonical.href = canonicalUrl;
 
-    const schemaId = 'service-page-schema';
-    document.getElementById(schemaId)?.remove();
-    const schema = document.createElement('script');
-    schema.id = schemaId;
-    schema.type = 'application/ld+json';
-    schema.text = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': page.path === '/about-chef-peter' ? 'Person' : 'Service',
-      name: page.path === '/about-chef-peter' ? 'Chef Peter the Teacher' : page.title,
-      alternateName: page.path === '/about-chef-peter' ? 'Yiga Edward Peter Kirigwajjo Zimwanguyizza Mulindwa' : undefined,
-      jobTitle: page.path === '/about-chef-peter' ? 'Professional Consultant Chef and Culinary Educator' : undefined,
-      description: page.description,
-      url: canonicalUrl,
-      image: page.image ? SITE_URL + page.image : undefined,
-      provider: page.path !== '/about-chef-peter' ? {
-        '@type': 'Person',
-        name: 'Chef Peter the Teacher',
-        url: SITE_URL,
-        areaServed: { '@type': 'Country', name: 'Uganda' }
-      } : undefined
-    });
-    document.head.appendChild(schema);
     window.scrollTo(0, 0);
-    return () => document.getElementById(schemaId)?.remove();
   }, [page]);
 
   const message = encodeURIComponent('Hello Chef Peter, I am interested in ' + page.title + '.');
@@ -123,6 +103,8 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
   return (
     <div className="min-h-screen bg-cream text-ink">
       <SiteHeader />
+      {/* Structured data — identical in the prerendered HTML and in the browser */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(landingGraph(page)) }} />
 
       <main id="main">
         {/* Introduction */}
@@ -188,7 +170,7 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
         <Container className="py-16 sm:py-20">
           <div className="max-w-3xl space-y-14">
             {page.sections.map((section) => (
-              <article key={section.title}>
+              <article key={section.title} id={headingId(section.title)} className="scroll-mt-24">
                 <h2 className="font-serif text-[1.75rem] font-semibold leading-snug text-ink sm:text-[2rem]">{section.title}</h2>
                 <p className="mt-4 text-[1.0625rem] leading-[1.75] text-ink-soft">{section.body}</p>
                 {section.points && (
@@ -261,6 +243,26 @@ export const SeoLandingPage: React.FC<{ page: SeoPage }> = ({ page }) => {
                 ))}
               </ol>
             </div>
+          </Container>
+        </section>
+
+        {/* Related pages — links between services, biography, books and the library */}
+        <section aria-labelledby="related-pages-heading" className="border-b border-sand">
+          <Container className="py-14 sm:py-16">
+            <h2 id="related-pages-heading" className="font-serif text-[1.75rem] font-semibold text-ink">Explore more from Chef Peter</h2>
+            <span aria-hidden="true" className="mt-4 block h-px w-14 bg-gold" />
+            <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {landingRelatedLinks(page.path).map((link) => (
+                <li key={link.href}>
+                  <a href={link.href} className={`${card} group block h-full p-5 transition-colors hover:border-ink`}>
+                    <span className="flex items-center justify-between gap-3 font-semibold text-ink group-hover:underline">
+                      {link.label} <ArrowRight className="h-4 w-4 shrink-0 text-gold-deep" aria-hidden="true" />
+                    </span>
+                    <span className="mt-2 block text-[0.9375rem] leading-relaxed text-ink-soft">{link.description}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </Container>
         </section>
 

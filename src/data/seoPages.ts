@@ -84,7 +84,7 @@ export const SEO_PAGES: SeoPage[] = [
   {
     path: '/culinary-consultant-uganda',
     title: 'Professional Culinary Consultant in Uganda',
-    metaTitle: 'Culinary Consultant Uganda | Chef Peter the Teacher',
+    metaTitle: 'Culinary Consultant in Uganda | Chef Peter the Teacher',
     description: 'Practical culinary consultancy for restaurants, hotels, lodges, bakeries and catering businesses in Uganda, covering menus, costing, systems and training.',
     eyebrow: 'Menus • Kitchen Systems • Profitability',
     introduction: 'Chef Peter works with hospitality owners and kitchen teams to improve food quality, consistency, workflow and commercial performance. Recommendations are practical, measurable and adapted to the realities of each operation.',
@@ -123,7 +123,7 @@ export const SEO_PAGES: SeoPage[] = [
   {
     path: '/cooking-classes-kampala',
     title: 'Practical Cooking Classes in Kampala',
-    metaTitle: 'Practical Cooking Classes Kampala | Chef Peter',
+    metaTitle: 'Cooking Classes & Culinary Training in Kampala | Chef Peter',
     description: 'Hands-on cooking classes in Kampala covering professional culinary skills, Ugandan dishes, international cuisine, food safety, costing and presentation.',
     eyebrow: 'Hands-On Culinary Training',
     introduction: 'These classes are designed for beginners, aspiring chefs, domestic cooks and hospitality staff who want usable kitchen skills. Most learning is practical, supported by short theory sessions that explain safety, ingredients and technique.',
@@ -162,8 +162,8 @@ export const SEO_PAGES: SeoPage[] = [
   {
     path: '/baking-pastry-classes',
     title: 'Practical Baking and Pastry Classes in Uganda',
-    metaTitle: 'Baking & Pastry Classes Uganda | Chef Peter',
-    description: 'Practical baking and pastry classes in Kampala covering bread, cakes, pastries, confectionery, decoration, hygiene and bakery costing.',
+    metaTitle: 'Baking & Pastry Training in Uganda | Chef Peter the Teacher',
+    description: 'Practical baking and pastry training in Kampala for home bakers and commercial bakery teams: bread, cakes, pastry, confectionery, hygiene and costing.',
     eyebrow: 'Baking • Pastry • Confectionery',
     introduction: 'Build dependable skills in breads, cakes, pastry and confectionery while learning the ingredient science and production discipline needed for consistent results at home or in a commercial bakery.',
     highlights: ['Bread and dough production', 'Cakes and decoration', 'Pastry and confectionery', 'Bakery costing and hygiene'],
@@ -201,7 +201,7 @@ export const SEO_PAGES: SeoPage[] = [
   {
     path: '/hospitality-consultancy',
     title: 'Hospitality Consultancy in Uganda',
-    metaTitle: 'Hospitality Consultant Uganda | Chef Peter',
+    metaTitle: 'Hospitality Consultancy in Uganda | Chef Peter the Teacher',
     description: 'Hospitality consultancy for hotels, lodges, restaurants and catering operations in Uganda, including SOPs, staff training and service improvement.',
     eyebrow: 'Hotels • Lodges • Restaurants',
     introduction: 'Chef Peter provides practical guidance for hospitality businesses that want clearer systems, stronger teams and a more dependable guest experience across kitchen, food service and operational management.',
@@ -239,8 +239,8 @@ export const SEO_PAGES: SeoPage[] = [
   {
     path: '/about-chef-peter',
     title: 'About Chef Peter the Teacher',
-    metaTitle: 'About Chef Peter | Professional Consultant Chef Uganda',
-    description: 'Meet Chef Peter the Teacher, a Ugandan professional consultant chef, culinary educator and hospitality specialist with over 20 years of experience.',
+    metaTitle: 'About Chef Peter the Teacher | Chef & Culinary Educator',
+    description: 'Meet Chef Peter the Teacher: professional chef, culinary educator and hospitality consultant in Kampala, and founder of De’Chosen Events Consultants.',
     eyebrow: '20+ Years • Chef • Educator • Consultant',
     introduction: 'Chef Yiga Edward Peter Kirigwajjo Zimwanguyizza Mulindwa, widely known as Chef Peter the Teacher, is a professional consultant chef, culinary educator and hospitality specialist with over 20 years of experience in the field.',
     highlights: ['Over 20 years of professional experience', 'Consultant chef and hospitality advisor', 'International operational exposure', 'Practical culinary educator and author'],

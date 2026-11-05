@@ -33,6 +33,7 @@ import { getAuthorProfile } from '../../lib/services/authors';
 import { DEFAULT_AUTHOR, isChefPeterByline, type AuthorProfileView } from '../../data/authorProfile';
 import { enhanceImageHtml } from '../../components/blog/ResponsiveImage';
 import { enhanceArticleHtml, readingMinutesFromHtml } from '../../lib/knowledge/articleHtml';
+import { articleLearningLinks } from '../../data/internalLinks';
 import { articleTypeOf, ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleTypes';
 import { buildRecipeJsonLd, normaliseRecipe, qualifiesForRecipeSchema } from '../../lib/knowledge/recipe';
 import type { ArticleWithRelations, ArticleCard, Media } from '../../types/article';
@@ -40,6 +41,7 @@ import BlogLayout from '../../components/blog/BlogLayout';
 import Breadcrumb from '../../components/blog/Breadcrumb';
 import ArticleGrid from '../../components/blog/ArticleGrid';
 import { SITE_URL } from '../../components/knowledge/LibraryParts';
+import { IDS, articleDocumentTitle } from '../../lib/seo/schema';
 import { ArticleNavigation, AuthorBio, RecipeCard, ShareLinks, TableOfContents } from '../../components/knowledge/ArticleParts';
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -146,6 +148,7 @@ export default function ArticlePage() {
     article.article_categories?.find((ac) => ac.is_primary)?.categories ?? article.article_categories?.[0]?.categories ?? null;
   const categories = (article.article_categories ?? []).map((ac) => ac.categories).filter(Boolean);
   const tags = (article.article_tags ?? []).map((at) => at.tags).filter(Boolean);
+  const learningLinks = articleLearningLinks([primaryCat?.slug, ...categories.map((c) => c!.slug)].filter(Boolean) as string[]);
   const raw = article as unknown as Record<string, unknown>;
   const authorName = article.author_display_name || DEFAULT_AUTHOR.name;
   // Until the author profile loads, Chef Peter bylines use the approved default profile
@@ -156,7 +159,7 @@ export default function ArticlePage() {
 
   const articleUrl = `${SITE_URL}/articles/${article.slug}`;
   const canonUrl = article.canonical_url || articleUrl;
-  const pageTitle = `${article.seo_title || article.title} | Chef Peter the Teacher`;
+  const pageTitle = articleDocumentTitle(article.seo_title || article.title);
   const metaDesc = (article.meta_description || article.excerpt || '').slice(0, 160);
   const ogImage = socialImg ? getMediaUrl(socialImg.storage_path) : `${SITE_URL}/images/chef-peter.jpg`;
   const featSrc = featuredImg ? getMediaUrl(featuredImg.storage_path) : null;
@@ -187,15 +190,15 @@ export default function ArticlePage() {
     dateModified: article.updated_at,
     author: {
       '@type': 'Person',
+      // A Chef Peter byline is the same entity as the site-wide Person node
+      ...(isChefPeterByline(authorName) ? { '@id': IDS.person } : {}),
       name: authorName,
       ...(profile.profileUrl ? { url: profile.profileUrl.startsWith('/') ? `${SITE_URL}${profile.profileUrl}` : profile.profileUrl } : {}),
-      ...(profile.jobTitle ? { jobTitle: profile.jobTitle } : {}),
+      // (the site-wide Person node already gives Chef Peter's job title)
+      ...(profile.jobTitle && !isChefPeterByline(authorName) ? { jobTitle: profile.jobTitle } : {}),
     },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Chef Peter the Teacher',
-      logo: { '@type': 'ImageObject', url: `${SITE_URL}/images/chef-peter.jpg` },
-    },
+    // The site is Chef Peter's own publication, so the publisher is the site-wide Person
+    publisher: { '@type': 'Person', '@id': IDS.person, name: 'Chef Peter the Teacher', url: `${SITE_URL}/about-chef-peter` },
     wordCount: body.wordCount,
     ...(featSrc ? { image: { '@type': 'ImageObject', url: featSrc, caption: featuredImg?.alt_text ?? '' } } : {}),
     ...(primaryCat ? { articleSection: primaryCat.name } : {}),
@@ -357,6 +360,25 @@ export default function ArticlePage() {
             </footer>
 
             <AuthorBio profile={profile} />
+
+            {/* Learn with Chef Peter — training, consultancy and books related to this topic */}
+            <nav aria-labelledby="learn-more-title" className="mt-10 rounded-lg border border-sand bg-paper p-6">
+              <h2 id="learn-more-title" className="font-serif text-[1.375rem] font-semibold text-ink">Learn more with Chef Peter</h2>
+              <ul className="mt-4 space-y-3">
+                {learningLinks.map((link) => (
+                  <li key={link.href}>
+                    <a href={link.href} className="font-semibold text-ink underline decoration-gold underline-offset-4 hover:decoration-ink">
+                      {link.label}
+                    </a>
+                    <span className="text-ink-soft"> — {link.description}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-[0.9375rem] text-ink-soft">
+                Interested in training or consultancy?{' '}
+                <a href="/#contact" className="font-semibold text-ink underline decoration-gold underline-offset-4">Send an enquiry</a>.
+              </p>
+            </nav>
             <ArticleNavigation previous={adjacent.previous} next={adjacent.next} />
 
             <p className="mt-8">

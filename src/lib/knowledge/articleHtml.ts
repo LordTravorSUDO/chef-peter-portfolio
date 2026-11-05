@@ -137,9 +137,17 @@ export function addImageCaptions(html: string): string {
   });
 }
 
+/**
+ * The page title is the article's only <h1>; any <h1> written in the body is
+ * shown as an <h2> so the heading outline stays correct.
+ */
+export function demoteBodyH1(html: string): string {
+  return html.replace(/<h1(\s[^>]*)?>([\s\S]*?)<\/h1>/gi, (_m, attrs = '', inner: string) => `<h2${attrs}>${inner}</h2>`);
+}
+
 /** Full pipeline used by the article page. */
 export function enhanceArticleHtml(html: string): { html: string; toc: TocEntry[]; wordCount: number } {
-  const withCallouts = addImageCaptions(addCallouts(html));
+  const withCallouts = addImageCaptions(addCallouts(demoteBodyH1(html)));
   const { html: withIds, toc } = addHeadingIds(withCallouts);
   const wordCount = stripTags(html).split(/\s+/).filter(Boolean).length;
   return { html: withIds, toc, wordCount };

@@ -32,6 +32,7 @@ import {
 import { setArticleCategories, setArticleTags, getCategories, getTags, createTag } from '../../lib/services/taxonomy';
 import { listAuthors } from '../../lib/services/authors';
 import { savePreviewDraft } from '../../lib/previewDraft';
+import { recordSlugChange } from '../../lib/services/redirects';
 import { getMediaUrl, updateMediaMetadata } from '../../lib/services/media';
 import { useAuth } from '../../hooks/useAuth';
 import { useAutosave, type AutosaveStatus } from '../../hooks/useAutosave';
@@ -149,6 +150,9 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   const [featuredCaption, setFeaturedCaption] = useState<string>(
     (article?.featured_image as { caption?: string | null } | null)?.caption ?? '',
   );
+
+  // Slug as last saved — used to redirect the old address when a published article's slug changes
+  const savedSlugRef = useRef<string>(article?.slug ?? '');
 
   // Knowledge-platform fields (saved only once the proposed migration is applied)
   const [knowledgeEnabled, setKnowledgeEnabled] = useState(false);
@@ -280,6 +284,17 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
         : isOwnArticle && profileName ? { author_display_name: profileName } : {};
       await updateArticle(existingId, { ...content, ...authorUpdate });
       articleId = existingId;
+      // Published (or previously published) article whose address changed: keep the old URL working
+      const previousSlug = savedSlugRef.current;
+      if (article?.published_at && previousSlug && previousSlug !== content.slug) {
+        try {
+          await recordSlugChange(existingId, previousSlug, content.slug);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'unknown error';
+          throw new Error(`The article was saved, but the redirect from the old address could not be created: ${msg}`);
+        }
+      }
+      savedSlugRef.current = content.slug;
     } else {
       articleId = await createArticle({
         ...content,
@@ -667,12 +682,13 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
               required
             />
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-[#1A2B40]">
+              <label htmlFor="article-slug" className="block text-sm font-medium text-[#1A2B40]">
                 URL slug <span className="text-[#C0392B]" aria-hidden>*</span>
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[#6B7A8D] shrink-0">/articles/</span>
                 <input
+                  id="article-slug"
                   value={slug}
                   onChange={(e) => { setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setSlugTouched(true); }}
                   placeholder="article-slug"
@@ -681,6 +697,13 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                 {slugChecking && <span className="text-xs text-[#6B7A8D]">Checking…</span>}
               </div>
               {slugError && <p className="text-xs text-[#C0392B]" role="alert">{slugError}</p>}
+              {!slugError && <p className="text-xs text-[#6B7A8D]">Use a few descriptive words, e.g. <span className="font-mono">how-to-laminate-dough</span>.</p>}
+              {article?.published_at && savedSlugRef.current && slug.trim() !== savedSlugRef.current && (
+                <p className="text-xs text-[#B7791F]" data-testid="slug-redirect-note">
+                  This article has been published. When you save, the old address <span className="font-mono">/articles/{savedSlugRef.current}</span> will
+                  automatically redirect to the new one.
+                </p>
+              )}
             </div>
             <Textarea
               label="Excerpt"

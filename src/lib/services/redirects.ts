@@ -68,3 +68,33 @@ export async function getAllRedirects(): Promise<Redirect[]> {
   if (error) throw new Error(`getAllRedirects: ${error.message}`);
   return (data ?? []) as Redirect[];
 }
+
+/**
+ * Keeps old article URLs working after a published article's slug changes.
+ *
+ *   1. /articles/<old> → /articles/<new> (301), created or re-activated
+ *   2. existing redirects that pointed to the old URL now point to the new one
+ *      (no redirect chains)
+ *   3. any active redirect *from* the new URL is deactivated (no loops)
+ *
+ * Admin only (RLS). The Edge middleware answers these with real HTTP 301s.
+ */
+export async function recordSlugChange(articleId: string, oldSlug: string, newSlug: string): Promise<void> {
+  if (!oldSlug || !newSlug || oldSlug === newSlug) return;
+  const from = `/articles/${oldSlug}`;
+  const to = `/articles/${newSlug}`;
+
+  const { error: e1 } = await supabase.from('redirects').update({ to_path: to }).eq('to_path', from);
+  if (e1) throw new Error(`recordSlugChange: ${e1.message}`);
+
+  const { error: e2 } = await supabase.from('redirects').update({ is_active: false }).eq('from_path', to);
+  if (e2) throw new Error(`recordSlugChange: ${e2.message}`);
+
+  const { data: existing, error: e3 } = await supabase.from('redirects').select('id').eq('from_path', from).maybeSingle();
+  if (e3) throw new Error(`recordSlugChange: ${e3.message}`);
+  if (existing) {
+    await updateRedirect(existing.id as string, { to_path: to, is_active: true, status_code: 301, article_id: articleId });
+  } else {
+    await createRedirect({ from_path: from, to_path: to, status_code: 301, article_id: articleId, is_active: true });
+  }
+}

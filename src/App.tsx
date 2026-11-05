@@ -20,6 +20,7 @@ import { ConsultationModal } from './components/ConsultationModal';
 import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
 import { SeoLandingPage } from './components/SeoLandingPage';
 import { ReviewBanner } from './components/site/ReviewNote';
+import { homeGraph, jsonLdString } from './lib/seo/schema';
 import { SEO_PAGES, type SeoPage } from './data/seoPages';
 
 // ---------------------------------------------------------------------------
@@ -54,8 +55,9 @@ const ProtectedRoute     = lazy(() => import('./components/admin/ProtectedRoute'
 // ---------------------------------------------------------------------------
 // Portfolio homepage — existing implementation with SEO metadata
 // ---------------------------------------------------------------------------
-const HOME_TITLE = 'Chef Peter the Teacher | Private Chef Uganda';
-const HOME_DESCRIPTION = 'Chef Peter the Teacher is a private chef, culinary consultant and hospitality educator serving Kampala, Entebbe and clients across Uganda.';
+// Must match the defaults in index.html (used by crawlers and link previews)
+const HOME_TITLE = 'Chef Peter the Teacher | Chef & Culinary Educator in Uganda';
+const HOME_DESCRIPTION = 'Chef, culinary educator and hospitality consultant in Kampala, Uganda: cooking and baking classes, private chef services, consultancy and culinary books.';
 
 function PortfolioPage() {
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
@@ -77,6 +79,8 @@ function PortfolioPage() {
   return (
     <div className="min-h-screen bg-cream text-ink">
       <ReviewBanner />
+      {/* Page-level structured data (books, web page); identity graph comes from index.html */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(homeGraph()) }} />
       <Navbar onOpenConsultationModal={handleOpenConsultationModal} />
 
       <main id="main">

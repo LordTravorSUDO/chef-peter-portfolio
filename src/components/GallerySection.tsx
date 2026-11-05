@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { GALLERY_CATEGORIES, GALLERY_ITEMS, GalleryCategory, GalleryItem } from '../data/galleryData';
 import { ImageWithFallback } from './ImageWithFallback';
+import { optimisedImage } from '../data/imageVariants';
 import { Container, Section, SectionHeader, btn, stripEmoji } from './site/ui';
 import { Dialog } from './site/Dialog';
 import { ReviewNote } from './site/ReviewNote';
@@ -100,7 +101,10 @@ export const GallerySection: React.FC = () => {
                 aria-label={`View larger: ${item.title}`}
               >
                 <ImageWithFallback
-                  src={item.imagePath}
+                  src={optimisedImage(item.imagePath)?.src ?? item.imagePath}
+                  fallbackSrc={item.imagePath}
+                  width={optimisedImage(item.imagePath)?.width}
+                  height={optimisedImage(item.imagePath)?.height}
                   alt={altText(item)}
                   fallbackText={item.title}
                   loading="lazy"
@@ -145,7 +149,10 @@ export const GallerySection: React.FC = () => {
           <div className="grid md:grid-cols-12">
             <div className="flex items-center justify-center bg-charcoal md:col-span-8">
               <img
-                src={current.imagePath}
+                src={optimisedImage(current.imagePath)?.src ?? current.imagePath}
+                onError={(e) => {
+                  if (e.currentTarget.getAttribute('src') !== current.imagePath) e.currentTarget.src = current.imagePath;
+                }}
                 alt={altText(current)}
                 className="max-h-[60vh] w-full object-contain md:max-h-[80vh]"
               />

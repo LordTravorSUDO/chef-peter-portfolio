@@ -40,12 +40,48 @@
 
 export const config = {
   matcher: [
+    // Prerendered pages (served from their build-time HTML files)
+    '/',
+    '/private-chef-uganda',
+    '/culinary-consultant-uganda',
+    '/cooking-classes-kampala',
+    '/baking-pastry-classes',
+    '/hospitality-consultancy',
+    '/about-chef-peter',
+    '/culinary-books',
+    // CMS pages (metadata injection + server-side redirects)
     '/articles',
     '/articles/:slug*',
     '/category/:slug*',
     '/tag/:slug*',
   ],
 };
+
+/**
+ * Paths with prerendered HTML written by scripts/prerender.mjs.
+ * Keep in sync with config.matcher (checked by tests/unit/middleware-inject.test.ts).
+ */
+export const PRERENDERED_FILES: Record<string, string> = {
+  '/': '/home.html',
+  '/private-chef-uganda': '/private-chef-uganda.html',
+  '/culinary-consultant-uganda': '/culinary-consultant-uganda.html',
+  '/cooking-classes-kampala': '/cooking-classes-kampala.html',
+  '/baking-pastry-classes': '/baking-pastry-classes.html',
+  '/hospitality-consultancy': '/hospitality-consultancy.html',
+  '/about-chef-peter': '/about-chef-peter.html',
+  '/culinary-books': '/culinary-books.html',
+};
+
+/**
+ * Validates a redirect destination from the database: only same-site,
+ * root-relative paths are allowed (never another domain or a protocol URL).
+ */
+export function safeRedirectTarget(to: string | null | undefined): string | null {
+  if (!to) return null;
+  const t = to.trim();
+  if (!t.startsWith('/') || t.startsWith('//') || /[\\\s]/.test(t)) return null;
+  return t;
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -136,6 +172,37 @@ async function fetchTag(slug: string, url: string, key: string): Promise<{ name:
   return rows[0] ?? null;
 }
 
+/** Active redirect rule for a path (redirects table, managed in the CMS). */
+async function fetchRedirect(fromPath: string, url: string, key: string): Promise<{ to_path: string; status_code: number } | null> {
+  const endpoint = new URL(`${url}/rest/v1/redirects`);
+  endpoint.searchParams.set('from_path', `eq.${fromPath}`);
+  endpoint.searchParams.set('is_active', 'eq.true');
+  endpoint.searchParams.set('select', 'to_path,status_code');
+  endpoint.searchParams.set('limit', '1');
+  const res = await fetch(endpoint.toString(), {
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+  });
+  if (!res.ok) return null;
+  const rows = await res.json() as Array<{ to_path: string; status_code: number }>;
+  return rows[0] ?? null;
+}
+
+/** A real HTTP redirect (301/302) when a moved page has a redirect rule. */
+async function redirectIfMoved(request: Request, pathname: string, supabaseUrl: string, key: string): Promise<Response | null> {
+  try {
+    const rule = await fetchRedirect(pathname, supabaseUrl, key);
+    const target = safeRedirectTarget(rule?.to_path);
+    if (!rule || !target || target === pathname) return null;
+    const status = rule.status_code === 302 ? 302 : 301;
+    return new Response(null, {
+      status,
+      headers: { Location: new URL(target, request.url).toString(), 'Cache-Control': 'public, s-maxage=300' },
+    });
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Image URL builder (mirrors getResponsiveMediaUrl from src/lib/services/media)
 // ---------------------------------------------------------------------------
@@ -152,7 +219,7 @@ function imgUrl(storagePath: string, supabaseUrl: string, width?: number): strin
 // ---------------------------------------------------------------------------
 function articleHead(a: ArticleRow, supabaseUrl: string): string {
   const title   = (a.seo_title ?? a.title ?? '').trim();
-  const pt      = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
+  const pt      = title ? articleDocumentTitle(title) : SITE_NAME;
   const desc    = (a.meta_description ?? a.excerpt ?? '').trim().slice(0, 160);
   const canon   = a.canonical_url?.trim() || `${SITE_URL}/articles/${a.slug}`;
   const robots  = a.noindex ? 'noindex, follow' : 'index, follow';
@@ -187,6 +254,9 @@ function articleHead(a: ArticleRow, supabaseUrl: string): string {
     `<meta property="og:url" content="${esc(canon)}" />`,
     `<meta property="og:image" content="${esc(ogImg)}" />`,
     `<meta property="og:image:alt" content="${esc(ogAlt)}" />`,
+    ...(!a.social_image && a.featured_image?.width_px && a.featured_image?.height_px
+      ? [`<meta property="og:image:width" content="${a.featured_image.width_px}" />`, `<meta property="og:image:height" content="${a.featured_image.height_px}" />`]
+      : []),
     `<meta property="article:published_time" content="${a.published_at ?? ''}" />`,
     `<meta property="article:modified_time" content="${a.updated_at}" />`,
     ...(primCat ? [`<meta property="article:section" content="${esc(primCat.name)}" />`] : []),
@@ -266,6 +336,13 @@ function notFoundHead(): string {
   ].join('\n    ');
 }
 
+/** Mirrors articleDocumentTitle() in src/lib/seo/schema.ts (kept self-contained for the Edge runtime). */
+export function articleDocumentTitle(title: string): string {
+  const t = title.trim();
+  for (const suffix of [` | ${SITE_NAME}`, ' | Chef Peter']) if ((t + suffix).length <= 65) return t + suffix;
+  return t;
+}
+
 // ---------------------------------------------------------------------------
 // HTML injection
 // ---------------------------------------------------------------------------
@@ -302,6 +379,20 @@ export default async function middleware(request: Request): Promise<Response> {
     return fetch(request);
   }
 
+  // Prerendered pages: serve the build-time HTML (full content for crawlers and
+  // link previews). Independent of Supabase. Falls back to normal routing.
+  const prerendered = PRERENDERED_FILES[pathname];
+  if (prerendered) {
+    const res = await fetch(new URL(prerendered, request.url).toString());
+    if (res.ok) {
+      return new Response(res.body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=0, must-revalidate' },
+      });
+    }
+    return fetch(request);
+  }
+
   const supabaseUrl = (typeof process !== 'undefined' ? process.env.SUPABASE_URL : undefined)
     ?? (globalThis as Record<string, unknown>).SUPABASE_URL as string | undefined;
   const serviceKey  = (typeof process !== 'undefined' ? process.env.SUPABASE_SERVICE_ROLE_KEY : undefined)
@@ -334,6 +425,8 @@ export default async function middleware(request: Request): Promise<Response> {
     if (artMatch) {
       const article = await fetchArticle(artMatch[1], supabaseUrl, serviceKey);
       if (!article) {
+        const moved = await redirectIfMoved(request, pathname, supabaseUrl, serviceKey);
+        if (moved) return moved;
         return new Response(inject(baseHtml, notFoundHead()), {
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
@@ -354,6 +447,8 @@ export default async function middleware(request: Request): Promise<Response> {
     if (catMatch) {
       const cat = await fetchCategory(catMatch[1], supabaseUrl, serviceKey);
       if (!cat) {
+        const moved = await redirectIfMoved(request, pathname, supabaseUrl, serviceKey);
+        if (moved) return moved;
         return new Response(inject(baseHtml, notFoundHead()), {
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, follow' },
         });
@@ -368,6 +463,8 @@ export default async function middleware(request: Request): Promise<Response> {
     if (tagMatch) {
       const tag = await fetchTag(tagMatch[1], supabaseUrl, serviceKey);
       if (!tag) {
+        const moved = await redirectIfMoved(request, pathname, supabaseUrl, serviceKey);
+        if (moved) return moved;
         return new Response(inject(baseHtml, notFoundHead()), {
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, follow' },
         });
