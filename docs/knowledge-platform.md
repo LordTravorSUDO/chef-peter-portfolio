@@ -33,7 +33,22 @@ Everything below runs on the current Supabase schema:
 
 ---
 
-## 2. Proposed database change (NOT applied)
+## 2. Proposed database changes (NOT applied)
+
+There are two proposed migrations. Both are additive, kept in `supabase/proposed/`, and awaiting approval:
+
+| File | Purpose | Tests |
+|---|---|---|
+| `20261106000000_knowledge_platform.sql` | Article formats, featured/editor's-pick flags, structured recipe data, category order and visibility, the 7 categories | `tests/knowledge_platform.sql` |
+| `20261107000000_author_profiles.sql` | Public author biography and photo (CMS → Author profile) | `tests/author_profiles.sql` |
+
+### Author profiles (second migration)
+- **New table:** `public.author_profiles`, keyed by profile id. It holds the display name, professional title, short and long biography, a photo (a media library item) and a profile link.
+- **Why a separate table:** `public.profiles` contains account data (role, active flag) and stays private to its owner and to admins. Article pages are read by anonymous visitors, so the public biography lives in its own table. That table is **readable by everyone and writable only by admins**. No existing policy changes.
+- **Before the migration:** the site shows the approved profile kept in `src/data/authorProfile.ts`.
+- **Rollback:** `DROP TABLE public.author_profiles;`
+
+The rest of this section describes the first migration.
 
 **File:** `supabase/proposed/20261106000000_knowledge_platform.sql`
 **Tests:** `supabase/proposed/tests/knowledge_platform.sql`

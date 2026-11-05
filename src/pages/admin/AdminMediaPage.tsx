@@ -55,6 +55,7 @@ export default function AdminMediaPage() {
   const [dateFrom,    setDateFrom]    = useState('');
   const [dateTo,      setDateTo]      = useState('');
   const [showFilters,  setShowFilters]  = useState(false);
+  const [missingAlt,   setMissingAlt]   = useState(false);
 
   // Upload state
   const [uploads,     setUploads]     = useState<UploadItem[]>([]);
@@ -75,6 +76,7 @@ export default function AdminMediaPage() {
         search:   search   || undefined,
         dateFrom: dateFrom || undefined,
         dateTo:   dateTo   || undefined,
+        missingAlt,
       });
       setItems(res.items);
       setTotal(res.total);
@@ -82,7 +84,7 @@ export default function AdminMediaPage() {
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to load media', 'error');
     } finally { setLoading(false); }
-  }, [page, search, dateFrom, dateTo, showToast]);
+  }, [page, search, dateFrom, dateTo, missingAlt, showToast]);
 
   useEffect(() => { load(); }, [load, refreshTick]);
 
@@ -176,10 +178,10 @@ export default function AdminMediaPage() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setDateFrom(''); setDateTo(''); setPage(1);
+    setSearch(''); setDateFrom(''); setDateTo(''); setMissingAlt(false); setPage(1);
   };
 
-  const hasFilters = search || dateFrom || dateTo;
+  const hasFilters = search || dateFrom || dateTo || missingAlt;
 
   // ---------------------------------------------------------------------------
   // Render
@@ -242,10 +244,11 @@ export default function AdminMediaPage() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7A8D]" />
             <input
-              type="text"
+              type="search"
+              aria-label="Search media by file name, alt text or caption"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by filename…"
+              placeholder="Search by file name, alt text or caption…"
               className="w-full pl-8 pr-3 py-1.5 text-sm border border-[#DDE3EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D] transition"
             />
           </div>
@@ -273,7 +276,11 @@ export default function AdminMediaPage() {
 
       {/* Date filters */}
       {showFilters && (
-        <div className="bg-white rounded-xl border border-[#DDE3EA] p-4 flex flex-col sm:flex-row gap-3">
+        <div className="bg-white rounded-xl border border-[#DDE3EA] p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-[#1A2B40] cursor-pointer">
+            <input type="checkbox" checked={missingAlt} onChange={(e) => { setMissingAlt(e.target.checked); setPage(1); }} className="w-4 h-4 accent-[#1B365D]" />
+            <span>Only images missing alt text</span>
+          </label>
           <label className="flex items-center gap-2 text-sm text-[#1A2B40]">
             <span className="text-xs font-medium whitespace-nowrap">From:</span>
             <input

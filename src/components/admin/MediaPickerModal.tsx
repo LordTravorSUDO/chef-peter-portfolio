@@ -45,6 +45,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
   const [items,       setItems]      = useState<Media[]>([]);
   const [loading,     setLoading]    = useState(true);
   const [search,      setSearch]     = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selected,    setSelected]    = useState<Media | null>(null);
   const [page,        setPage]       = useState(1);
   const [totalPages,  setTotalPages]  = useState(0);
@@ -59,15 +60,26 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getMediaLibrary({ page, pageSize: 24, search: search || undefined });
+      const res = await getMediaLibrary({ page, pageSize: 24, search: debouncedSearch || undefined });
       setItems(res.items);
       setTotalPages(res.totalPages);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [page, search]);
+  }, [page, debouncedSearch]);
+
+  // Debounce typing so the library is not queried on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search.trim()); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset when the picker opens
+  useEffect(() => {
+    if (open) { setSelected(null); setUploads([]); setPage(1); setSearch(''); setDebouncedSearch(''); }
+  }, [open]);
 
   useEffect(() => {
-    if (open) { load(); setSelected(null); setUploads([]); setPage(1); setSearch(''); }
+    if (open) load();
   }, [open, load]);
 
   // Sync alt text when selection changes
@@ -138,9 +150,8 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
 
   if (!open) return null;
 
-  const filtered = search
-    ? items.filter((i) => i.original_filename.toLowerCase().includes(search.toLowerCase()))
-    : items;
+  // Search runs on the server (file name, alt text, caption, credit) across all pages
+  const filtered = items;
 
   // Alt text indicator
   const altOk = selected ? (!!selected.alt_text || !!editAlt.trim()) : false;

@@ -22,6 +22,7 @@
  *   - Duplicate prevention via unique storage paths
  */
 
+import { searchWords, ilikePattern } from '../knowledge/search';
 import { supabase, supabaseStorage, MEDIA_BUCKET } from '../supabase';
 import type { Media, MediaInsert, MediaUpdate } from '../../types/article';
 
@@ -449,11 +450,14 @@ export async function deleteMedia(id: string): Promise<void> {
 export async function getMediaLibrary(opts: {
   page?:       number;
   pageSize?:   number;
+  /** Matches file name, alt text, caption or credit — every word must match */
   search?:     string;
   dateFrom?:   string;  // ISO 8601 date (inclusive)
   dateTo?:     string;  // ISO 8601 date (inclusive)
+  /** Only images without alt text */
+  missingAlt?: boolean;
 } = {}): Promise<{ items: Media[]; total: number; totalPages: number }> {
-  const { page = 1, pageSize = 30, search, dateFrom, dateTo } = opts;
+  const { page = 1, pageSize = 30, search, dateFrom, dateTo, missingAlt } = opts;
   const from = (page - 1) * pageSize;
   const to   = from + pageSize - 1;
 
@@ -463,8 +467,13 @@ export async function getMediaLibrary(opts: {
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  if (search) {
-    query = query.ilike('original_filename', `%${search}%`);
+  // Search text is sanitised (searchWords) before it is placed in the PostgREST filter
+  for (const word of search ? searchWords(search) : []) {
+    const p = ilikePattern(word);
+    query = query.or(`original_filename.ilike.${p},alt_text.ilike.${p},caption.ilike.${p},credit.ilike.${p}`);
+  }
+  if (missingAlt) {
+    query = query.or('alt_text.is.null,alt_text.eq.');
   }
   if (dateFrom) {
     query = query.gte('created_at', new Date(dateFrom).toISOString());

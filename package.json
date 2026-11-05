@@ -8,7 +8,10 @@
     "build": "vite build && vite build --ssr src/prerender-entry.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
+    "test:e2e:build": "VITE_SUPABASE_URL=https://testref.supabase.co VITE_SUPABASE_ANON_KEY=test-anon-key vite build --outDir node_modules/.cache/e2e-dist --emptyOutDir",
+    "test:e2e": "node tests/e2e/cms-editor.test.cjs node_modules/.cache/e2e-dist && node tests/e2e/cms-management.test.cjs node_modules/.cache/e2e-dist"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.50.0",
