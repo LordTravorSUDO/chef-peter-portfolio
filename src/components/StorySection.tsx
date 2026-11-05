@@ -35,7 +35,7 @@ export const StorySection: React.FC = () => {
           </div>
 
           {/* Portrait, facts and current work */}
-          <aside className="lg:col-span-5" aria-label="Chef Peter at a glance">
+          <section className="lg:col-span-5" aria-label="Chef Peter at a glance">
             <figure>
               <ImageWithFallback
                 src={CHEF_PROFILE.chefImages.storyPortrait}
@@ -65,7 +65,7 @@ export const StorySection: React.FC = () => {
               <footer className="mt-2 text-[0.875rem] text-muted">Chef Peter</footer>
             </blockquote>
             <ReviewNote>{STORY.pullQuoteReview}</ReviewNote>
-          </aside>
+          </section>
         </div>
 
         {/* What Chef Peter does today — existing "pillars" */}

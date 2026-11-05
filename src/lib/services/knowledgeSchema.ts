@@ -7,30 +7,28 @@
  * migration, article types, editorial flags, structured recipes and category
  * ordering/activation switch on automatically — no code change needed.
  *
- * Detection asks PostgREST for the new columns with `limit 0` (no rows are
- * read). An "undefined column" error means the migration is not applied.
+ * Detection reads ONE row with all its columns (categories first, which are
+ * small) and looks for the new columns in it. Unlike asking for a missing
+ * column, this never produces a failed request, so visitors' browsers show no
+ * errors before the migration is applied. With no rows to look at, the
+ * original schema is assumed (there is nothing to display anyway).
  * Other errors (network, outage) are not cached, so the check is retried.
  */
 import { supabase } from '../supabase';
+import { rowShowsKnowledgeSchema } from '../knowledge/schemaDetect';
+
+export { rowShowsKnowledgeSchema };
 
 let cached: Promise<boolean> | null = null;
 
-/** Postgres 42703 = undefined_column; PostgREST PGRST204 = column not in schema cache */
-const MISSING_COLUMN = /42703|PGRST204|does not exist|could not find/i;
-
 async function detect(): Promise<boolean> {
-  const [articles, categories] = await Promise.all([
-    supabase.from('articles').select('article_type,is_featured,is_editors_pick,recipe').limit(0),
-    supabase.from('categories').select('sort_order,is_active').limit(0),
-  ]);
-  for (const res of [articles, categories]) {
-    if (res.error) {
-      const text = `${res.error.code ?? ''} ${res.error.message ?? ''}`;
-      if (MISSING_COLUMN.test(text)) return false;
-      throw new Error(res.error.message);
-    }
+  for (const table of ['categories', 'articles'] as const) {
+    const { data, error } = await supabase.from(table).select('*').limit(1);
+    if (error) throw new Error(error.message);
+    const verdict = rowShowsKnowledgeSchema(table, (data as Array<Record<string, unknown>> | null)?.[0]);
+    if (verdict !== null) return verdict;
   }
-  return true;
+  return false;
 }
 
 export function hasKnowledgeSchema(): Promise<boolean> {

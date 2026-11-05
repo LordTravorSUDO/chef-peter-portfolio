@@ -11,7 +11,7 @@ import { ImageIcon, UserRound } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { getMediaUrl } from '../../lib/services/media';
 import {
-  getAuthorProfileRow, hasAuthorProfilesTable, listAuthors, saveAuthorProfile,
+  getAuthorProfileRow, hasAuthorProfilesTable, listAuthors, saveAuthorProfile, publicAuthorProfilesEnabled,
 } from '../../lib/services/authors';
 import { DEFAULT_AUTHOR, type AuthorProfileView } from '../../data/authorProfile';
 import type { Media } from '../../types/article';
@@ -155,7 +155,7 @@ export default function AdminAuthorPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-[#1B365D]">Author profile</h1>
-        <p className="text-sm text-[#6B7A8D] mt-0.5">
+        <p className="text-sm text-[#5F6E80] mt-0.5">
           The biography and photo shown under every article and in the library. Edit it here once — every page updates.
         </p>
       </div>
@@ -166,12 +166,19 @@ export default function AdminAuthorPage() {
         <div className="space-y-4">
           <div className="bg-[#1B365D]/5 border border-[#1B365D]/15 rounded-lg p-4 text-sm text-[#1A2B40]">
             Editing the author profile becomes available after the author-profile database upgrade
-            (<code>supabase/proposed/20261107000000_author_profiles.sql</code>, awaiting approval).
+            (<code className="break-all">supabase/proposed/20261107000000_author_profiles.sql</code>, awaiting approval).
             Until then the website shows the approved profile below on every article.
           </div>
           <AuthorBio profile={DEFAULT_AUTHOR} />
         </div>
       ) : (
+        <>
+        {!publicAuthorProfilesEnabled() && (
+          <div role="note" className="bg-[#FFF4E0] border border-[#EAD3A6] rounded-lg p-4 text-sm text-[#7A4A0B]">
+            The profile can be edited here, but the public website keeps showing the approved default profile until the
+            deployment setting <code>VITE_AUTHOR_PROFILES=on</code> is added in Vercel and the site is redeployed.
+          </div>
+        )}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           <div className="xl:col-span-3 bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-4">
             {authors.length > 1 && (
@@ -180,7 +187,7 @@ export default function AdminAuthorPage() {
                 <select id="author-select" className={field} value={authorId} disabled={dirty} onChange={(e) => setAuthorId(e.target.value)}>
                   {authors.map((a) => <option key={a.id} value={a.id}>{a.display_name || 'Unnamed admin'}</option>)}
                 </select>
-                {dirty && <p className="text-xs text-[#6B7A8D] mt-1">Save or discard your changes before switching author.</p>}
+                {dirty && <p className="text-xs text-[#5F6E80] mt-1">Save or discard your changes before switching author.</p>}
               </div>
             )}
 
@@ -189,7 +196,7 @@ export default function AdminAuthorPage() {
             ) : (
               <>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-[#6B7A8D]">Fields marked * are required.</p>
+                  <p className="text-sm text-[#5F6E80]">Fields marked * are required.</p>
                   <button type="button" onClick={useApproved} className="text-sm text-[#1B365D] hover:underline">
                     Fill in the approved Chef Peter profile
                   </button>
@@ -203,14 +210,14 @@ export default function AdminAuthorPage() {
                   <input id="ap-title" className={field} maxLength={LIMITS.job_title} value={form.job_title} onChange={set('job_title')} placeholder="e.g. Professional chef and culinary educator" />
                 </div>
                 <div>
-                  <label htmlFor="ap-short" className={label}>Short biography <span className="font-normal text-[#6B7A8D]">(under each article)</span></label>
+                  <label htmlFor="ap-short" className={label}>Short biography <span className="font-normal text-[#5F6E80]">(under each article)</span></label>
                   <textarea id="ap-short" rows={3} className={field} maxLength={LIMITS.short_bio} value={form.short_bio} onChange={set('short_bio')} />
-                  <p className="text-xs text-[#6B7A8D] mt-0.5">{form.short_bio.length}/{LIMITS.short_bio}</p>
+                  <p className="text-xs text-[#5F6E80] mt-0.5">{form.short_bio.length}/{LIMITS.short_bio}</p>
                 </div>
                 <div>
-                  <label htmlFor="ap-long" className={label}>Longer biography <span className="font-normal text-[#6B7A8D]">(library page)</span></label>
+                  <label htmlFor="ap-long" className={label}>Longer biography <span className="font-normal text-[#5F6E80]">(library page)</span></label>
                   <textarea id="ap-long" rows={6} className={field} maxLength={LIMITS.long_bio} value={form.long_bio} onChange={set('long_bio')} />
-                  <p className="text-xs text-[#6B7A8D] mt-0.5">{form.long_bio.length}/{LIMITS.long_bio}</p>
+                  <p className="text-xs text-[#5F6E80] mt-0.5">{form.long_bio.length}/{LIMITS.long_bio}</p>
                 </div>
                 <div>
                   <label htmlFor="ap-url" className={label}>Profile link</label>
@@ -222,7 +229,7 @@ export default function AdminAuthorPage() {
                     {form.photo ? (
                       <img src={getMediaUrl(form.photo.storage_path)} alt={form.photo.alt_text ?? ''} className="w-20 h-20 rounded-full object-cover border border-[#DDE3EA]" />
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-[#F4F6F8] border border-[#DDE3EA] flex items-center justify-center text-[#6B7A8D]"><UserRound className="w-8 h-8" /></div>
+                      <div className="w-20 h-20 rounded-full bg-[#F4F6F8] border border-[#DDE3EA] flex items-center justify-center text-[#5F6E80]"><UserRound className="w-8 h-8" /></div>
                     )}
                     <div className="space-x-2">
                       <Button size="sm" variant="ghost" icon={<ImageIcon className="w-4 h-4" />} onClick={() => setPicker(true)}>
@@ -233,7 +240,7 @@ export default function AdminAuthorPage() {
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-[#6B7A8D] mt-1">Upload the portrait in Media first. Without a photo, no image is shown.</p>
+                  <p className="text-xs text-[#5F6E80] mt-1">Upload the portrait in Media first. Without a photo, no image is shown.</p>
                 </div>
                 <div className="flex justify-end gap-2 pt-2 border-t border-[#DDE3EA]">
                   <Button variant="ghost" disabled={!dirty || saving} onClick={() => setForm(JSON.parse(saved))}>Discard changes</Button>
@@ -250,6 +257,7 @@ export default function AdminAuthorPage() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       <MediaPickerModal

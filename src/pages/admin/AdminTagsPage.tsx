@@ -106,7 +106,7 @@ export default function AdminTagsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1B365D]">Tags</h1>
-          <p className="text-sm text-[#6B7A8D] mt-0.5">
+          <p className="text-sm text-[#5F6E80] mt-0.5">
             {tags.length} tags · specific topics such as an ingredient, dish or technique
           </p>
         </div>
@@ -119,7 +119,7 @@ export default function AdminTagsPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-[#4A777A] p-5 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[#1A2B40]">{editId ? 'Edit tag' : 'New tag'}</h2>
-            <button type="button" onClick={closeForm} aria-label="Close form" className="text-[#6B7A8D] hover:text-[#1A2B40]"><X className="w-4 h-4" /></button>
+            <button type="button" onClick={closeForm} aria-label="Close form" className="text-[#5F6E80] hover:text-[#1A2B40]"><X className="w-4 h-4" /></button>
           </div>
           <Input label="Name" value={name} onChange={(e) => { setName(e.target.value); if (!editId) setSlug(slugify(e.target.value)); }} required />
           <Input
@@ -139,7 +139,7 @@ export default function AdminTagsPage() {
       {tags.length > 8 && (
         <div className="relative max-w-sm">
           <label htmlFor="tag-search" className="sr-only">Search tags</label>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A8D]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5F6E80]" />
           <input
             id="tag-search"
             type="search"
@@ -164,7 +164,7 @@ export default function AdminTagsPage() {
             action={{ label: 'Add first tag', onClick: () => setShowForm(true) }}
           />
         ) : visible.length === 0 ? (
-          <p className="p-8 text-center text-sm text-[#6B7A8D]">No tags match “{query}”.</p>
+          <p className="p-8 text-center text-sm text-[#5F6E80]">No tags match “{query}”.</p>
         ) : (
           <ul className="divide-y divide-[#DDE3EA]">
             {visible.map((tag) => {
@@ -173,12 +173,12 @@ export default function AdminTagsPage() {
                 <li key={tag.id} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-[#F4F6F8]">
                   <div className="min-w-0">
                     <p className="font-medium text-[#1A2B40]">{tag.name}</p>
-                    <p className="text-xs text-[#6B7A8D] font-mono">/tag/{tag.slug}</p>
+                    <p className="text-xs text-[#5F6E80] font-mono">/tag/{tag.slug}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm text-[#6B7A8D]">{n === 0 ? 'Not used' : `${n} article${n === 1 ? '' : 's'}`}</span>
-                    <button onClick={() => startEdit(tag)} aria-label={`Edit ${tag.name}`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white"><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => setDeleteId(tag.id)} aria-label={`Delete ${tag.name}`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#C0392B] hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                    <span className="text-sm text-[#5F6E80]">{n === 0 ? 'Not used' : `${n} article${n === 1 ? '' : 's'}`}</span>
+                    <button onClick={() => startEdit(tag)} aria-label={`Edit ${tag.name}`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => setDeleteId(tag.id)} aria-label={`Delete ${tag.name}`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#C0392B] hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </li>
               );

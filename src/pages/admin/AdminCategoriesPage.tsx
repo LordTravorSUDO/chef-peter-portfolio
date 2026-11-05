@@ -157,7 +157,7 @@ export default function AdminCategoriesPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1B365D]">Categories</h1>
-          <p className="text-sm text-[#6B7A8D] mt-0.5">
+          <p className="text-sm text-[#5F6E80] mt-0.5">
             {categories.length} categories · the library shows them in this order
           </p>
         </div>
@@ -170,7 +170,7 @@ export default function AdminCategoriesPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-[#4A777A] p-5 space-y-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold text-[#1A2B40]">{editId ? 'Edit category' : 'New category'}</h2>
-            <button type="button" onClick={closeForm} aria-label="Close form" className="text-[#6B7A8D] hover:text-[#1A2B40]"><X className="w-4 h-4" /></button>
+            <button type="button" onClick={closeForm} aria-label="Close form" className="text-[#5F6E80] hover:text-[#1A2B40]"><X className="w-4 h-4" /></button>
           </div>
           <Input label="Name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value, slug: editId ? form.slug : slugify(e.target.value) }); }} required />
           <Input
@@ -197,7 +197,7 @@ export default function AdminCategoriesPage() {
 
       {error && <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>}
 
-      <div className="bg-white rounded-xl border border-[#DDE3EA] shadow-sm overflow-x-auto">
+      <div className="relative bg-white rounded-xl border border-[#DDE3EA] shadow-sm overflow-x-auto">
         {loading ? (
           <div className="p-12 flex justify-center"><Spinner /></div>
         ) : categories.length === 0 ? (
@@ -211,9 +211,9 @@ export default function AdminCategoriesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#DDE3EA] bg-[#F4F6F8]">
-                <th scope="col" className="text-left px-4 py-3 text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Category</th>
-                <th scope="col" className="text-left px-4 py-3 text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Articles</th>
-                {canOrganise && <th scope="col" className="text-left px-4 py-3 text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Status</th>}
+                <th scope="col" className="text-left px-4 py-3 text-xs font-medium text-[#5F6E80] uppercase tracking-wide">Category</th>
+                <th scope="col" className="text-left px-4 py-3 text-xs font-medium text-[#5F6E80] uppercase tracking-wide">Articles</th>
+                {canOrganise && <th scope="col" className="text-left px-4 py-3 text-xs font-medium text-[#5F6E80] uppercase tracking-wide">Status</th>}
                 <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -224,21 +224,21 @@ export default function AdminCategoriesPage() {
                   <tr key={cat.id} className={`hover:bg-[#F4F6F8] transition ${cat.is_active === false ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-[#1A2B40]">{cat.name}</p>
-                      <p className="text-xs text-[#6B7A8D] font-mono">/category/{cat.slug}</p>
-                      {cat.description && <p className="text-xs text-[#6B7A8D] mt-0.5 line-clamp-2 max-w-md">{cat.description}</p>}
+                      <p className="text-xs text-[#5F6E80] font-mono">/category/{cat.slug}</p>
+                      {cat.description && <p className="text-xs text-[#5F6E80] mt-0.5 line-clamp-2 max-w-md">{cat.description}</p>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {u.total > 0 ? (
                         <Link to={`/admin/articles?category=${cat.id}`} className="text-[#1B365D] hover:underline">
-                          {u.total} <span className="text-[#6B7A8D]">({u.published} published)</span>
+                          {u.total} <span className="text-[#5F6E80]">({u.published} published)</span>
                         </Link>
                       ) : (
-                        <span className="text-[#6B7A8D]">None</span>
+                        <span className="text-[#5F6E80]">None</span>
                       )}
                     </td>
                     {canOrganise && (
                       <td className="px-4 py-3">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cat.is_active === false ? 'bg-[#F4F6F8] text-[#6B7A8D]' : 'bg-[#4A777A]/10 text-[#2F5D60]'}`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cat.is_active === false ? 'bg-[#F4F6F8] text-[#5F6E80]' : 'bg-[#4A777A]/10 text-[#2F5D60]'}`}>
                           {cat.is_active === false ? 'Hidden' : 'Visible'}
                         </span>
                       </td>
@@ -247,15 +247,15 @@ export default function AdminCategoriesPage() {
                       <div className="flex items-center justify-end gap-1">
                         {canOrganise && (
                           <>
-                            <button onClick={() => move(index, -1)} disabled={index === 0 || !!busyId} aria-label={`Move ${cat.name} up`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-                            <button onClick={() => move(index, 1)} disabled={index === categories.length - 1 || !!busyId} aria-label={`Move ${cat.name} down`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
-                            <button onClick={() => toggleActive(cat)} disabled={!!busyId} aria-label={cat.is_active === false ? `Show ${cat.name}` : `Hide ${cat.name}`} title={cat.is_active === false ? 'Show in library' : 'Hide from library (articles are kept)'} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition disabled:opacity-30">
+                            <button onClick={() => move(index, -1)} disabled={index === 0 || !!busyId} aria-label={`Move ${cat.name} up`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                            <button onClick={() => move(index, 1)} disabled={index === categories.length - 1 || !!busyId} aria-label={`Move ${cat.name} down`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                            <button onClick={() => toggleActive(cat)} disabled={!!busyId} aria-label={cat.is_active === false ? `Show ${cat.name}` : `Hide ${cat.name}`} title={cat.is_active === false ? 'Show in library' : 'Hide from library (articles are kept)'} className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition disabled:opacity-30">
                               {cat.is_active === false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                             </button>
                           </>
                         )}
-                        <button onClick={() => startEdit(cat)} aria-label={`Edit ${cat.name}`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => openDelete(cat.id)} aria-label={`Delete ${cat.name}`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#C0392B] hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => startEdit(cat)} aria-label={`Edit ${cat.name}`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => openDelete(cat.id)} aria-label={`Delete ${cat.name}`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#C0392B] hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -305,7 +305,7 @@ export default function AdminCategoriesPage() {
           </select>
         </div>
         {canOrganise && (
-          <p className="text-[#6B7A8D]">
+          <p className="text-[#5F6E80]">
             Prefer to keep the category? Close this window and use <strong>Hide</strong> instead — it disappears from the
             library but nothing is moved or deleted.
           </p>

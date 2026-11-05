@@ -22,6 +22,12 @@ const cors = {
   'access-control-expose-headers': 'content-range, x-supabase-api-version',
 };
 
+// Column defaults from supabase/proposed/20261106000000_knowledge_platform.sql
+const SCHEMA_DEFAULTS = {
+  categories: { sort_order: 100, is_active: true },
+  articles: { article_type: 'educational', is_featured: false, is_editors_pick: false, recipe: null },
+};
+const OLD_SCHEMA_HIDDEN = new Set(['article_type', 'is_featured', 'is_editors_pick', 'recipe', 'sort_order', 'is_active']);
 const KNOWLEDGE_COLS = /\b(article_type|is_featured|is_editors_pick|recipe|sort_order|is_active)\b/;
 
 /** Splits "a.eq.1,b.in.(x,y)" at top-level commas. */
@@ -185,6 +191,13 @@ function createMock(seed = {}, opts = {}) {
 
     if (method === 'GET' || method === 'HEAD') {
       let rows = applyFilters(db[table].map((r) => embed(table, r)), url.searchParams);
+      // Before the knowledge-platform migration these columns do not exist, so
+      // select=* must not return them (the app detects the schema from a sample row)
+      if (!knowledgeSchema && (table === 'articles' || table === 'categories')) {
+        rows = rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !OLD_SCHEMA_HIDDEN.has(k))));
+      }
+      // After the migration every row has these columns (with the migration's defaults)
+      if (knowledgeSchema && SCHEMA_DEFAULTS[table]) rows = rows.map((r) => ({ ...SCHEMA_DEFAULTS[table], ...r }));
       const total = rows.length;
       rows = applyOrder(rows, url.searchParams.get('order'));
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);

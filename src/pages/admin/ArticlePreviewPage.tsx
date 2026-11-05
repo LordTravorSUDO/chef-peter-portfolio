@@ -47,7 +47,7 @@ export default function ArticlePreviewPage() {
 
   useEffect(() => {
     if (!article) return;
-    getAuthorProfile(article.author_id, draft?.authorName || article.author_display_name).then(setAuthor).catch(() => setAuthor(DEFAULT_AUTHOR));
+    getAuthorProfile(article.author_id, draft?.authorName || article.author_display_name, 'admin').then(setAuthor).catch(() => setAuthor(DEFAULT_AUTHOR));
   }, [article, draft?.authorName]);
 
   useEffect(() => {

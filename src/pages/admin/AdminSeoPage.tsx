@@ -28,8 +28,8 @@ const PATH = /^\/[a-z0-9\-/._~%]*$/i;
 
 const LEVEL: Record<ArticleSeoIssue['level'], { label: string; cls: string; icon: React.ReactNode }> = {
   problem: { label: 'Fix', cls: 'text-[#C0392B]', icon: <AlertTriangle className="w-4 h-4 text-[#C0392B]" /> },
-  improve: { label: 'Improve', cls: 'text-[#B7791F]', icon: <Info className="w-4 h-4 text-[#B7791F]" /> },
-  note: { label: 'Note', cls: 'text-[#6B7A8D]', icon: <Info className="w-4 h-4 text-[#6B7A8D]" /> },
+  improve: { label: 'Improve', cls: 'text-[#8A5A12]', icon: <Info className="w-4 h-4 text-[#8A5A12]" /> },
+  note: { label: 'Note', cls: 'text-[#5F6E80]', icon: <Info className="w-4 h-4 text-[#5F6E80]" /> },
 };
 
 const field = 'mt-1 block w-full rounded-lg border border-[#DDE3EA] px-3 py-2 text-sm font-mono focus:border-[#1B365D] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/15';
@@ -114,7 +114,7 @@ export default function AdminSeoPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-[#1B365D]">SEO health</h1>
-        <p className="text-sm text-[#6B7A8D] mt-0.5">
+        <p className="text-sm text-[#5F6E80] mt-0.5">
           Checks for published and scheduled articles, redirects for moved pages, and what search engines are told to crawl.
         </p>
       </div>
@@ -127,7 +127,7 @@ export default function AdminSeoPage() {
           <Search className="w-4 h-4 text-[#4A777A]" />
           <h2 id="seo-checks" className="text-sm font-semibold text-[#1A2B40]">Article checks</h2>
           {articles && (
-            <span className="ml-auto text-xs text-[#6B7A8D]" data-testid="seo-summary">
+            <span className="ml-auto text-xs text-[#5F6E80]" data-testid="seo-summary">
               {articles.length} public article{articles.length === 1 ? '' : 's'} · {problems} to fix · {issues.length - problems} suggestions
             </span>
           )}
@@ -164,7 +164,7 @@ export default function AdminSeoPage() {
           <ArrowRightLeft className="w-4 h-4 text-[#4A777A]" />
           <h2 id="seo-redirects" className="text-sm font-semibold text-[#1A2B40]">Redirects</h2>
         </div>
-        <div className="px-5 py-4 text-sm text-[#6B7A8D] space-y-1">
+        <div className="px-5 py-4 text-sm text-[#5F6E80] space-y-1">
           <p>When a page moves, a redirect sends visitors and search engines from the old address to the new one (HTTP 301), so links and rankings are not lost.</p>
           <p>Changing the URL slug of a published article creates a redirect automatically.</p>
         </div>
@@ -182,12 +182,12 @@ export default function AdminSeoPage() {
         {!redirects ? (
           <div className="p-6 flex justify-center"><Spinner /></div>
         ) : redirects.length === 0 ? (
-          <p className="px-5 pb-5 text-sm text-[#6B7A8D]">No redirects yet.</p>
+          <p className="px-5 pb-5 text-sm text-[#5F6E80]">No redirects yet.</p>
         ) : (
           <div className="overflow-x-auto border-t border-[#DDE3EA]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#F4F6F8] text-left text-xs uppercase tracking-wide text-[#6B7A8D]">
+                <tr className="bg-[#F4F6F8] text-left text-xs uppercase tracking-wide text-[#5F6E80]">
                   <th scope="col" className="px-5 py-2 font-medium">Old address</th>
                   <th scope="col" className="px-5 py-2 font-medium">New address</th>
                   <th scope="col" className="px-5 py-2 font-medium">Status</th>
@@ -202,8 +202,8 @@ export default function AdminSeoPage() {
                     <td className="px-5 py-2 text-xs">{r.is_active ? `Active (${r.status_code})` : 'Off'}</td>
                     <td className="px-5 py-2">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => toggle(r)} aria-label={`${r.is_active ? 'Turn off' : 'Turn on'} redirect from ${r.from_path}`} title={r.is_active ? 'Turn off' : 'Turn on'} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D]"><Power className="w-4 h-4" /></button>
-                        <button onClick={() => setDeleteId(r.id)} aria-label={`Delete redirect from ${r.from_path}`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => toggle(r)} aria-label={`${r.is_active ? 'Turn off' : 'Turn on'} redirect from ${r.from_path}`} title={r.is_active ? 'Turn off' : 'Turn on'} className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D]"><Power className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteId(r.id)} aria-label={`Delete redirect from ${r.from_path}`} className="p-1.5 rounded text-[#5F6E80] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -220,7 +220,7 @@ export default function AdminSeoPage() {
           <Info className="w-4 h-4 text-[#4A777A]" />
           <h2 id="seo-crawl" className="text-sm font-semibold text-[#1A2B40]">Sitemap and indexing</h2>
         </div>
-        <ul className="text-sm text-[#6B7A8D] space-y-2">
+        <ul className="text-sm text-[#5F6E80] space-y-2">
           <li>
             <a href={`${SITE}/sitemap.xml`} target="_blank" rel="noopener noreferrer" className="text-[#4A777A] underline">{SITE}/sitemap.xml</a> lists the
             homepage, the library, the service and profile pages, categories with published articles, and every published article. It updates automatically.

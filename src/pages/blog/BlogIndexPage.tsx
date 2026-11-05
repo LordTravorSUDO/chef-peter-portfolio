@@ -61,6 +61,7 @@ export default function BlogIndexPage() {
 
   // Shared data
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [v2, setV2] = useState(false);
 
@@ -78,7 +79,7 @@ export default function BlogIndexPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getPublicCategories().then(setCategories).catch(() => {});
+    getPublicCategories().then(setCategories).catch(() => {}).finally(() => setCategoriesLoaded(true));
     getCategoryArticleCounts().then(setCounts).catch(() => {});
     hasKnowledgeSchema().then(setV2).catch(() => {});
   }, []);
@@ -194,6 +195,8 @@ export default function BlogIndexPage() {
           <div className="mt-8 max-w-2xl">
             <SearchBox value={q} onSearch={(term) => update({ q: term })} />
           </div>
+          {/* Same height as the row of category links, so the page does not jump when they load */}
+          {!categoriesLoaded && <div className="mt-6 h-[2.672rem]" aria-hidden="true" />}
           {categories.length > 0 && (
             <nav aria-label="Categories" className="no-scrollbar -mx-5 mt-6 flex gap-2 overflow-x-auto px-5 sm:mx-0 sm:flex-wrap sm:px-0">
               {categories.map((c) => (

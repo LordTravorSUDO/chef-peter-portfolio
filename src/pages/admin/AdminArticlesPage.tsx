@@ -164,7 +164,7 @@ export default function AdminArticlesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1B365D]">Articles</h1>
-          <p className="text-sm text-[#6B7A8D] mt-0.5" aria-live="polite">
+          <p className="text-sm text-[#5F6E80] mt-0.5" aria-live="polite">
             {loading ? 'Loading…' : `${total} article${total !== 1 ? 's' : ''}${filtersActive || statusFilter ? ' match' : ' in total'}`}
           </p>
         </div>
@@ -182,7 +182,7 @@ export default function AdminArticlesPage() {
             aria-pressed={statusFilter === f.value}
             onClick={() => update({ status: f.value })}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              statusFilter === f.value ? 'bg-[#1B365D] text-white' : 'bg-white text-[#6B7A8D] border border-[#DDE3EA] hover:border-[#1B365D] hover:text-[#1B365D]'
+              statusFilter === f.value ? 'bg-[#1B365D] text-white' : 'bg-white text-[#5F6E80] border border-[#DDE3EA] hover:border-[#1B365D] hover:text-[#1B365D]'
             }`}
           >
             {f.label}
@@ -199,7 +199,7 @@ export default function AdminArticlesPage() {
             onSubmit={(e) => { e.preventDefault(); update({ q: searchText.trim() }); }}
           >
             <label htmlFor="article-search" className="sr-only">Search articles by title or URL</label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A8D]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5F6E80]" />
             <input
               id="article-search"
               type="search"
@@ -220,7 +220,7 @@ export default function AdminArticlesPage() {
         {showFilters && (
           <div id="article-filters" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div>
-              <label htmlFor="f-category" className="block text-xs font-medium text-[#6B7A8D]">Category</label>
+              <label htmlFor="f-category" className="block text-xs font-medium text-[#5F6E80]">Category</label>
               <select id="f-category" className={control} value={categoryId} onChange={(e) => update({ category: e.target.value })}>
                 <option value="">All categories</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -228,7 +228,7 @@ export default function AdminArticlesPage() {
             </div>
             {v2 && (
               <div>
-                <label htmlFor="f-type" className="block text-xs font-medium text-[#6B7A8D]">Format</label>
+                <label htmlFor="f-type" className="block text-xs font-medium text-[#5F6E80]">Format</label>
                 <select id="f-type" className={control} value={articleType ?? ''} onChange={(e) => update({ type: e.target.value })}>
                   <option value="">All formats</option>
                   {ARTICLE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -236,17 +236,17 @@ export default function AdminArticlesPage() {
               </div>
             )}
             <div>
-              <label htmlFor="f-date" className="block text-xs font-medium text-[#6B7A8D]">Date</label>
+              <label htmlFor="f-date" className="block text-xs font-medium text-[#5F6E80]">Date</label>
               <select id="f-date" className={control} value={dateField} onChange={(e) => update({ date: e.target.value === 'updated_at' ? '' : e.target.value })}>
                 {DATE_FIELDS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="f-from" className="block text-xs font-medium text-[#6B7A8D]">From</label>
+              <label htmlFor="f-from" className="block text-xs font-medium text-[#5F6E80]">From</label>
               <input id="f-from" type="date" className={control} value={dateFrom} max={dateTo || undefined} onChange={(e) => update({ from: e.target.value })} />
             </div>
             <div>
-              <label htmlFor="f-to" className="block text-xs font-medium text-[#6B7A8D]">To</label>
+              <label htmlFor="f-to" className="block text-xs font-medium text-[#5F6E80]">To</label>
               <input id="f-to" type="date" className={control} value={dateTo} min={dateFrom || undefined} onChange={(e) => update({ to: e.target.value })} />
             </div>
           </div>
@@ -284,9 +284,9 @@ export default function AdminArticlesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#DDE3EA] bg-[#F4F6F8]">
-                    <th scope="col" className="text-left px-4 py-3 font-medium text-[#6B7A8D] text-xs uppercase tracking-wide">Article</th>
-                    <th scope="col" className="text-left px-4 py-3 font-medium text-[#6B7A8D] text-xs uppercase tracking-wide hidden md:table-cell">Status</th>
-                    <th scope="col" className="text-left px-4 py-3 font-medium text-[#6B7A8D] text-xs uppercase tracking-wide hidden lg:table-cell">
+                    <th scope="col" className="text-left px-4 py-3 font-medium text-[#5F6E80] text-xs uppercase tracking-wide">Article</th>
+                    <th scope="col" className="text-left px-4 py-3 font-medium text-[#5F6E80] text-xs uppercase tracking-wide hidden md:table-cell">Status</th>
+                    <th scope="col" className="text-left px-4 py-3 font-medium text-[#5F6E80] text-xs uppercase tracking-wide hidden lg:table-cell">
                       {DATE_FIELDS.find((d) => d.value === dateField)?.label}
                     </th>
                     <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>
@@ -302,7 +302,7 @@ export default function AdminArticlesPage() {
                           <Link to={`/admin/articles/${a.id}/edit`} className="font-medium text-[#1A2B40] hover:text-[#1B365D] hover:underline">
                             {a.title}
                           </Link>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6B7A8D]">
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#5F6E80]">
                             {a.is_featured && (
                               <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-800">
                                 <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Featured
@@ -313,44 +313,44 @@ export default function AdminArticlesPage() {
                             {v2 && type !== 'educational' && <span>· {ARTICLE_TYPE_MAP[type].label}</span>}
                             <span className="font-mono">· /{a.slug}</span>
                           </div>
-                          <div className="mt-1.5 md:hidden"><Badge status={a.status} /> <span className="text-xs text-[#6B7A8D]">{statusDetail(a)}</span></div>
+                          <div className="mt-1.5 md:hidden"><Badge status={a.status} /> <span className="text-xs text-[#5F6E80]">{statusDetail(a)}</span></div>
                         </td>
                         <td className="px-4 py-3 hidden md:table-cell">
                           <Badge status={a.status} />
-                          <p className="mt-1 text-xs text-[#6B7A8D] max-w-[12rem]">{statusDetail(a)}</p>
+                          <p className="mt-1 text-xs text-[#5F6E80] max-w-[12rem]">{statusDetail(a)}</p>
                         </td>
-                        <td className="px-4 py-3 text-[#6B7A8D] hidden lg:table-cell whitespace-nowrap">
+                        <td className="px-4 py-3 text-[#5F6E80] hidden lg:table-cell whitespace-nowrap">
                           {formatDate(a[dateField])}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-0.5">
-                            <Link to={`/admin/articles/${a.id}/edit`} aria-label={`Edit ${a.title}`} title="Edit" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition">
+                            <Link to={`/admin/articles/${a.id}/edit`} aria-label={`Edit ${a.title}`} title="Edit" className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition">
                               <Pencil className="w-4 h-4" />
                             </Link>
-                            <Link to={`/admin/articles/${a.id}/preview`} target="_blank" aria-label={`Preview ${a.title} (opens in a new tab)`} title="Preview" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition">
+                            <Link to={`/admin/articles/${a.id}/preview`} target="_blank" aria-label={`Preview ${a.title} (opens in a new tab)`} title="Preview" className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition">
                               <Eye className="w-4 h-4" />
                             </Link>
                             {a.status === 'published' && (
-                              <a href={`/articles/${a.slug}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${a.title} on the website (opens in a new tab)`} title="View on website" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#4A777A] hover:bg-white transition">
+                              <a href={`/articles/${a.slug}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${a.title} on the website (opens in a new tab)`} title="View on website" className="p-1.5 rounded text-[#5F6E80] hover:text-[#4A777A] hover:bg-white transition">
                                 <ExternalLink className="w-4 h-4" />
                               </a>
                             )}
                             {a.status === 'published' && (
-                              <button onClick={() => setConfirm({ kind: 'unpublish', id: a.id })} aria-label={`Unpublish ${a.title}`} title="Unpublish" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#B7791F] hover:bg-amber-50 transition">
+                              <button onClick={() => setConfirm({ kind: 'unpublish', id: a.id })} aria-label={`Unpublish ${a.title}`} title="Unpublish" className="p-1.5 rounded text-[#5F6E80] hover:text-[#8A5A12] hover:bg-amber-50 transition">
                                 <EyeOff className="w-4 h-4" />
                               </button>
                             )}
                             {a.status !== 'archived' ? (
-                              <button onClick={() => setConfirm({ kind: 'archive', id: a.id })} aria-label={`Archive ${a.title}`} title="Archive" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#B7791F] hover:bg-amber-50 transition">
+                              <button onClick={() => setConfirm({ kind: 'archive', id: a.id })} aria-label={`Archive ${a.title}`} title="Archive" className="p-1.5 rounded text-[#5F6E80] hover:text-[#8A5A12] hover:bg-amber-50 transition">
                                 <Archive className="w-4 h-4" />
                               </button>
                             ) : (
-                              <button onClick={() => setConfirm({ kind: 'restore', id: a.id })} aria-label={`Restore ${a.title} as draft`} title="Restore as draft" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-white transition">
+                              <button onClick={() => setConfirm({ kind: 'restore', id: a.id })} aria-label={`Restore ${a.title} as draft`} title="Restore as draft" className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-white transition">
                                 <RotateCcw className="w-4 h-4" />
                               </button>
                             )}
                             {(a.status === 'draft' || a.status === 'archived') && (
-                              <button onClick={() => setConfirm({ kind: 'delete', id: a.id })} aria-label={`Delete ${a.title}`} title="Delete permanently" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#C0392B] hover:bg-red-50 transition">
+                              <button onClick={() => setConfirm({ kind: 'delete', id: a.id })} aria-label={`Delete ${a.title}`} title="Delete permanently" className="p-1.5 rounded text-[#5F6E80] hover:text-[#C0392B] hover:bg-red-50 transition">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -364,7 +364,7 @@ export default function AdminArticlesPage() {
             </div>
 
             {totalPages > 1 && (
-              <nav aria-label="Pagination" className="px-4 py-3 border-t border-[#DDE3EA] flex items-center justify-between text-xs text-[#6B7A8D]">
+              <nav aria-label="Pagination" className="px-4 py-3 border-t border-[#DDE3EA] flex items-center justify-between text-xs text-[#5F6E80]">
                 <span>Page {page} of {totalPages}</span>
                 <div className="flex gap-2">
                   <button disabled={page <= 1} onClick={() => update({ page: String(page - 1) })} className="px-3 py-1 rounded border border-[#DDE3EA] disabled:opacity-40 hover:bg-[#F4F6F8] transition">← Previous</button>

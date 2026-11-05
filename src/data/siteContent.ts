@@ -25,7 +25,7 @@ export const HERO = {
     'A professional chef and teacher based in Kampala, Uganda. Chef Peter runs practical cooking and baking classes, cooks for private clients, and helps hotels, lodges and caterers build kitchens that work — drawing on experience in hotel, in-flight and international kitchens.',
   trustPoints: [
     'Founder of De’Chosen Events Consultants',
-    'Kitchen experience in Uganda and six other countries',
+    'Kitchen experience in Uganda, elsewhere in Africa and the Gulf',
     'Author of three culinary books',
   ],
 };

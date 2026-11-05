@@ -100,6 +100,8 @@ No purchase or download links are shown. Visitors use **Request information**, w
 | 6.1 | Approve the six service descriptions (`SERVICE_PATHWAYS` in `src/data/siteContent.ts`) |
 | 6.2 | Class practicalities: levels, duration, group sizes, location, fees (or "from" prices), schedule |
 | 6.3 | Genuine testimonials (with permission) from students and clients, if available |
+| 6.4 | "De’Chosen Academy": the previous site named the classes "Culinary & Baking Arts Classes (De’Chosen Academy)". Confirm whether the academy is an established, registered name before it is shown again (the text is kept in `src/data/chefProfile.ts`) |
+| 6.5 | The previous site said the masterclasses had trained "hundreds of students, bakery staff, and private chefs". Not shown until an approximate, confirmed number is supplied (kept in `src/data/chefProfile.ts`) |
 
 ## 7. Contact
 

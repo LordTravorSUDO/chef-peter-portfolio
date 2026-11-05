@@ -46,7 +46,8 @@ There are two proposed migrations. Both are additive, kept in `supabase/proposed
 - **New table:** `public.author_profiles`, keyed by profile id. It holds the display name, professional title, short and long biography, a photo (a media library item) and a profile link.
 - **Why a separate table:** `public.profiles` contains account data (role, active flag) and stays private to its owner and to admins. Article pages are read by anonymous visitors, so the public biography lives in its own table. That table is **readable by everyone and writable only by admins**. No existing policy changes.
 - **Before the migration:** the site shows the approved profile kept in `src/data/authorProfile.ts`.
-- **Rollback:** `DROP TABLE public.author_profiles;`
+- **After applying it:** add the Vercel environment variable `VITE_AUTHOR_PROFILES=on` (all environments) and redeploy. Public pages only read the table when this is set, so visitors never request a table that does not exist yet. The CMS detects the table automatically.
+- **Rollback:** remove `VITE_AUTHOR_PROFILES` and redeploy, then `DROP TABLE public.author_profiles;`
 
 The rest of this section describes the first migration.
 

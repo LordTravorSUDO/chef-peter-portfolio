@@ -167,7 +167,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDE3EA]">
           <h2 id="media-picker-title" className="text-sm font-semibold text-[#1A2B40]">{title}</h2>
-          <button onClick={onClose} aria-label="Close" className="text-[#6B7A8D] hover:text-[#1A2B40] transition">
+          <button onClick={onClose} aria-label="Close" className="text-[#5F6E80] hover:text-[#1A2B40] transition">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -178,7 +178,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
             {/* Search */}
             <div className="px-4 py-3 border-b border-[#DDE3EA]">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7A8D]" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5F6E80]" />
                 <input
                   type="text"
                   value={search}
@@ -201,7 +201,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[10px] text-[#1A2B40] truncate">{u.filename}</span>
-                          <span className={`text-[10px] font-medium ml-1 ${u.status === 'done' ? 'text-emerald-600' : u.status === 'failed' ? 'text-[#C0392B]' : 'text-[#4A777A]'}`}>
+                          <span className={`text-[10px] font-medium ml-1 ${u.status === 'done' ? 'text-emerald-700' : u.status === 'failed' ? 'text-[#C0392B]' : 'text-[#4A777A]'}`}>
                             {u.status === 'done' ? '✓' : u.status === 'failed' ? '✗' : `${u.progress}%`}
                           </span>
                         </div>
@@ -226,7 +226,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
               {loading ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
               ) : filtered.length === 0 ? (
-                <div className="text-center py-12 text-sm text-[#6B7A8D]">
+                <div className="text-center py-12 text-sm text-[#5F6E80]">
                   {search ? 'No matching files. Try a different search or upload a new image.' : 'No media yet. Drag images above to upload.'}
                 </div>
               ) : (
@@ -252,7 +252,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                               loading="lazy"
                             />
                           ) : (
-                            <span className="text-xs text-[#6B7A8D]">No preview</span>
+                            <span className="text-xs text-[#5F6E80]">No preview</span>
                           )}
                         </div>
                         <div className="p-1.5">
@@ -284,7 +284,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                       >
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-xs text-[#6B7A8D]">{page} / {totalPages}</span>
+                      <span className="text-xs text-[#5F6E80]">{page} / {totalPages}</span>
                       <button
                         disabled={page >= totalPages}
                         onClick={() => setPage(page + 1)}
@@ -303,7 +303,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
           {selected && (
             <div className="w-64 border-l border-[#DDE3EA] flex flex-col overflow-hidden">
               <div className="p-4 space-y-3 overflow-y-auto flex-1">
-                <p className="text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Selected</p>
+                <p className="text-xs font-medium text-[#5F6E80] uppercase tracking-wide">Selected</p>
 
                 {/* Preview */}
                 <div className="rounded-lg overflow-hidden bg-[#F4F6F8] border border-[#DDE3EA]">
@@ -348,7 +348,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
                 {/* Alt status indicator */}
                 <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border ${
                   altOk
-                    ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                     : 'text-amber-700 bg-amber-50 border-amber-200'
                 }`}>
                   {altOk ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full bg-amber-400" />}
@@ -361,7 +361,7 @@ export default function MediaPickerModal({ open, onClose, onSelect, title = 'Sel
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-4 border-t border-[#DDE3EA]">
-          <p className="text-xs text-[#6B7A8D]">
+          <p className="text-xs text-[#5F6E80]">
             {selected ? `Selected: ${selected.original_filename}` : 'Select an image from the library or upload a new one'}
           </p>
           <div className="flex gap-2">

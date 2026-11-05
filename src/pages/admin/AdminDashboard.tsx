@@ -33,7 +33,7 @@ function StatCard({ label, value, icon, color, to }: StatCardProps) {
       </div>
       <div>
         <p className="text-2xl font-bold text-[#1A2B40]">{value}</p>
-        <p className="text-xs text-[#6B7A8D] font-medium mt-0.5">{label}</p>
+        <p className="text-xs text-[#5F6E80] font-medium mt-0.5">{label}</p>
       </div>
     </div>
   );
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-[#1B365D]">
             {greeting()}{profile?.display_name ? `, ${profile.display_name.split(' ')[0]}` : ''}
           </h1>
-          <p className="text-sm text-[#6B7A8D] mt-0.5">
+          <p className="text-sm text-[#5F6E80] mt-0.5">
             An overview of the culinary library.
           </p>
         </div>
@@ -99,7 +99,7 @@ export default function AdminDashboard() {
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
           <div>
             <p className="text-sm font-medium text-red-700">Could not load statistics</p>
-            <p className="text-xs text-red-600 mt-0.5">{error}</p>
+            <p className="text-xs text-red-700 mt-0.5">{error}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={refresh} className="ml-auto">Retry</Button>
         </div>
@@ -126,14 +126,14 @@ export default function AdminDashboard() {
           <StatCard
             label="Published"
             value={stats.published}
-            icon={<CheckCircle className="w-5 h-5 text-emerald-600" />}
+            icon={<CheckCircle className="w-5 h-5 text-emerald-700" />}
             color="bg-emerald-50"
             to="/admin/articles?status=published"
           />
           <StatCard
             label="Drafts"
             value={stats.drafts}
-            icon={<FileText className="w-5 h-5 text-[#6B7A8D]" />}
+            icon={<FileText className="w-5 h-5 text-[#5F6E80]" />}
             color="bg-slate-100"
             to="/admin/articles?status=draft"
           />
@@ -162,9 +162,9 @@ export default function AdminDashboard() {
           )}
         </Panel>
 
-        <Panel title="Recently published" icon={<Send className="w-4 h-4 text-emerald-600" />} link={{ to: '/admin/articles?status=published&date=published_at', label: 'All published' }}>
+        <Panel title="Recently published" icon={<Send className="w-4 h-4 text-emerald-700" />} link={{ to: '/admin/articles?status=published&date=published_at', label: 'All published' }}>
           {loading ? <PanelLoading /> : recentlyPublished.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-[#6B7A8D]">Nothing published yet.</p>
+            <p className="px-5 py-6 text-sm text-[#5F6E80]">Nothing published yet.</p>
           ) : (
             <ArticleList items={recentlyPublished} detail={(a) => `Published ${a.published_at ? formatDate(a.published_at) : ''}`} viewLive />
           )}
@@ -172,7 +172,7 @@ export default function AdminDashboard() {
 
         <Panel title="Scheduled to go live" icon={<Clock className="w-4 h-4 text-[#D99B26]" />} link={{ to: '/admin/articles?status=scheduled', label: 'All scheduled' }}>
           {loading ? <PanelLoading /> : upcoming.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-[#6B7A8D]">No articles are scheduled.</p>
+            <p className="px-5 py-6 text-sm text-[#5F6E80]">No articles are scheduled.</p>
           ) : (
             <ArticleList
               items={upcoming}
@@ -181,16 +181,16 @@ export default function AdminDashboard() {
           )}
         </Panel>
 
-        <Panel title="Needs attention" icon={<ListChecks className="w-4 h-4 text-[#B7791F]" />}>
+        <Panel title="Needs attention" icon={<ListChecks className="w-4 h-4 text-[#8A5A12]" />}>
           {loading ? <PanelLoading /> : attention.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-[#6B7A8D]">Every published article has a category, a featured image and an introduction.</p>
+            <p className="px-5 py-6 text-sm text-[#5F6E80]">Every published article has a category, a featured image and an introduction.</p>
           ) : (
             <ul className="divide-y divide-[#DDE3EA]">
               {attention.map((item) => (
                 <li key={item.id + item.issue} className="px-5 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[#1A2B40] truncate">{item.title}</p>
-                    <p className="text-xs text-[#B7791F] mt-0.5">{item.issue}</p>
+                    <p className="text-xs text-[#8A5A12] mt-0.5">{item.issue}</p>
                   </div>
                   <Link to={`/admin/articles/${item.id}/edit`} className="text-xs text-[#4A777A] hover:text-[#1B365D] font-medium">Fix</Link>
                 </li>
@@ -203,12 +203,12 @@ export default function AdminDashboard() {
       {/* Category overview */}
       <Panel title="Categories" icon={<FolderOpen className="w-4 h-4 text-[#4A777A]" />} link={{ to: '/admin/categories', label: 'Manage categories' }}>
         {loading ? <PanelLoading /> : categories.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-[#6B7A8D]">No categories yet. <Link to="/admin/categories" className="underline">Create the first one</Link>.</p>
+          <p className="px-5 py-6 text-sm text-[#5F6E80]">No categories yet. <Link to="/admin/categories" className="underline">Create the first one</Link>.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-[#6B7A8D] bg-[#F4F6F8]">
+                <tr className="text-left text-xs uppercase tracking-wide text-[#5F6E80] bg-[#F4F6F8]">
                   <th scope="col" className="px-5 py-2 font-medium">Category</th>
                   <th scope="col" className="px-5 py-2 font-medium">Published</th>
                   <th scope="col" className="px-5 py-2 font-medium">All articles</th>
@@ -224,7 +224,7 @@ export default function AdminDashboard() {
                         <Link to={`/admin/articles?category=${c.id}`} className="font-medium text-[#1A2B40] hover:underline">{c.name}</Link>
                       </td>
                       <td className="px-5 py-2.5 tabular-nums">{c.published}</td>
-                      <td className="px-5 py-2.5 tabular-nums text-[#6B7A8D]">{c.total}</td>
+                      <td className="px-5 py-2.5 tabular-nums text-[#5F6E80]">{c.total}</td>
                       <td className="px-5 py-2.5">
                         <div className="h-2 rounded-full bg-[#F4F6F8]" aria-hidden="true">
                           <div className="h-2 rounded-full bg-[#4A777A]" style={{ width: `${(c.published / max) * 100}%` }} />
@@ -236,7 +236,7 @@ export default function AdminDashboard() {
               </tbody>
             </table>
             {uncategorised > 0 && (
-              <p className="px-5 py-3 text-xs text-[#B7791F] border-t border-[#DDE3EA]">
+              <p className="px-5 py-3 text-xs text-[#8A5A12] border-t border-[#DDE3EA]">
                 {uncategorised} published article{uncategorised === 1 ? ' has' : 's have'} no category and will not appear when visitors browse by subject.
               </p>
             )}
@@ -294,7 +294,7 @@ function ArticleList({ items, detail, showBadge = false, viewLive = false }: {
         <li key={a.id} className="px-5 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <Link to={`/admin/articles/${a.id}/edit`} className="block text-sm font-medium text-[#1A2B40] truncate hover:underline">{a.title}</Link>
-            <p className="text-xs text-[#6B7A8D] mt-0.5">{detail(a)}</p>
+            <p className="text-xs text-[#5F6E80] mt-0.5">{detail(a)}</p>
           </div>
           {showBadge && <Badge status={a.status} />}
           {viewLive && (

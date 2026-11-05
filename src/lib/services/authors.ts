@@ -33,6 +33,17 @@ const MISSING_TABLE = /42P01|PGRST205|does not exist|could not find the table/i;
 
 let tableCheck: Promise<boolean> | null = null;
 
+/**
+ * Public pages read author profiles only once the owner has confirmed the
+ * table exists, by setting VITE_AUTHOR_PROFILES=on in the deployment
+ * settings after applying supabase/proposed/20261107000000_author_profiles.sql.
+ * Until then visitors never request the missing table (no failed requests or
+ * console errors) and see the approved default profile. The CMS still detects
+ * the table automatically.
+ */
+export const publicAuthorProfilesEnabled = (): boolean =>
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_AUTHOR_PROFILES === 'on';
+
 /** Whether the author_profiles table exists (cached; retried after errors). */
 export function hasAuthorProfilesTable(): Promise<boolean> {
   if (!tableCheck) {
@@ -66,8 +77,13 @@ function toView(row: AuthorProfileRow): AuthorProfileView {
  * The public profile for an article's author.
  * Order: saved CMS profile → approved default (for Chef Peter bylines) → name only.
  */
-export async function getAuthorProfile(profileId: string | null | undefined, byline?: string | null): Promise<AuthorProfileView> {
-  if (profileId && (await hasAuthorProfilesTable())) {
+export async function getAuthorProfile(
+  profileId: string | null | undefined,
+  byline?: string | null,
+  scope: 'public' | 'admin' = 'public',
+): Promise<AuthorProfileView> {
+  const allowed = scope === 'admin' || publicAuthorProfilesEnabled();
+  if (profileId && allowed && (await hasAuthorProfilesTable())) {
     const { data } = await supabase.from('author_profiles').select(SELECT).eq('profile_id', profileId).maybeSingle();
     if (data) return toView(data as unknown as AuthorProfileRow);
   }
@@ -86,7 +102,7 @@ export async function getAuthorProfile(profileId: string | null | undefined, byl
 
 /** The main educator (first saved profile, else the approved default) — used by the library. */
 export async function getPrimaryAuthorProfile(): Promise<AuthorProfileView> {
-  if (await hasAuthorProfilesTable()) {
+  if (publicAuthorProfilesEnabled() && (await hasAuthorProfilesTable())) {
     const { data } = await supabase.from('author_profiles').select(SELECT).order('created_at', { ascending: true }).limit(1).maybeSingle();
     if (data) return toView(data as unknown as AuthorProfileRow);
   }

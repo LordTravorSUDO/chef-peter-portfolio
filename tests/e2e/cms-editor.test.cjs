@@ -105,8 +105,14 @@ function createMock(opts = {}) {
   };
   for (const a of opts.articles || []) state.articles.set(a.id, a);
 
+  // A real database returns every column: after the knowledge-platform migration
+  // the new columns (with their defaults); before it, none of them.
+  const KNOWLEDGE_DEFAULTS = { article_type: 'educational', is_featured: false, is_editors_pick: false, recipe: null };
+  const withSchema = (a) => state.legacySchema
+    ? Object.fromEntries(Object.entries(a).filter(([k]) => !(k in KNOWLEDGE_DEFAULTS)))
+    : { ...KNOWLEDGE_DEFAULTS, ...a };
   const withRelations = (a) => ({
-    ...a,
+    ...withSchema(a),
     featured_image: a.featured_image_id ? MEDIA[a.featured_image_id] ?? null : null,
     social_image: a.social_image_id ? MEDIA[a.social_image_id] ?? null : null,
     article_categories: [], article_tags: [], profiles: null,

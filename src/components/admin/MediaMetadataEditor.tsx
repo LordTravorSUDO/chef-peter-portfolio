@@ -107,7 +107,7 @@ export default function MediaMetadataEditor({ media, onUpdated, onDelete }: Prop
 
   // Alt text accessibility indicator
   const altStatus = altText.trim()
-    ? { label: 'Descriptive alt text set', cls: 'text-emerald-600 bg-emerald-50 border-emerald-200' }
+    ? { label: 'Descriptive alt text set', cls: 'text-emerald-700 bg-emerald-50 border-emerald-200' }
     : { label: 'Missing alt text — set for editorial images or leave empty for decorative images', cls: 'text-amber-700 bg-amber-50 border-amber-200' };
 
   const hasChanges =
@@ -127,12 +127,12 @@ export default function MediaMetadataEditor({ media, onUpdated, onDelete }: Prop
             loading="lazy"
           />
         </div>
-        <div className="flex-1 space-y-1 text-xs text-[#6B7A8D] min-w-0">
+        <div className="flex-1 space-y-1 text-xs text-[#5F6E80] min-w-0">
           <p className="font-medium text-[#1A2B40] text-sm truncate">{media.original_filename}</p>
           <p>{formatBytes(media.file_size_bytes)} · {media.mime_type.split('/')[1].toUpperCase()}</p>
           {media.width_px && <p>{media.width_px} × {media.height_px}px</p>}
           <p>Uploaded {formatDate(media.created_at)}</p>
-          <p className="font-mono text-[10px] text-[#6B7A8D] truncate" title={media.storage_path}>
+          <p className="font-mono text-[10px] text-[#5F6E80] truncate" title={media.storage_path}>
             {media.storage_path}
           </p>
         </div>
@@ -145,13 +145,13 @@ export default function MediaMetadataEditor({ media, onUpdated, onDelete }: Prop
           <input
             readOnly
             value={getMediaUrl(media.storage_path)}
-            className="flex-1 text-xs font-mono bg-[#F4F6F8] border border-[#DDE3EA] rounded-lg px-2.5 py-1.5 text-[#6B7A8D] focus:outline-none"
+            className="flex-1 text-xs font-mono bg-[#F4F6F8] border border-[#DDE3EA] rounded-lg px-2.5 py-1.5 text-[#5F6E80] focus:outline-none"
             onFocus={(e) => e.target.select()}
           />
           <Button
             size="sm"
             variant="ghost"
-            icon={copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            icon={copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5" />}
             onClick={handleCopyUrl}
           >
             {copied ? 'Copied' : 'Copy'}

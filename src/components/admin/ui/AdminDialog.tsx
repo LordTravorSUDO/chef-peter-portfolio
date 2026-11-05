@@ -45,7 +45,7 @@ export default function AdminDialog({ open, title, onClose, children, footer, bu
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="w-full max-w-lg rounded-xl bg-white shadow-xl outline-none">
         <div className="flex items-start justify-between gap-4 border-b border-[#DDE3EA] px-5 py-4">
           <h2 id={titleId} className="text-base font-semibold text-[#1A2B40]">{title}</h2>
-          <button type="button" data-close onClick={onClose} disabled={busy} aria-label="Close" className="rounded p-1 text-[#6B7A8D] hover:text-[#1A2B40]">
+          <button type="button" data-close onClick={onClose} disabled={busy} aria-label="Close" className="rounded p-1 text-[#5F6E80] hover:text-[#1A2B40]">
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -128,10 +128,10 @@ export default function DragDropZone({ onFiles, className = '', compact = false,
             ${className}
           `}
         >
-          <UploadCloud className={`w-5 h-5 ${dragState.isDragging ? 'text-[#1B365D]' : 'text-[#6B7A8D]'}`} />
+          <UploadCloud className={`w-5 h-5 ${dragState.isDragging ? 'text-[#1B365D]' : 'text-[#5F6E80]'}`} />
           <div className="text-sm">
             <span className="font-medium text-[#1A2B40]">Drop images here or click to browse</span>
-            <span className="text-xs text-[#6B7A8D] ml-2">Max 10 MB · {ACCEPTED_LABEL}</span>
+            <span className="text-xs text-[#5F6E80] ml-2">Max 10 MB · {ACCEPTED_LABEL}</span>
           </div>
           <input
             ref={inputRef}
@@ -172,14 +172,14 @@ export default function DragDropZone({ onFiles, className = '', compact = false,
         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${dragState.isDragging ? 'bg-[#1B365D]' : 'bg-[#F4F6F8]'}`}>
           {dragState.isDragging
             ? <UploadCloud className="w-6 h-6 text-white" />
-            : <ImageIcon className="w-6 h-6 text-[#6B7A8D]" />
+            : <ImageIcon className="w-6 h-6 text-[#5F6E80]" />
           }
         </div>
         <div className="text-center">
           <p className="text-sm font-medium text-[#1A2B40]">
             {dragState.isDragging ? 'Drop to upload' : 'Drag images here or click to browse'}
           </p>
-          <p className="text-xs text-[#6B7A8D] mt-1">
+          <p className="text-xs text-[#5F6E80] mt-1">
             {ACCEPTED_LABEL} · max 10 MB per file
           </p>
         </div>

@@ -32,7 +32,7 @@ const STAGE: Record<Stage, { label: string; cls: string }> = {
   draft: { label: 'Draft — in review', cls: 'bg-[#FFF4E0] text-[#7A4A0B]' },
   scheduled: { label: 'Scheduled', cls: 'bg-[#E8F0FB] text-[#1B365D]' },
   published: { label: 'Published', cls: 'bg-[#E7F4EA] text-[#2F6B3F]' },
-  archived: { label: 'Archived', cls: 'bg-[#F1F4F8] text-[#6B7A8D]' },
+  archived: { label: 'Archived', cls: 'bg-[#F1F4F8] text-[#5F6E80]' },
 };
 
 const fmtDate = (iso: string) =>
@@ -93,7 +93,7 @@ export default function AdminEditorialCalendarPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-[#1B365D]">Editorial calendar</h1>
-        <p className="text-sm text-[#6B7A8D] mt-0.5 max-w-3xl">
+        <p className="text-sm text-[#5F6E80] mt-0.5 max-w-3xl">
           The first 28 articles for the Culinary Library — four per category, two a week. Dates are suggestions; nothing here is published automatically.
         </p>
       </div>
@@ -107,7 +107,7 @@ export default function AdminEditorialCalendarPage() {
           <li><span className="font-semibold text-[#1B365D]">3. Chef Peter reviews.</span> Only he writes or confirms “Chef Peter’s tip” boxes and any personal story or quotation.</li>
           <li><span className="font-semibold text-[#1B365D]">4. Approve and schedule.</span> When no [square-bracket] notes remain, schedule it in the editor for its date.</li>
         </ol>
-        <p className="mt-3 text-xs text-[#6B7A8D]">Full guidance: <code>docs/editorial-strategy.md</code>.</p>
+        <p className="mt-3 text-xs text-[#5F6E80]">Full guidance: <code>docs/editorial-strategy.md</code>.</p>
       </section>
 
       {error && <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>}
@@ -137,7 +137,7 @@ export default function AdminEditorialCalendarPage() {
         <div className="p-8 flex justify-center"><Spinner /></div>
       ) : (
         <ol className="space-y-3" aria-label="Planned articles">
-          {visible.length === 0 && <li className="text-sm text-[#6B7A8D]">No articles match these filters.</li>}
+          {visible.length === 0 && <li className="text-sm text-[#5F6E80]">No articles match these filters.</li>}
           {visible.map((p) => {
             const a = cms[p.slug];
             const st = stageOf(a);
@@ -145,7 +145,7 @@ export default function AdminEditorialCalendarPage() {
             return (
               <li key={p.slug} className="bg-white rounded-xl border border-[#DDE3EA]" data-testid={`proposal-${p.slug}`}>
                 <div className="flex flex-wrap items-start gap-4 p-4">
-                  <div className="flex w-full shrink-0 items-center gap-3 text-xs text-[#6B7A8D] sm:block sm:w-28">
+                  <div className="flex w-full shrink-0 items-center gap-3 text-xs text-[#5F6E80] sm:block sm:w-28">
                     <p className="flex items-center gap-1 font-semibold text-[#1B365D]"><CalendarDays className="w-3.5 h-3.5" aria-hidden="true" /> #{p.slot}</p>
                     <p className="sm:mt-0.5">{fmtDate(suggestedDate(p.slot))}</p>
                   </div>
@@ -191,7 +191,7 @@ export default function AdminEditorialCalendarPage() {
                       <ul className="list-disc pl-5">
                         {p.internalLinks.map((r) => {
                           const l = resolveLink(r);
-                          return <li key={r}>{l.label} <span className="text-[#6B7A8D]">({l.href}{l.planned ? ' — planned' : ''})</span></li>;
+                          return <li key={r}>{l.label} <span className="text-[#5F6E80]">({l.href}{l.planned ? ' — planned' : ''})</span></li>;
                         })}
                       </ul>
                     </Brief>
@@ -200,7 +200,7 @@ export default function AdminEditorialCalendarPage() {
                     </Brief>
                     {p.reviewNotes.length > 0 && (
                       <Brief term="Before publishing" wide>
-                        <ul className="space-y-1">{p.reviewNotes.map((n) => <li key={n} className="flex gap-2"><CheckCircle2 className="mt-0.5 w-4 h-4 shrink-0 text-[#B7791F]" aria-hidden="true" />{n}</li>)}</ul>
+                        <ul className="space-y-1">{p.reviewNotes.map((n) => <li key={n} className="flex gap-2"><CheckCircle2 className="mt-0.5 w-4 h-4 shrink-0 text-[#8A5A12]" aria-hidden="true" />{n}</li>)}</ul>
                       </Brief>
                     )}
                   </dl>
@@ -217,7 +217,7 @@ export default function AdminEditorialCalendarPage() {
 
 const Brief: React.FC<{ term: string; wide?: boolean; children: React.ReactNode }> = ({ term, wide, children }) => (
   <div className={wide ? 'sm:col-span-2' : ''}>
-    <dt className="text-xs font-semibold uppercase tracking-wide text-[#6B7A8D]">{term}</dt>
+    <dt className="text-xs font-semibold uppercase tracking-wide text-[#5F6E80]">{term}</dt>
     <dd className="mt-1 text-[#1A2B40]">{children}</dd>
   </div>
 );

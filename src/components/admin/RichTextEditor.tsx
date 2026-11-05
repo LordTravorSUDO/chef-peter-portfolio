@@ -141,7 +141,7 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
       className={`p-1.5 rounded transition ${
         active
           ? 'bg-[#1B365D] text-white'
-          : 'text-[#6B7A8D] hover:bg-[#F4F6F8] hover:text-[#1B365D]'
+          : 'text-[#5F6E80] hover:bg-[#F4F6F8] hover:text-[#1B365D]'
       } disabled:opacity-30 disabled:cursor-not-allowed`}
     >
       {children}
@@ -230,7 +230,7 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
           onChange={(e) => {
             const label = e.target.value;
             if (!label) return;
-            editor.chain().focus().insertContent(`<blockquote><p><strong>${label}:</strong> </p></blockquote>`).run();
+            insertCallout(editor, label);
             e.target.value = '';
           }}
           className="ml-1 rounded border border-[#DDE3EA] bg-white px-2 py-1 text-xs text-[#1A2B40] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/20"
@@ -252,7 +252,7 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
       <EditorContent editor={editor} className="tiptap-content-wrapper" />
 
       {/* Word count for long-form writing */}
-      <div className="border-t border-[#DDE3EA] bg-[#FAFBFC] px-3 py-1.5 text-xs text-[#6B7A8D] flex justify-between rounded-b-xl" aria-live="off">
+      <div className="border-t border-[#DDE3EA] bg-[#FAFBFC] px-3 py-1.5 text-xs text-[#5F6E80] flex justify-between rounded-b-xl" aria-live="off">
         <span>{wordCount.toLocaleString()} words · about {Math.max(1, Math.round(wordCount / 200))} min read</span>
         <span>Heading 2 for main sections · numbered list for steps</span>
       </div>
@@ -339,4 +339,26 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
       `}</style>
     </div>
   );
+}
+
+/**
+ * Inserts a labelled highlighted box and puts the cursor inside it, after the
+ * label, so the writer types the box's text (not the next paragraph's).
+ */
+export function insertCallout(editor: Editor, label: string) {
+  const start = editor.state.selection.from;
+  editor.chain().focus().insertContent(`<blockquote><p><strong>${label}:</strong> </p></blockquote>`).run();
+  // Find the box just inserted (the first blockquote at or after the old cursor)
+  let target: number | null = null;
+  editor.state.doc.nodesBetween(Math.max(0, start - 1), editor.state.doc.content.size, (node, pos) => {
+    if (target !== null) return false;
+    if (node.type.name === 'blockquote' && node.textContent.startsWith(`${label}:`)) {
+      const para = node.firstChild;
+      // pos = before blockquote; +1 into blockquote; +1 into paragraph; then to the end of its text
+      if (para) target = pos + 2 + para.content.size;
+      return false;
+    }
+    return true;
+  });
+  if (target !== null) editor.chain().focus().setTextSelection(target).unsetMark('bold').run();
 }

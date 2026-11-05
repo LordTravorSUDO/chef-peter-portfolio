@@ -170,7 +170,7 @@ export function CategoryTiles({ categories, counts }: { categories: Category[]; 
               to={`/category/${cat.slug}`}
               className="group flex h-full flex-col rounded-[var(--radius-card)] border border-sand bg-card p-6 transition-colors hover:border-gold hover:bg-gold-wash/50"
             >
-              <span className="font-serif text-[1.5rem] leading-none text-gold">{String(i + 1).padStart(2, '0')}</span>
+              <span className="font-serif text-[1.5rem] leading-none text-gold-deep">{String(i + 1).padStart(2, '0')}</span>
               <span className="mt-3 font-serif text-[1.25rem] font-semibold leading-snug text-ink group-hover:underline group-hover:decoration-gold group-hover:underline-offset-4">
                 {cat.name}
               </span>

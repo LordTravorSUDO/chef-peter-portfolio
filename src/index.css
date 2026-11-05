@@ -10,9 +10,39 @@
    On charcoal backgrounds use cream, cream-soft, gold or gold-light.
    The admin CMS has its own theme (src/components/admin/adminTheme.ts).
    ========================================================================== */
+/* ── Metric-matched fallback fonts ─────────────────────────────────────────
+   While the web fonts download, text is drawn with a local font scaled to the
+   same width and line height, so the page barely moves when the web fonts
+   arrive (reduces Cumulative Layout Shift). Values measured against Arial /
+   Times New Roman metrics (Liberation fonts are metric-compatible). */
+@font-face {
+  font-family: "Source Sans 3 Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Helvetica"), local("Roboto");
+  font-weight: 100 500;
+  size-adjust: 92.86%; ascent-override: 109.84%; descent-override: 43.07%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Source Sans 3 Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Helvetica Bold"), local("Roboto Bold");
+  font-weight: 600 900;
+  size-adjust: 92.86%; ascent-override: 109.84%; descent-override: 43.07%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Playfair Display Fallback";
+  src: local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif"), local("Noto Serif");
+  font-weight: 100 500;
+  size-adjust: 104.87%; ascent-override: 102.99%; descent-override: 23.84%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Playfair Display Fallback";
+  src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"), local("Noto Serif Bold");
+  font-weight: 600 900;
+  size-adjust: 104.87%; ascent-override: 102.99%; descent-override: 23.84%; line-gap-override: 0%;
+}
+
 @theme {
-  --font-serif: "Playfair Display", Georgia, "Times New Roman", serif;
-  --font-sans: "Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Playfair Display", "Playfair Display Fallback", Georgia, "Times New Roman", serif;
+  --font-sans: "Source Sans 3", "Source Sans 3 Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   --color-cream: #FBF8F3;        /* page background */
   --color-paper: #F4EDE2;        /* alternate section background */

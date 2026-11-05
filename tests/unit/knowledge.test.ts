@@ -208,3 +208,22 @@ test('custom sections are offered for tutorials and guides, not for history or g
   assert.ok(!ARTICLE_TYPE_MAP.food_history.fields.includes('sections'));
   assert.ok(!ARTICLE_TYPE_MAP.educational.fields.includes('sections'));
 });
+
+test('public article dates are shown in Kampala time for every visitor', async () => {
+  const fs = await import('node:fs');
+  for (const f of ['src/components/blog/ArticleCard.tsx', 'src/components/blog/FeaturedArticleHero.tsx', 'src/pages/blog/ArticlePage.tsx', 'src/components/ArticlesTeaserSection.tsx']) {
+    const src = fs.readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/new Intl\.DateTimeFormat\([^)]*\)/g)) assert.match(m[0], /timeZone: 'Africa\/Kampala'/, f);
+  }
+  // 23:30 UTC on 31 Oct is 1 November in Kampala (UTC+3)
+  const fmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' });
+  assert.equal(fmt.format(new Date('2026-10-31T23:30:00Z')), '1 November 2026');
+});
+
+test('knowledge schema is detected from a sample row (no failed requests)', async () => {
+  const { rowShowsKnowledgeSchema } = await import('../../src/lib/knowledge/schemaDetect');
+  assert.equal(rowShowsKnowledgeSchema('categories', { id: 'c', slug: 's', name: 'n' }), false);
+  assert.equal(rowShowsKnowledgeSchema('categories', { id: 'c', sort_order: 1, is_active: true }), true);
+  assert.equal(rowShowsKnowledgeSchema('articles', { id: 'a', article_type: 'recipe', recipe: null }), true);
+  assert.equal(rowShowsKnowledgeSchema('articles', null), null);
+});

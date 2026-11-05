@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { History, RotateCcw, Eye, ChevronDown, ChevronUp, Radio } from 'lucide-react';
-import { getArticleRevisions, restoreRevision, getRevisionFull } from '../../lib/services/articles';
+import { getArticleRevisions, restoreRevision, getRevisionFull, sanitiseHtml } from '../../lib/services/articles';
 import { getArticleEvents, type ArticleEvent } from '../../lib/services/scheduler';
 import { formatInZone } from '../../lib/datetime';
 import ConfirmDialog from './ui/ConfirmDialog';
@@ -52,13 +52,13 @@ function formatDateTime(iso: string) {
 }
 
 const EVENT_LABELS: Record<string, { label: string; color: string }> = {
-  published:          { label: '✓ Published',          color: 'text-emerald-600' },
+  published:          { label: '✓ Published',          color: 'text-emerald-700' },
   unpublished:        { label: '✕ Unpublished',        color: 'text-amber-600' },
   archived:           { label: '⊘ Archived',           color: 'text-red-500' },
   scheduled:          { label: '🕐 Scheduled',          color: 'text-[#1B365D]' },
   schedule_cancelled: { label: '✕ Schedule cancelled', color: 'text-amber-600' },
   restored:           { label: '↩ Restored',           color: 'text-[#4A777A]' },
-  deleted:            { label: '⊗ Deleted',            color: 'text-red-600' },
+  deleted:            { label: '⊗ Deleted',            color: 'text-red-700' },
 };
 
 export default function RevisionHistory({ articleId, onRestored }: Props) {
@@ -106,7 +106,7 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
   const handlePreview = async (revId: string) => {
     try {
       const full = await getRevisionFull(articleId, revId);
-      setPreviewBody(full.body);
+      setPreviewBody(sanitiseHtml(full.body ?? '')); // same defence-in-depth as the public article page
       setPreviewTitle(full.title);
     } catch { /* silent */ }
   };
@@ -137,12 +137,12 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
           <History className="w-4 h-4 text-[#4A777A]" />
           Revision history &amp; events
           {totalCount > 0 && (
-            <span className="text-xs text-[#6B7A8D] font-normal">({totalCount})</span>
+            <span className="text-xs text-[#5F6E80] font-normal">({totalCount})</span>
           )}
         </div>
         {expanded
-          ? <ChevronUp className="w-4 h-4 text-[#6B7A8D]" />
-          : <ChevronDown className="w-4 h-4 text-[#6B7A8D]" />}
+          ? <ChevronUp className="w-4 h-4 text-[#5F6E80]" />
+          : <ChevronDown className="w-4 h-4 text-[#5F6E80]" />}
       </button>
 
       {expanded && (
@@ -150,7 +150,7 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
           {loading ? (
             <div className="p-6 flex justify-center"><Spinner size="sm" /></div>
           ) : timeline.length === 0 ? (
-            <div className="p-6 text-center text-sm text-[#6B7A8D]">
+            <div className="p-6 text-center text-sm text-[#5F6E80]">
               No history yet. Revisions are created automatically when you save changes to the title or content.
             </div>
           ) : (
@@ -162,17 +162,17 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
                   const scheduledFor = (ev.payload?.scheduled_for as string | undefined);
                   return (
                     <div key={`ev-${ev.id}`} className="px-4 py-3 bg-[#FAFBFC] flex items-start gap-3">
-                      <Radio className="w-3.5 h-3.5 text-[#6B7A8D] mt-0.5 shrink-0" />
+                      <Radio className="w-3.5 h-3.5 text-[#5F6E80] mt-0.5 shrink-0" />
                       <div>
                         <p className={`text-xs font-semibold ${label?.color ?? 'text-[#1A2B40]'}`}>
                           {label?.label ?? ev.event_type}
                         </p>
                         {scheduledFor && (
-                          <p className="text-[10px] text-[#6B7A8D] mt-0.5">
+                          <p className="text-[10px] text-[#5F6E80] mt-0.5">
                             For: {formatInZone(scheduledFor)}
                           </p>
                         )}
-                        <p className="text-[10px] text-[#6B7A8D] mt-0.5">{formatDateTime(ev.created_at)}</p>
+                        <p className="text-[10px] text-[#5F6E80] mt-0.5">{formatDateTime(ev.created_at)}</p>
                       </div>
                     </div>
                   );
@@ -186,9 +186,9 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
                       <p className="text-sm font-medium text-[#1A2B40] truncate">
                         Rev #{rev.revision_no}: {rev.title}
                       </p>
-                      <p className="text-xs text-[#6B7A8D] mt-0.5">{formatDateTime(rev.created_at)}</p>
+                      <p className="text-xs text-[#5F6E80] mt-0.5">{formatDateTime(rev.created_at)}</p>
                       {rev.change_note && (
-                        <p className="text-xs text-[#6B7A8D] mt-0.5 italic">"{rev.change_note}"</p>
+                        <p className="text-xs text-[#5F6E80] mt-0.5 italic">"{rev.change_note}"</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
@@ -196,7 +196,7 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
                         type="button"
                         onClick={() => handlePreview(rev.id)}
                         aria-label={`Preview revision #${rev.revision_no}`}
-                        className="p-1.5 rounded text-[#6B7A8D] hover:text-[#4A777A] hover:bg-[#F4F6F8] transition"
+                        className="p-1.5 rounded text-[#5F6E80] hover:text-[#4A777A] hover:bg-[#F4F6F8] transition"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
@@ -204,7 +204,7 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
                         type="button"
                         onClick={() => setRestoreId(rev.id)}
                         aria-label={`Restore revision #${rev.revision_no}`}
-                        className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-[#F4F6F8] transition"
+                        className="p-1.5 rounded text-[#5F6E80] hover:text-[#1B365D] hover:bg-[#F4F6F8] transition"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                       </button>
@@ -233,9 +233,9 @@ export default function RevisionHistory({ articleId, onRestored }: Props) {
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDE3EA]">
               <div>
                 <h2 className="text-sm font-semibold text-[#1A2B40]">Revision preview</h2>
-                {previewTitle && <p className="text-xs text-[#6B7A8D] mt-0.5">{previewTitle}</p>}
+                {previewTitle && <p className="text-xs text-[#5F6E80] mt-0.5">{previewTitle}</p>}
               </div>
-              <button onClick={() => setPreviewBody(null)} aria-label="Close preview" className="text-[#6B7A8D] hover:text-[#1A2B40]">✕</button>
+              <button onClick={() => setPreviewBody(null)} aria-label="Close preview" className="text-[#5F6E80] hover:text-[#1A2B40]">✕</button>
             </div>
             <div className="overflow-y-auto p-5">
               <div

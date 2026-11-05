@@ -22,7 +22,7 @@ function ProtectedContent() {
       <div className="min-h-screen bg-[#F4F6F8] flex items-center justify-center">
         <div className="text-center space-y-3">
           <Spinner size="lg" />
-          <p className="text-sm text-[#6B7A8D]">Verifying session…</p>
+          <p className="text-sm text-[#5F6E80]">Verifying session…</p>
         </div>
       </div>
     );

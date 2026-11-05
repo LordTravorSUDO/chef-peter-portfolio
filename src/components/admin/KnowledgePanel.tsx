@@ -18,7 +18,7 @@ import { COMMON_ALLERGENS, type RecipeData, type RecipeIngredient, type RecipeSe
 
 const box = 'bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-4';
 const label = 'block text-sm font-medium text-[#1A2B40]';
-const hint = 'text-xs text-[#6B7A8D]';
+const hint = 'text-xs text-[#5F6E80]';
 const field =
   'mt-1 block w-full rounded-lg border border-[#DDE3EA] bg-white px-3 py-2 text-sm text-[#1A2B40] focus:border-[#1B365D] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/15';
 
@@ -94,7 +94,7 @@ export default function KnowledgePanel({ enabled, value, onChange, onInsertOutli
         <div className={box}>
           <div>
             <p className="text-sm font-semibold text-[#1A2B40]">
-              {type === 'recipe' ? 'Recipe details' : 'Structured details'} <span className="font-normal text-[#6B7A8D]">(optional)</span>
+              {type === 'recipe' ? 'Recipe details' : 'Structured details'} <span className="font-normal text-[#5F6E80]">(optional)</span>
             </p>
             <p className={hint}>
               Shown as a card on the article.{' '}
@@ -271,9 +271,9 @@ function IngredientsEditor({ uid, list, onChange }: { uid: string; list: RecipeI
               <input aria-label={`Ingredient ${i + 1} note`} placeholder="Note (e.g. chopped)" className={`${field} mt-0`} value={row.note ?? ''} onChange={(e) => update(i, { note: e.target.value })} />
               <input aria-label={`Ingredient ${i + 1} group`} placeholder="Group (optional)" className={`${field} mt-0`} value={row.group ?? ''} onChange={(e) => update(i, { group: e.target.value })} />
               <div className="flex">
-                <button type="button" onClick={() => move(i, -1)} aria-label={`Move ingredient ${i + 1} up`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D]"><ArrowUp className="w-4 h-4" /></button>
-                <button type="button" onClick={() => move(i, 1)} aria-label={`Move ingredient ${i + 1} down`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D]"><ArrowDown className="w-4 h-4" /></button>
-                <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} aria-label={`Remove ingredient ${i + 1}`} className="p-1.5 text-[#6B7A8D] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
+                <button type="button" onClick={() => move(i, -1)} aria-label={`Move ingredient ${i + 1} up`} className="p-1.5 text-[#5F6E80] hover:text-[#1B365D]"><ArrowUp className="w-4 h-4" /></button>
+                <button type="button" onClick={() => move(i, 1)} aria-label={`Move ingredient ${i + 1} down`} className="p-1.5 text-[#5F6E80] hover:text-[#1B365D]"><ArrowDown className="w-4 h-4" /></button>
+                <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} aria-label={`Remove ingredient ${i + 1}`} className="p-1.5 text-[#5F6E80] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           </div>
@@ -319,16 +319,16 @@ function ListEditor({ label: text, itemLabel, addLabel, help, list, onChange, mu
       <ol className="mt-2 space-y-2">
         {list.map((item, i) => (
           <li key={i} className="flex items-start gap-2">
-            <span className="mt-2 w-5 shrink-0 text-right text-xs font-semibold text-[#6B7A8D]">{i + 1}.</span>
+            <span className="mt-2 w-5 shrink-0 text-right text-xs font-semibold text-[#5F6E80]">{i + 1}.</span>
             {multiline ? (
               <textarea aria-label={`${itemLabel} ${i + 1}`} rows={2} className={`${field} mt-0`} value={item} onChange={(e) => update(i, e.target.value)} onPaste={onPaste(i)} />
             ) : (
               <input aria-label={`${itemLabel} ${i + 1}`} className={`${field} mt-0`} value={item} onChange={(e) => update(i, e.target.value)} onPaste={onPaste(i)} />
             )}
             <div className="flex shrink-0">
-              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} down`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
-              <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} aria-label={`Remove ${itemLabel.toLowerCase()} ${i + 1}`} className="p-1.5 text-[#6B7A8D] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} className="p-1.5 text-[#5F6E80] hover:text-[#1B365D] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} down`} className="p-1.5 text-[#5F6E80] hover:text-[#1B365D] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+              <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} aria-label={`Remove ${itemLabel.toLowerCase()} ${i + 1}`} className="p-1.5 text-[#5F6E80] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
             </div>
           </li>
         ))}
@@ -366,13 +366,13 @@ function SectionsEditor({ list, onChange }: { list: RecipeSection[]; onChange: (
             <div className="flex items-center gap-2">
               <input aria-label={`Section ${i + 1} title`} list={`${uid}-suggestions`} placeholder="Section title, e.g. Troubleshooting" className={`${field} mt-0`} value={sec.title} onChange={(e) => update(i, { title: e.target.value })} />
               <div className="flex shrink-0">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move section ${i + 1} up`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-                <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label={`Move section ${i + 1} down`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move section ${i + 1} up`} className="p-1.5 text-[#5F6E80] hover:text-[#1B365D] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label={`Move section ${i + 1} down`} className="p-1.5 text-[#5F6E80] hover:text-[#1B365D] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
                 <button
                   type="button"
                   onClick={() => { if (!sec.body.trim() || window.confirm(`Remove the section “${sec.title || 'Untitled'}”?`)) onChange(list.filter((_, idx) => idx !== i)); }}
                   aria-label={`Remove section ${i + 1}`}
-                  className="p-1.5 text-[#6B7A8D] hover:text-[#C0392B]"
+                  className="p-1.5 text-[#5F6E80] hover:text-[#C0392B]"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -394,7 +394,7 @@ function WritingGuide() {
     <details className="group bg-white rounded-xl border border-[#DDE3EA]">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-[#1A2B40] [&::-webkit-details-marker]:hidden">
         <span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-[#4A777A]" /> Writing guide for the library</span>
-        <ChevronDown className="w-4 h-4 text-[#6B7A8D] transition-transform group-open:rotate-180" />
+        <ChevronDown className="w-4 h-4 text-[#5F6E80] transition-transform group-open:rotate-180" />
       </summary>
       <div className="space-y-3 border-t border-[#DDE3EA] p-5 text-sm leading-relaxed text-[#1A2B40]">
         <ul className="list-disc space-y-1.5 pl-5">
@@ -407,8 +407,8 @@ function WritingGuide() {
         </ul>
         <div>
           <p className="font-medium">Highlighted boxes</p>
-          <p className="text-[#6B7A8D]">Use the Quote button and start the first line with one of these labels:</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[#6B7A8D]">
+          <p className="text-[#5F6E80]">Use the Quote button and start the first line with one of these labels:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[#5F6E80]">
             <li><code>Chef’s tip:</code> — practical advice</li>
             <li><code>Chef’s note:</code> — background or explanation</li>
             <li><code>Safety note:</code> — food-safety warning</li>

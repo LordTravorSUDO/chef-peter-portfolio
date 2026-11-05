@@ -34,6 +34,7 @@ export default function CategoryPage() {
 
   const [category, setCategory] = useState<Category | null | undefined>(undefined);
   const [siblings, setSiblings] = useState<Category[]>([]);
+  const [siblingsLoaded, setSiblingsLoaded] = useState(false);
   const [v2, setV2] = useState(false);
   const [articles, setArticles] = useState<ArticleCard[]>([]);
   const [total, setTotal] = useState(0);
@@ -47,7 +48,7 @@ export default function CategoryPage() {
   }, [slug]);
 
   useEffect(() => {
-    getPublicCategories().then(setSiblings).catch(() => {});
+    getPublicCategories().then(setSiblings).catch(() => {}).finally(() => setSiblingsLoaded(true));
     hasKnowledgeSchema().then(setV2).catch(() => {});
   }, []);
 
@@ -129,12 +130,15 @@ export default function CategoryPage() {
             <div className="mt-3 h-12 w-2/3 animate-pulse rounded bg-sand/60" aria-hidden="true" />
           )}
           {category?.description && <p className="mt-4 max-w-3xl text-[1.125rem] leading-relaxed text-ink-soft">{category.description}</p>}
+          {/* Reserve the description's space while loading, so the list below does not jump */}
+          {category === undefined && <div className="mt-4 h-[3.65rem] max-w-3xl animate-pulse rounded bg-sand/40" aria-hidden="true" />}
           {inactive && (
             <p className="mt-4 max-w-3xl rounded-md bg-gold-wash px-4 py-3 text-ink-soft">
               This subject is no longer listed in the library, but its articles remain available.
             </p>
           )}
 
+          {!siblingsLoaded && <div className="mt-8 h-[2.672rem]" aria-hidden="true" />}
           {siblings.length > 1 && (
             <nav aria-label="Other subjects" className="no-scrollbar -mx-5 mt-8 flex gap-2 overflow-x-auto px-5 sm:mx-0 sm:flex-wrap sm:px-0">
               {siblings.map((c) => {

@@ -39,7 +39,7 @@ export default function Select({ label, options, error, hint, id, className = ''
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
-      {hint  && !error && <p className="text-xs text-[#6B7A8D]">{hint}</p>}
+      {hint  && !error && <p className="text-xs text-[#5F6E80]">{hint}</p>}
       {error && <p className="text-xs text-[#C0392B]" role="alert">{error}</p>}
     </div>
   );

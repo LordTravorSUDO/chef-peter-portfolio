@@ -16,7 +16,7 @@ interface TeaserArticle {
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
-const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' }); // dates as published in Kampala, for every visitor
 
 /**
  * Latest articles from the CMS. Supabase code is loaded only when this

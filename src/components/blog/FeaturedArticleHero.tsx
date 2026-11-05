@@ -10,7 +10,7 @@ import { articleTypeOf, ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleType
 import type { ArticleWithRelations } from '../../types/article';
 import { btn } from '../site/ui';
 
-const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' }); // dates as published in Kampala, for every visitor
 
 export default function FeaturedArticleHero({ article }: { article: ArticleWithRelations }) {
   const primaryCat =

@@ -35,10 +35,10 @@ export default function SeoQualityPanel({ checks, loading = false }: Props) {
   const hasIssues = errors > 0 || warnings > 0;
 
   const summaryColor = errors > 0
-    ? 'text-red-600 bg-red-50   border-red-200'
+    ? 'text-red-700 bg-red-50   border-red-200'
     : warnings > 0
       ? 'text-amber-700 bg-amber-50 border-amber-200'
-      : 'text-emerald-600 bg-emerald-50 border-emerald-200';
+      : 'text-emerald-700 bg-emerald-50 border-emerald-200';
 
   const summaryIcon = errors > 0
     ? <AlertCircle className="w-4 h-4 shrink-0" />
@@ -71,7 +71,7 @@ export default function SeoQualityPanel({ checks, loading = false }: Props) {
           {summaryText}
         </div>
         {checks.length > 0 && (
-          <span className="text-[#6B7A8D]">
+          <span className="text-[#5F6E80]">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </span>
         )}
@@ -98,7 +98,7 @@ export default function SeoQualityPanel({ checks, loading = false }: Props) {
             ))
           }
           <div className="px-4 py-2 bg-[#F4F6F8]">
-            <p className="text-[10px] text-[#6B7A8D] italic">
+            <p className="text-[10px] text-[#5F6E80] italic">
               These are editorial suggestions, not guarantees of search ranking performance.
             </p>
           </div>

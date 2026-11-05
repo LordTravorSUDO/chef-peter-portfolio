@@ -85,3 +85,16 @@ test('article checks flag duplicates, missing descriptions, alt text and noindex
   assert.match(msgs('5'), /noindex/);
   assert.equal(msgs('6'), '', 'drafts are not checked');
 });
+
+test('client redirect hook accepts only same-site paths', async () => {
+  const { isSafeRedirectPath } = await import('../../src/lib/seo/redirectTarget');
+  const { safeRedirectTarget } = await import('../../middleware');
+  for (const ok of ['/articles/new-slug', '/category/pastry-and-bakery']) {
+    assert.equal(isSafeRedirectPath(ok), true, ok);
+    assert.ok(safeRedirectTarget(ok), ok);
+  }
+  for (const bad of ['//evil.example', '/\\evil.example', '/\\\\evil.example', 'https://evil.example', '/a b', 'evil', '/\t/evil']) {
+    assert.equal(isSafeRedirectPath(bad), false, bad);
+    assert.equal(safeRedirectTarget(bad), null, bad);
+  }
+});

@@ -44,7 +44,7 @@ import { SITE_URL } from '../../components/knowledge/LibraryParts';
 import { IDS, articleDocumentTitle } from '../../lib/seo/schema';
 import { ArticleNavigation, AuthorBio, RecipeCard, ShareLinks, TableOfContents } from '../../components/knowledge/ArticleParts';
 
-const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' }); // dates as published in Kampala, for every visitor
 const fmt = (iso: string | null | undefined) => (iso ? dateFormat.format(new Date(iso)) : '');
 
 /** Minimum number of main (h2) headings before a table of contents is shown */
@@ -54,7 +54,7 @@ type Adjacent = { previous: { slug: string; title: string } | null; next: { slug
 
 function ArticleSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl animate-pulse space-y-5 px-5 py-14 sm:px-8" aria-hidden="true">
+    <div className="mx-auto min-h-[100svh] max-w-3xl animate-pulse space-y-5 px-5 py-14 sm:px-8" aria-hidden="true">
       <div className="h-3 w-1/4 rounded bg-sand/70" />
       <div className="h-10 w-4/5 rounded bg-sand/70" />
       <div className="h-5 w-full rounded bg-sand/50" />
@@ -126,8 +126,9 @@ export default function ArticlePage() {
       <BlogLayout>
         <title>Article not found | Chef Peter the Teacher</title>
         <meta name="robots" content="noindex, follow" />
-        <div className="mx-auto max-w-xl px-5 py-24 text-center">
-          <p className="font-serif text-7xl text-gold/60">404</p>
+        {/* Same minimum height as the loading placeholder, so the footer does not jump */}
+        <div className="mx-auto min-h-[100svh] max-w-xl px-5 py-24 text-center">
+          <p className="font-serif text-7xl text-gold-deep" aria-hidden="true">404</p>
           <h1 className="mt-4 font-serif text-[2rem] font-semibold text-ink">Article not found</h1>
           <p className="mt-3 leading-relaxed text-ink-soft">
             This article may have been moved or unpublished. Search the library or browse the categories instead.
@@ -388,10 +389,11 @@ export default function ArticlePage() {
             </p>
           </div>
 
+          {/* The table of contents is already a <nav>; no extra landmark needed */}
           {showToc && (
-            <aside className="hidden lg:block">
+            <div className="hidden lg:block">
               <TableOfContents toc={body.toc} variant="sidebar" />
-            </aside>
+            </div>
           )}
         </div>
       </article>

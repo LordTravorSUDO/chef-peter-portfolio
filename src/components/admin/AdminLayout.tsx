@@ -71,7 +71,7 @@ export default function AdminLayout({ children }: Props) {
           </div>
           <div className="leading-tight">
             <p className="text-white text-sm font-bold">Chef Peter</p>
-            <p className="text-white/50 text-[11px] font-mono uppercase tracking-wider">CMS</p>
+            <p className="text-white/75 text-[11px] font-mono uppercase tracking-wider">CMS</p>
           </div>
         </Link>
       </div>
@@ -115,10 +115,10 @@ export default function AdminLayout({ children }: Props) {
         </button>
         {/* Profile info */}
         <div className="px-3 pt-2">
-          <p className="text-xs text-white/40 truncate">
+          <p className="text-xs text-white/70 truncate">
             {loading ? '…' : profile?.display_name || 'Administrator'}
           </p>
-          <p className="text-[10px] text-white/25 uppercase tracking-wider font-mono">
+          <p className="text-[10px] text-white/70 uppercase tracking-wider font-mono">
             {profile?.role ?? 'admin'}
           </p>
         </div>

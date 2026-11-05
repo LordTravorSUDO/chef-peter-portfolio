@@ -24,7 +24,7 @@ interface Props {
   key?: React.Key;
 }
 
-const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' }); // dates as published in Kampala, for every visitor
 
 export function primaryCategoryOf(article: ArticleCardType) {
   return (

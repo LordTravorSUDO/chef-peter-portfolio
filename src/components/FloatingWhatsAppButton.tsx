@@ -13,6 +13,8 @@ export const FloatingWhatsAppButton: React.FC = () => {
   )}`;
 
   return (
+    // A top-level landmark, so screen-reader users can find it (it sits outside <main>)
+    <aside aria-label="Quick contact">
     <a
       href={whatsappUrl}
       target="_blank"
@@ -24,5 +26,6 @@ export const FloatingWhatsAppButton: React.FC = () => {
       <span className="sr-only md:hidden">Chat with Chef Peter on WhatsApp</span>
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
+    </aside>
   );
 };

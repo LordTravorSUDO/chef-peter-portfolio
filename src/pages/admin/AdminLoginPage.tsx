@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
       <title>Admin Login | Chef Peter the Teacher</title>
       <meta name="robots" content="noindex, nofollow" />
 
-      <div className="min-h-screen bg-[#F4F6F8] flex items-center justify-center px-4 py-12">
+      <main className="min-h-screen bg-[#F4F6F8] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
           {/* Header */}
           <div className="text-center mb-8">
@@ -89,7 +89,7 @@ export default function AdminLoginPage() {
             <h1 className="text-2xl font-bold text-[#1B365D]">
               {resetMode ? 'Reset Password' : 'CMS Sign In'}
             </h1>
-            <p className="mt-1 text-sm text-[#6B7A8D]">
+            <p className="mt-1 text-sm text-[#4A5A6D]">
               {resetMode
                 ? 'Enter your email and we\'ll send a reset link.'
                 : 'Chef Peter the Teacher — editorial dashboard'}
@@ -101,12 +101,12 @@ export default function AdminLoginPage() {
             {resetSent ? (
               <div className="text-center space-y-4">
                 <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 <p className="text-sm text-[#1A2B40] font-medium">Check your inbox</p>
-                <p className="text-sm text-[#6B7A8D]">
+                <p className="text-sm text-[#5F6E80]">
                   A password reset link has been sent to <strong>{email}</strong>.
                 </p>
                 <Button
@@ -171,7 +171,7 @@ export default function AdminLoginPage() {
                       type="button"
                       onClick={() => setShowPwd(!showPwd)}
                       aria-label={showPwd ? 'Hide password' : 'Show password'}
-                      className="absolute inset-y-0 right-0 px-3 text-[#6B7A8D] hover:text-[#1A2B40]"
+                      className="absolute inset-y-0 right-0 px-3 text-[#5F6E80] hover:text-[#1A2B40]"
                     >
                       {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -195,11 +195,11 @@ export default function AdminLoginPage() {
             )}
           </div>
 
-          <p className="mt-6 text-center text-xs text-[#6B7A8D]">
+          <p className="mt-6 text-center text-xs text-[#4A5A6D]">
             <Link to="/" className="hover:text-[#1B365D] transition">← Back to website</Link>
           </p>
         </div>
-      </div>
+      </main>
     </>
   );
 }

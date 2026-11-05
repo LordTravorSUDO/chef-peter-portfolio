@@ -30,7 +30,7 @@ export default function Input({ label, error, hint, id, className = '', ...rest 
         id={inputId}
         className={`
           w-full rounded-lg border px-3 py-2 text-sm text-[#1A2B40] bg-white
-          placeholder:text-[#6B7A8D]
+          placeholder:text-[#5F6E80]
           transition
           focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D]
           ${error ? 'border-[#C0392B]' : 'border-[#DDE3EA]'}
@@ -38,7 +38,7 @@ export default function Input({ label, error, hint, id, className = '', ...rest 
           ${className}
         `}
       />
-      {hint  && !error && <p className="text-xs text-[#6B7A8D]">{hint}</p>}
+      {hint  && !error && <p className="text-xs text-[#5F6E80]">{hint}</p>}
       {error && <p className="text-xs text-[#C0392B]" role="alert">{error}</p>}
     </div>
   );

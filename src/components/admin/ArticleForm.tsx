@@ -80,10 +80,10 @@ const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function SaveStatusIndicator({ status, error }: { status: AutosaveStatus; error?: string | null }) {
   const config: Record<AutosaveStatus, { label: string; icon: React.ReactNode; cls: string }> = {
-    idle:   { label: 'All changes saved', icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'text-emerald-600' },
+    idle:   { label: 'All changes saved', icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'text-emerald-700' },
     dirty:  { label: 'Unsaved changes…',  icon: <FileText   className="w-3.5 h-3.5" />, cls: 'text-[#D99B26]' },
     saving: { label: 'Saving…',            icon: <FileText   className="w-3.5 h-3.5 animate-pulse" />, cls: 'text-[#4A777A]' },
-    saved:  { label: 'Saved',              icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'text-emerald-600' },
+    saved:  { label: 'Saved',              icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'text-emerald-700' },
     failed: { label: 'Save failed',        icon: <AlertCircle className="w-3.5 h-3.5" />, cls: 'text-[#C0392B]' },
   };
   const c = config[status];
@@ -638,7 +638,6 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   const anyBusy = manualSaving || actionLoading;
   return (
     <div className="space-y-6">
-      <title>{isEdit ? 'Edit Article' : 'New Article'} | Chef Peter CMS</title>
       <meta name="robots" content="noindex, nofollow" />
 
       {/* Status banner — what visitors see right now */}
@@ -690,7 +689,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                 URL slug <span className="text-[#C0392B]" aria-hidden>*</span>
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#6B7A8D] shrink-0">/articles/</span>
+                <span className="text-xs text-[#5F6E80] shrink-0">/articles/</span>
                 <input
                   id="article-slug"
                   value={slug}
@@ -698,12 +697,12 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                   placeholder="article-slug"
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm text-[#1A2B40] font-mono bg-white focus:outline-none focus:ring-2 focus:ring-[#1B365D]/30 focus:border-[#1B365D] transition ${slugError ? 'border-[#C0392B]' : 'border-[#DDE3EA]'}`}
                 />
-                {slugChecking && <span className="text-xs text-[#6B7A8D]">Checking…</span>}
+                {slugChecking && <span className="text-xs text-[#5F6E80]">Checking…</span>}
               </div>
               {slugError && <p className="text-xs text-[#C0392B]" role="alert">{slugError}</p>}
-              {!slugError && <p className="text-xs text-[#6B7A8D]">Use a few descriptive words, e.g. <span className="font-mono">how-to-laminate-dough</span>.</p>}
+              {!slugError && <p className="text-xs text-[#5F6E80]">Use a few descriptive words, e.g. <span className="font-mono">how-to-laminate-dough</span>.</p>}
               {article?.published_at && savedSlugRef.current && slug.trim() !== savedSlugRef.current && (
-                <p className="text-xs text-[#B7791F]" data-testid="slug-redirect-note">
+                <p className="text-xs text-[#8A5A12]" data-testid="slug-redirect-note">
                   This article has been published. When you save, the old address <span className="font-mono">/articles/{savedSlugRef.current}</span> will
                   automatically redirect to the new one.
                 </p>
@@ -744,7 +743,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-lg border border-[#DDE3EA] bg-[#F4F6F8] flex items-center justify-center text-[10px] text-[#6B7A8D] text-center p-1">
+                  <div className="w-24 h-24 rounded-lg border border-[#DDE3EA] bg-[#F4F6F8] flex items-center justify-center text-[10px] text-[#5F6E80] text-center p-1">
                     Image set (preview unavailable)
                   </div>
                 )}
@@ -776,7 +775,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     initial={featuredCaption}
                     onSave={(v) => { setFeaturedCaption(v); return saveFeaturedMeta({ caption: v || null }); }}
                   />
-                  <p className="text-xs text-[#6B7A8D]">Saved to the media library, so the same details appear wherever this image is used.</p>
+                  <p className="text-xs text-[#5F6E80]">Saved to the media library, so the same details appear wherever this image is used.</p>
                 </div>
               </div>
             ) : (
@@ -797,7 +796,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                 <Globe className="w-4 h-4 text-[#4A777A]" />
                 SEO settings
               </div>
-              <span className="text-[#6B7A8D]">{showSeo ? '▲' : '▼'}</span>
+              <span className="text-[#5F6E80]">{showSeo ? '▲' : '▼'}</span>
             </button>
             {showSeo && (
               <div className="px-5 pb-5 space-y-4 border-t border-[#DDE3EA]">
@@ -838,7 +837,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                           className="w-24 h-24 rounded-lg object-cover border border-[#DDE3EA]"
                         />
                       ) : (
-                        <div className="w-24 h-24 rounded-lg border border-[#DDE3EA] bg-[#F4F6F8] flex items-center justify-center text-[10px] text-[#6B7A8D] text-center p-1">
+                        <div className="w-24 h-24 rounded-lg border border-[#DDE3EA] bg-[#F4F6F8] flex items-center justify-center text-[10px] text-[#5F6E80] text-center p-1">
                           Image set (preview unavailable)
                         </div>
                       )}
@@ -852,7 +851,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                       Select social image
                     </Button>
                   )}
-                  <p className="text-xs text-[#6B7A8D]">Used for og:image and Twitter Card. Falls back to featured image if empty.</p>
+                  <p className="text-xs text-[#5F6E80]">Used for og:image and Twitter Card. Falls back to featured image if empty.</p>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={noindex} onChange={(e) => setNoindex(e.target.checked)} className="w-4 h-4 accent-[#1B365D]" />
@@ -886,7 +885,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                 <Button variant="secondary" className="w-full" icon={<Send className="w-4 h-4" />} onClick={() => setConfirmAction('savePublish')} loading={actionLoading} disabled={anyBusy}>
                   Save &amp; publish
                 </Button>
-                <p className="text-xs text-[#6B7A8D] text-center leading-snug">
+                <p className="text-xs text-[#5F6E80] text-center leading-snug">
                   Save a draft to keep working on it, or save and publish it to the website now.
                   Scheduling becomes available after the first save.
                 </p>
@@ -916,8 +915,9 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
             {isEdit && currentStatus !== 'published' && (
               <>
                 <div className="space-y-1">
-                  <label className="block text-sm font-medium text-[#1A2B40]">Schedule for</label>
+                  <label htmlFor="schedule-for" className="block text-sm font-medium text-[#1A2B40]">Schedule for</label>
                   <input
+                    id="schedule-for"
                     type="datetime-local"
                     value={scheduledFor}
                     onChange={(e) => setScheduledFor(e.target.value)}
@@ -929,12 +929,12 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     try { utcIso = zonedInputToUtcIso(scheduledFor); } catch { utcIso = null; }
                     return utcIso && (
                       <div className="space-y-0.5" data-testid="schedule-preview">
-                        <p className="text-xs text-[#6B7A8D]">Kampala time: {formatInZone(utcIso)}</p>
-                        <p className="text-xs text-[#6B7A8D]">UTC: {new Date(utcIso).toUTCString()}</p>
+                        <p className="text-xs text-[#5F6E80]">Kampala time: {formatInZone(utcIso)}</p>
+                        <p className="text-xs text-[#5F6E80]">UTC: {new Date(utcIso).toUTCString()}</p>
                       </div>
                     );
                   })()}
-                  <p className="text-xs text-[#6B7A8D]">
+                  <p className="text-xs text-[#5F6E80]">
                     Enter the time in Kampala time (EAT, UTC+3), whatever computer you use.
                     The server stores and compares times in UTC.
                   </p>
@@ -947,7 +947,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     type="button"
                     onClick={handleCancelSchedule}
                     disabled={anyBusy}
-                    className="w-full text-xs text-[#6B7A8D] hover:text-[#C0392B] hover:underline transition"
+                    className="w-full text-xs text-[#5F6E80] hover:text-[#C0392B] hover:underline transition"
                   >
                     Cancel schedule
                   </button>
@@ -987,7 +987,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     <span className="text-sm text-[#1A2B40]">{cat.name}</span>
                     {selectedCatIds.includes(cat.id) && selectedCatIds.length > 0 && (
                       <button type="button" onClick={() => setPrimaryCatId(cat.id)}
-                        className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium transition ${primaryCatId === cat.id ? 'bg-[#1B365D] text-white' : 'text-[#6B7A8D] hover:text-[#1B365D]'}`}>
+                        className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium transition ${primaryCatId === cat.id ? 'bg-[#1B365D] text-white' : 'text-[#5F6E80] hover:text-[#1B365D]'}`}>
                         Primary
                       </button>
                     )}
@@ -999,13 +999,13 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
 
           {/* Tags */}
           <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-3">
-            <p className="text-sm font-medium text-[#1A2B40]">Tags <span className="font-normal text-[#6B7A8D]">(specific topics)</span></p>
+            <p className="text-sm font-medium text-[#1A2B40]">Tags <span className="font-normal text-[#5F6E80]">(specific topics)</span></p>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2" role="group" aria-label="Tags">
                 {tags.map((tag) => (
                   <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)} aria-pressed={selectedTagIds.includes(tag.id)}
                     className={`px-2 py-1 rounded-full text-xs font-medium border transition ${
-                      selectedTagIds.includes(tag.id) ? 'bg-[#4A777A] text-white border-[#4A777A]' : 'bg-white text-[#6B7A8D] border-[#DDE3EA] hover:border-[#4A777A]'
+                      selectedTagIds.includes(tag.id) ? 'bg-[#4A777A] text-white border-[#4A777A]' : 'bg-white text-[#5F6E80] border-[#DDE3EA] hover:border-[#4A777A]'
                     }`}>
                     {tag.name}
                   </button>
@@ -1031,7 +1031,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
             <p className="text-sm font-medium text-[#1A2B40]">Author</p>
             <p className="text-sm text-[#1A2B40]">
               {authorChange?.name ?? article?.author_display_name ?? profile?.display_name ?? 'You'}
-              {!isEdit && <span className="text-[#6B7A8D]"> (you)</span>}
+              {!isEdit && <span className="text-[#5F6E80]"> (you)</span>}
             </p>
             {isEdit && authors === null && (
               <button
@@ -1051,7 +1051,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
             {authorsError && <p className="text-xs text-[#C0392B]" role="alert">{authorsError}</p>}
             {isEdit && authors && authors.length > 0 && (
               <div>
-                <label htmlFor="author-change" className="block text-xs text-[#6B7A8D]">Author of this article</label>
+                <label htmlFor="author-change" className="block text-xs text-[#5F6E80]">Author of this article</label>
                 <select
                   id="author-change"
                   value={authorChange?.id ?? article?.author_id ?? ''}
@@ -1064,17 +1064,17 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                 >
                   {authors.map((a) => <option key={a.id} value={a.id}>{a.display_name || 'Unnamed admin'}</option>)}
                 </select>
-                {authorChange && <p className="mt-1 text-xs text-[#B7791F]">The new author and byline are saved with your next save.</p>}
+                {authorChange && <p className="mt-1 text-xs text-[#8A5A12]">The new author and byline are saved with your next save.</p>}
               </div>
             )}
-            <p className="text-xs text-[#6B7A8D]">
+            <p className="text-xs text-[#5F6E80]">
               The biography under the article comes from <a href="/admin/author" className="underline">Author profile</a>.
             </p>
           </div>
 
           {/* Article metadata (edit only) */}
           {isEdit && article && (
-            <div className="bg-[#F4F6F8] rounded-xl border border-[#DDE3EA] p-4 text-xs text-[#6B7A8D] space-y-1">
+            <div className="bg-[#F4F6F8] rounded-xl border border-[#DDE3EA] p-4 text-xs text-[#5F6E80] space-y-1">
               <p>Created: {new Date(article.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
               <p>Updated: {new Date(article.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
               {article.published_at && <p>Published: {new Date(article.published_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
@@ -1098,7 +1098,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
               <p className="text-[#4A777A]">
                 UTC: {new Date(article.scheduled_for).toUTCString()}
               </p>
-              <p className="text-[#6B7A8D] pt-1">
+              <p className="text-[#5F6E80] pt-1">
                 The Vercel Cron job publishes this article automatically once daily
                 at 03:00 Africa/Kampala (00:00 UTC). No browser tab needs to remain open.
                 <br />For more precise scheduling, see docs/scheduling.md.
@@ -1175,7 +1175,7 @@ function FeaturedMetaField({ id, label, initial, onSave, warnIfEmpty = false }: 
         onBlur={() => { if (value.trim() !== saved.trim()) { setSaved(value); onSave(value.trim()); } }}
         className="mt-1 block w-full rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm focus:border-[#1B365D] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/15"
       />
-      {warnIfEmpty && !value.trim() && <p className="mt-0.5 text-xs text-[#B7791F]">Add alt text — it is required for accessibility and helps search engines.</p>}
+      {warnIfEmpty && !value.trim() && <p className="mt-0.5 text-xs text-[#8A5A12]">Add alt text — it is required for accessibility and helps search engines.</p>}
     </div>
   );
 }

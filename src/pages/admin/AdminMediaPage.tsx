@@ -195,7 +195,7 @@ export default function AdminMediaPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#1B365D]">Media library</h1>
-          <p className="text-sm text-[#6B7A8D] mt-0.5">{total} file{total !== 1 ? 's' : ''} total</p>
+          <p className="text-sm text-[#5F6E80] mt-0.5">{total} file{total !== 1 ? 's' : ''} total</p>
         </div>
       </div>
 
@@ -205,14 +205,14 @@ export default function AdminMediaPage() {
       {/* Upload progress */}
       {uploads.length > 0 && (
         <div className="bg-white rounded-xl border border-[#DDE3EA] p-4 space-y-2">
-          <p className="text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Uploads</p>
+          <p className="text-xs font-medium text-[#5F6E80] uppercase tracking-wide">Uploads</p>
           {uploads.map((u) => (
             <div key={u.id} className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
                   <p className="text-xs text-[#1A2B40] truncate">{u.filename}</p>
                   <span className={`text-xs font-medium ml-2 shrink-0 ${
-                    u.status === 'done' ? 'text-emerald-600' :
+                    u.status === 'done' ? 'text-emerald-700' :
                     u.status === 'failed' ? 'text-[#C0392B]' :
                     'text-[#4A777A]'
                   }`}>
@@ -242,7 +242,7 @@ export default function AdminMediaPage() {
       <div className="bg-white rounded-xl border border-[#DDE3EA] p-3 flex items-center gap-3">
         <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7A8D]" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5F6E80]" />
             <input
               type="search"
               aria-label="Search media by file name, alt text or caption"
@@ -341,12 +341,12 @@ export default function AdminMediaPage() {
                           height={item.height_px ?? undefined}
                         />
                       ) : (
-                        <ImageIcon className="w-8 h-8 text-[#6B7A8D]" />
+                        <ImageIcon className="w-8 h-8 text-[#5F6E80]" />
                       )}
                     </div>
                     <div className="p-2">
                       <p className="text-xs text-[#1A2B40] truncate" title={item.original_filename}>{item.original_filename}</p>
-                      <p className="text-[10px] text-[#6B7A8D]">{formatBytes(item.file_size_bytes)}</p>
+                      <p className="text-[10px] text-[#5F6E80]">{formatBytes(item.file_size_bytes)}</p>
                     </div>
                     {/* Alt text indicator dot */}
                     <div
@@ -371,7 +371,7 @@ export default function AdminMediaPage() {
                   >
                     Prev
                   </Button>
-                  <span className="text-xs text-[#6B7A8D]">
+                  <span className="text-xs text-[#5F6E80]">
                     Page {page} of {totalPages}
                   </span>
                   <Button
@@ -394,7 +394,7 @@ export default function AdminMediaPage() {
             <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 sticky top-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-[#1A2B40]">Image details</h3>
-                <button onClick={() => setSelected(null)} aria-label="Close panel" className="text-[#6B7A8D] hover:text-[#1A2B40]">
+                <button onClick={() => setSelected(null)} aria-label="Close panel" className="text-[#5F6E80] hover:text-[#1A2B40]">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -406,8 +406,8 @@ export default function AdminMediaPage() {
             </div>
           ) : (
             <div className="bg-[#F4F6F8] rounded-xl border border-[#DDE3EA] p-8 text-center">
-              <ImageIcon className="w-8 h-8 text-[#6B7A8D] mx-auto mb-3" />
-              <p className="text-sm text-[#6B7A8D]">Select an image to edit its metadata, alt text, caption and credit.</p>
+              <ImageIcon className="w-8 h-8 text-[#5F6E80] mx-auto mb-3" />
+              <p className="text-sm text-[#5F6E80]">Select an image to edit its metadata, alt text, caption and credit.</p>
             </div>
           )}
         </div>
