@@ -24,7 +24,9 @@
 import { supabase } from '../supabase';
 import type { ArticleCard, ArticleWithRelations, ArticleInsert, ArticleUpdate } from '../../types/article';
 import type { ArticleType } from '../knowledge/articleTypes';
+import type { ArticleStatus } from '../../types/database';
 import { hasKnowledgeSchema } from './knowledgeSchema';
+import { zonedInputToUtcIso } from '../datetime';
 import { searchWords, ilikePattern } from '../knowledge/search';
 
 // ---------------------------------------------------------------------------
@@ -324,30 +326,71 @@ export async function getTagsInUse(limit = 40): Promise<Array<{ id: string; slug
 // ---------------------------------------------------------------------------
 
 /** Fetch all articles regardless of status — for the admin article list. */
+export type AdminDateField = 'updated_at' | 'published_at' | 'created_at';
+
+export interface AdminArticleRow {
+  id: string; slug: string; title: string; status: ArticleStatus;
+  published_at: string | null; scheduled_for: string | null; created_at: string; updated_at: string;
+  author_display_name: string; featured_image_id: string | null; excerpt: string;
+  article_type?: ArticleType; is_featured?: boolean; is_editors_pick?: boolean;
+  article_categories: Array<{ is_primary: boolean; categories: { id: string; name: string; slug: string } | null }>;
+}
+
+/**
+ * Admin article list (all statuses — RLS allows admins to read everything).
+ *
+ * Filters combine: status, search (title or slug, every word), category,
+ * format (after the knowledge-platform migration) and a date range on the
+ * chosen date column. Dates are inclusive Kampala calendar days (YYYY-MM-DD).
+ */
 export async function getAllArticlesAdmin(opts: {
-  page?:     number;
-  pageSize?: number;
-  status?:   string;
+  page?:      number;
+  pageSize?:  number;
+  status?:    string;
+  search?:    string;
+  categoryId?: string;
+  articleType?: ArticleType;
+  dateField?: AdminDateField;
+  dateFrom?:  string;
+  dateTo?:    string;
 } = {}) {
-  const { page = 1, pageSize = 20, status } = opts;
+  const { page = 1, pageSize = 20, status, search, categoryId, articleType, dateField = 'updated_at', dateFrom, dateTo } = opts;
   const from = (page - 1) * pageSize;
   const to   = from + pageSize - 1;
+  const empty = { articles: [] as AdminArticleRow[], total: 0, totalPages: 0 };
 
+  let ids: string[] | null = null;
+  if (categoryId) {
+    const { data, error } = await supabase.from('article_categories').select('article_id').eq('category_id', categoryId);
+    if (error) throw new Error(`getAllArticlesAdmin: ${error.message}`);
+    ids = (data ?? []).map((r) => r.article_id as string);
+    if (!ids.length) return empty;
+  }
+
+  const v2 = await hasKnowledgeSchema();
+  const cols = 'id, slug, title, excerpt, status, published_at, scheduled_for, created_at, updated_at, author_display_name, featured_image_id, article_categories ( is_primary, categories ( id, name, slug ) )';
   let query = supabase
     .from('articles')
-    .select('id, slug, title, status, published_at, scheduled_for, created_at, updated_at, author_display_name', { count: 'exact' })
-    .order('updated_at', { ascending: false })
+    .select(v2 ? `${cols}, article_type, is_featured, is_editors_pick` : cols, { count: 'exact' })
+    .order(dateField, { ascending: false, nullsFirst: false })
     .range(from, to);
 
-  if (status) {
-    query = query.eq('status', status);
+  if (status) query = query.eq('status', status);
+  if (ids) query = query.in('id', ids);
+  if (articleType && v2) query = query.eq('article_type', articleType);
+  for (const word of search ? searchWords(search) : []) {
+    const p = ilikePattern(word);
+    query = query.or(`title.ilike.${p},slug.ilike.${p}`);
   }
+  // Calendar days are Kampala days (the CMS time zone), whatever the computer's zone
+  if (dateFrom) query = query.gte(dateField, zonedInputToUtcIso(`${dateFrom}T00:00`));
+  if (dateTo)   query = query.lt(dateField, new Date(new Date(zonedInputToUtcIso(`${dateTo}T00:00`)).getTime() + 86_400_000).toISOString());
 
   const { data, error, count } = await query;
   if (error) throw new Error(`getAllArticlesAdmin: ${error.message}`);
 
   return {
-    articles:   data ?? [],
+    articles:   (data ?? []) as unknown as AdminArticleRow[],
     total:      count ?? 0,
     totalPages: Math.ceil((count ?? 0) / pageSize),
   };
@@ -365,7 +408,7 @@ export async function getArticleByIdAdmin(id: string) {
     .from('articles')
     .select(`
       *,
-      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, width_px, height_px ),
+      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, caption, width_px, height_px ),
       social_image:media!articles_social_image_id_fkey ( id, storage_path, alt_text ),
       article_categories ( is_primary, categories ( * ) ),
       article_tags ( tags ( * ) )
@@ -573,6 +616,12 @@ export async function cancelSchedule(id: string): Promise<void> {
 }
 
 /** Archive an article (sets status = 'archived'). */
+/** Restore an archived article to draft (same rules as unpublish: published_at kept). */
+export async function restoreArticle(id: string): Promise<void> {
+  const { error } = await supabase.from('articles').update({ status: 'draft', scheduled_for: null }).eq('id', id);
+  if (error) throw new Error(`Could not restore the article: ${describeArticleDbError(error)}`);
+}
+
 export async function archiveArticle(id: string) {
   return updateArticle(id, { status: 'archived' });
 }

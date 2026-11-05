@@ -14,7 +14,7 @@
 import React, { useId, useState } from 'react';
 import { ChevronDown, Plus, Trash2, ArrowUp, ArrowDown, BookOpen } from 'lucide-react';
 import { ARTICLE_TYPES, ARTICLE_TYPE_MAP, type ArticleType, type StructuredField } from '../../lib/knowledge/articleTypes';
-import { COMMON_ALLERGENS, type RecipeData, type RecipeIngredient } from '../../lib/knowledge/recipe';
+import { COMMON_ALLERGENS, type RecipeData, type RecipeIngredient, type RecipeSection } from '../../lib/knowledge/recipe';
 
 const box = 'bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-4';
 const label = 'block text-sm font-medium text-[#1A2B40]';
@@ -37,8 +37,6 @@ interface Props {
   bodyIsEmpty: boolean;
 }
 
-const lines = (list?: string[]) => (list ?? []).join('\n');
-const toLines = (text: string) => text.split('\n').map((l) => l.trim()).filter(Boolean);
 const numOrNull = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.round(Number(v))) || null);
 
 export default function KnowledgePanel({ enabled, value, onChange, onInsertOutline, bodyIsEmpty }: Props) {
@@ -144,19 +142,30 @@ export default function KnowledgePanel({ enabled, value, onChange, onInsertOutli
           )}
 
           {has('equipment') && (
-            <LinesField id={`${uid}-equip`} label="Equipment" help="One item per line" value={lines(r.equipment)} onChange={(t) => setRecipe({ equipment: toLines(t) })} />
+            <ListEditor label="Equipment" itemLabel="Equipment item" addLabel="Add equipment" list={r.equipment ?? []} onChange={(equipment) => setRecipe({ equipment })} />
           )}
           {has('preparation') && (
-            <LinesField id={`${uid}-prep-steps`} label="Preparation steps" help="One step per line — numbered automatically" value={lines(r.preparation)} onChange={(t) => setRecipe({ preparation: toLines(t) })} />
+            <ListEditor label="Preparation steps" itemLabel="Preparation step" addLabel="Add preparation step" help="Numbered automatically on the website." multiline list={r.preparation ?? []} onChange={(preparation) => setRecipe({ preparation })} />
           )}
           {has('method') && (
-            <LinesField id={`${uid}-method`} label={type === 'baking_tutorial' ? 'Method steps' : 'Cooking method steps'} help="One step per line — continues the numbering" value={lines(r.method)} onChange={(t) => setRecipe({ method: toLines(t) })} />
+            <ListEditor
+              label={type === 'baking_tutorial' ? 'Method steps' : 'Cooking method steps'}
+              itemLabel="Method step"
+              addLabel="Add method step"
+              help="Numbering continues after the preparation steps."
+              multiline
+              list={r.method ?? []}
+              onChange={(method) => setRecipe({ method })}
+            />
           )}
           {has('chef_notes') && (
             <TextField id={`${uid}-notes`} label="Chef’s notes" value={r.chef_notes ?? ''} onChange={(t) => setRecipe({ chef_notes: t })} />
           )}
           {has('storage') && (
             <TextField id={`${uid}-storage`} label="Storage" value={r.storage ?? ''} onChange={(t) => setRecipe({ storage: t })} />
+          )}
+          {has('sections') && (
+            <SectionsEditor list={r.sections ?? []} onChange={(sections) => setRecipe({ sections })} />
           )}
           {has('allergens') && (
             <fieldset>
@@ -228,18 +237,6 @@ function NumberField({ id, label: text, value, onChange, hintText }: { id: strin
   );
 }
 
-function LinesField({ id, label: text, help, value, onChange }: { id: string; label: string; help: string; value: string; onChange: (t: string) => void }) {
-  // Keep the raw text while typing so blank lines are not removed mid-edit
-  const [draft, setDraft] = useState(value);
-  return (
-    <div>
-      <label htmlFor={id} className={label}>{text}</label>
-      <textarea id={id} rows={4} className={field} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => onChange(draft)} />
-      <p className={`${hint} mt-0.5`}>{help}</p>
-    </div>
-  );
-}
-
 function TextField({ id, label: text, value, onChange }: { id: string; label: string; value: string; onChange: (t: string) => void }) {
   return (
     <div>
@@ -289,6 +286,104 @@ function IngredientsEditor({ uid, list, onChange }: { uid: string; list: RecipeI
         className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm text-[#1B365D] hover:bg-[#F4F6F8]"
       >
         <Plus className="w-4 h-4" /> Add ingredient
+      </button>
+    </fieldset>
+  );
+}
+
+/** Reorderable list of short texts (equipment, steps). Pasting several lines adds several items. */
+function ListEditor({ label: text, itemLabel, addLabel, help, list, onChange, multiline = false }: {
+  label: string; itemLabel: string; addLabel: string; help?: string; list: string[]; onChange: (l: string[]) => void; multiline?: boolean;
+}) {
+  const update = (i: number, v: string) => onChange(list.map((x, idx) => (idx === i ? v : x)));
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  const onPaste = (i: number) => (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    const parts = pasted.split(/\r?\n/).map((l) => l.replace(/^\s*(?:\d+[.)]|[-•*])\s*/, '').trim()).filter(Boolean);
+    if (parts.length < 2) return;
+    e.preventDefault();
+    const next = [...list];
+    next.splice(i, 1, ...(list[i].trim() ? [list[i], ...parts] : parts));
+    onChange(next);
+  };
+  return (
+    <fieldset>
+      <legend className={label}>{text}</legend>
+      {help && <p className={hint}>{help} Pasting several lines adds one item per line.</p>}
+      <ol className="mt-2 space-y-2">
+        {list.map((item, i) => (
+          <li key={i} className="flex items-start gap-2">
+            <span className="mt-2 w-5 shrink-0 text-right text-xs font-semibold text-[#6B7A8D]">{i + 1}.</span>
+            {multiline ? (
+              <textarea aria-label={`${itemLabel} ${i + 1}`} rows={2} className={`${field} mt-0`} value={item} onChange={(e) => update(i, e.target.value)} onPaste={onPaste(i)} />
+            ) : (
+              <input aria-label={`${itemLabel} ${i + 1}`} className={`${field} mt-0`} value={item} onChange={(e) => update(i, e.target.value)} onPaste={onPaste(i)} />
+            )}
+            <div className="flex shrink-0">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} down`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+              <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} aria-label={`Remove ${itemLabel.toLowerCase()} ${i + 1}`} className="p-1.5 text-[#6B7A8D] hover:text-[#C0392B]"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => onChange([...list, ''])} className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm text-[#1B365D] hover:bg-[#F4F6F8]">
+        <Plus className="w-4 h-4" /> {addLabel}
+      </button>
+    </fieldset>
+  );
+}
+
+const SECTION_SUGGESTIONS = ['Key terms', 'Troubleshooting', 'Variations', 'Serving suggestions', 'Using local ingredients', 'Checklist', 'Further reading'];
+
+/** Reorderable extra sections with a title and text. */
+function SectionsEditor({ list, onChange }: { list: RecipeSection[]; onChange: (l: RecipeSection[]) => void }) {
+  const uid = useId();
+  const update = (i: number, patch: Partial<RecipeSection>) => onChange(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  return (
+    <fieldset>
+      <legend className={label}>Extra sections</legend>
+      <p className={hint}>Optional, shown in this order on the card. Start lines with “- ” for bullet points; leave a blank line between paragraphs.</p>
+      <datalist id={`${uid}-suggestions`}>
+        {SECTION_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
+      </datalist>
+      <div className="mt-2 space-y-3">
+        {list.map((sec, i) => (
+          <div key={i} className="rounded-lg border border-[#DDE3EA] p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <input aria-label={`Section ${i + 1} title`} list={`${uid}-suggestions`} placeholder="Section title, e.g. Troubleshooting" className={`${field} mt-0`} value={sec.title} onChange={(e) => update(i, { title: e.target.value })} />
+              <div className="flex shrink-0">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move section ${i + 1} up`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label={`Move section ${i + 1} down`} className="p-1.5 text-[#6B7A8D] hover:text-[#1B365D] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                <button
+                  type="button"
+                  onClick={() => { if (!sec.body.trim() || window.confirm(`Remove the section “${sec.title || 'Untitled'}”?`)) onChange(list.filter((_, idx) => idx !== i)); }}
+                  aria-label={`Remove section ${i + 1}`}
+                  className="p-1.5 text-[#6B7A8D] hover:text-[#C0392B]"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <textarea aria-label={`Section ${i + 1} text`} rows={4} className={`${field} mt-0`} value={sec.body} onChange={(e) => update(i, { body: e.target.value })} />
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={() => onChange([...list, { title: '', body: '' }])} className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm text-[#1B365D] hover:bg-[#F4F6F8]">
+        <Plus className="w-4 h-4" /> Add section
       </button>
     </fieldset>
   );

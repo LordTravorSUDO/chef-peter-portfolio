@@ -31,7 +31,8 @@ export type StructuredField =
   | 'method'
   | 'chef_notes'
   | 'storage'
-  | 'allergens';
+  | 'allergens'
+  | 'sections';
 
 export interface ArticleTypeInfo {
   value: ArticleType;
@@ -43,7 +44,7 @@ export interface ArticleTypeInfo {
 }
 
 const ALL_RECIPE_FIELDS: StructuredField[] = [
-  'times', 'servings', 'difficulty', 'ingredients', 'equipment', 'preparation', 'method', 'chef_notes', 'storage', 'allergens',
+  'times', 'servings', 'difficulty', 'ingredients', 'equipment', 'preparation', 'method', 'chef_notes', 'storage', 'allergens', 'sections',
 ];
 
 const prompt = (text: string) => `<p><em>[${text}]</em></p>`;
@@ -91,7 +92,7 @@ export const ARTICLE_TYPES: ArticleTypeInfo[] = [
     value: 'kitchen_guide',
     label: 'Professional kitchen guide',
     description: 'Organisation, costing, systems and standards for working kitchens.',
-    fields: ['equipment', 'chef_notes'],
+    fields: ['equipment', 'chef_notes', 'sections'],
     template: [
       '<h2>Why this matters</h2>', prompt('The problem this guide solves for a kitchen team.'),
       '<h2>The system</h2>', prompt('Explain the method, with a worked example (figures, checklist or schedule).'),
@@ -116,7 +117,7 @@ export const ARTICLE_TYPES: ArticleTypeInfo[] = [
     value: 'ingredient_guide',
     label: 'Ingredient guide',
     description: 'Selecting, storing and using a particular ingredient.',
-    fields: ['storage', 'allergens', 'chef_notes'],
+    fields: ['storage', 'allergens', 'chef_notes', 'sections'],
     template: [
       '<h2>What it is</h2>', prompt('Description, varieties and local names where relevant.'),
       '<h2>Choosing good quality</h2>', prompt('What to look for at the market or from suppliers.'),
@@ -140,7 +141,7 @@ export const ARTICLE_TYPES: ArticleTypeInfo[] = [
     value: 'food_safety_guide',
     label: 'Food safety guide',
     description: 'Safe handling, storage, hygiene and temperature control.',
-    fields: ['equipment', 'chef_notes'],
+    fields: ['equipment', 'chef_notes', 'sections'],
     template: [
       '<h2>The risk</h2>', prompt('What can go wrong and why. Use recognised guidance only.'),
       '<h2>Safe practice</h2>', '<ol><li>[Step]</li><li>[Step]</li></ol>',

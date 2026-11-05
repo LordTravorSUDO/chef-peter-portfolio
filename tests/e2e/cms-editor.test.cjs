@@ -700,9 +700,10 @@ const TESTS = {
       await page.getByRole('button', { name: 'Add ingredient' }).click();
       await page.getByLabel('Ingredient 1 quantity').fill('2');
       await page.getByLabel('Ingredient 1 name').fill('eggs');
-      const method = page.getByLabel('Cooking method steps');
-      await method.fill('Beat the eggs.\n\nCook in a hot pan.');
-      await method.blur();
+      await page.getByRole('button', { name: 'Add method step' }).click();
+      await page.getByLabel('Method step 1', { exact: true }).fill('Beat the eggs.');
+      await page.getByRole('button', { name: 'Add method step' }).click();
+      await page.getByLabel('Method step 2', { exact: true }).fill('Cook in a hot pan.');
       await page.getByLabel('Eggs').check();
       await waitFor(() => writes(s, 'PATCH').some((e) => e.body.article_type === 'recipe' && e.body.is_featured === true
         && e.body.recipe?.ingredients?.[0]?.item === 'eggs' && e.body.recipe?.method?.length === 2

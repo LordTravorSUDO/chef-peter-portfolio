@@ -185,3 +185,26 @@ test('searchWords splits into meaningful, sanitised words', () => {
   assert.equal(searchWords('one two three four five six seven').length, 5);
   assert.deepEqual(searchWords(''), []);
 });
+
+// ── Custom sections (Phase 4) ──────────────────────────────────────────────
+import { sectionBlocks } from '../../src/lib/knowledge/recipe';
+
+test('normaliseRecipe keeps ordered custom sections and drops incomplete ones', () => {
+  const r = normaliseRecipe({ sections: [{ title: 'Key terms', body: 'Roux: flour cooked in fat.' }, { title: '', body: 'x' }, { title: 'Variations', body: '' }, { title: 'Troubleshooting', body: '- Too thick: add stock' }] });
+  assert.deepEqual(r?.sections?.map((s) => s.title), ['Key terms', 'Troubleshooting']);
+});
+
+test('sectionBlocks turns text into paragraphs and bullet lists', () => {
+  assert.deepEqual(sectionBlocks('First line\ncontinues.\n\n- one\n- two'), [
+    { kind: 'p', text: 'First line continues.' },
+    { kind: 'ul', items: ['one', 'two'] },
+  ]);
+  assert.deepEqual(sectionBlocks('  \n\n'), []);
+});
+
+test('custom sections are offered for tutorials and guides, not for history or general articles', () => {
+  assert.ok(ARTICLE_TYPE_MAP.recipe.fields.includes('sections'));
+  assert.ok(ARTICLE_TYPE_MAP.food_safety_guide.fields.includes('sections'));
+  assert.ok(!ARTICLE_TYPE_MAP.food_history.fields.includes('sections'));
+  assert.ok(!ARTICLE_TYPE_MAP.educational.fields.includes('sections'));
+});

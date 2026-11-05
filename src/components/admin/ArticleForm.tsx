@@ -29,8 +29,10 @@ import {
   publishArticle, unpublishArticle, scheduleArticle, cancelSchedule,
   archiveArticle, sanitiseHtml, estimateReadingTimeMinutes,
 } from '../../lib/services/articles';
-import { setArticleCategories, setArticleTags, getCategories, getTags } from '../../lib/services/taxonomy';
-import { getMediaUrl } from '../../lib/services/media';
+import { setArticleCategories, setArticleTags, getCategories, getTags, createTag } from '../../lib/services/taxonomy';
+import { listAuthors } from '../../lib/services/authors';
+import { savePreviewDraft } from '../../lib/previewDraft';
+import { getMediaUrl, updateMediaMetadata } from '../../lib/services/media';
 import { useAuth } from '../../hooks/useAuth';
 import { useAutosave, type AutosaveStatus } from '../../hooks/useAutosave';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
@@ -137,6 +139,17 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   const [selectedTagIds,   setSelectedTagIds]  = useState<string[]>(() => article?.article_tags?.map((at) => at.tags?.id ?? '').filter(Boolean) ?? []);
 
   // ── Remote data ────────────────────────────────────────────────────────
+  // Author — changed only when an administrator explicitly picks another author
+  const [authorChange, setAuthorChange] = useState<{ id: string; name: string } | null>(null);
+  const [authors,      setAuthors]      = useState<Array<{ id: string; display_name: string }> | null>(null);
+  const [authorsError, setAuthorsError] = useState<string | null>(null);
+  const [newTagName,   setNewTagName]   = useState('');
+  const [creatingTag,  setCreatingTag]  = useState(false);
+  // Featured image caption (alt text lives on featuredImage)
+  const [featuredCaption, setFeaturedCaption] = useState<string>(
+    (article?.featured_image as { caption?: string | null } | null)?.caption ?? '',
+  );
+
   // Knowledge-platform fields (saved only once the proposed migration is applied)
   const [knowledgeEnabled, setKnowledgeEnabled] = useState(false);
   const [knowledge, setKnowledge] = useState<KnowledgeState>(() => ({
@@ -261,7 +274,10 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
       //   - An empty profile name never blanks the byline.
       const isOwnArticle  = article ? article.author_id === user!.id : true;
       const profileName   = profile?.display_name?.trim();
-      const authorUpdate  = isOwnArticle && profileName ? { author_display_name: profileName } : {};
+      const authorUpdate  = authorChange
+        // An administrator explicitly reassigned the article
+        ? { author_id: authorChange.id, author_display_name: authorChange.name }
+        : isOwnArticle && profileName ? { author_display_name: profileName } : {};
       await updateArticle(existingId, { ...content, ...authorUpdate });
       articleId = existingId;
     } else {
@@ -291,7 +307,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     }
 
     return articleId;
-  }, [validateForSave, buildContentPayload, article, user, profile, selectedCatIds, primaryCatId, selectedTagIds]);
+  }, [validateForSave, buildContentPayload, article, user, profile, selectedCatIds, primaryCatId, selectedTagIds, authorChange]);
 
   // ── Autosave (existing articles only) ──────────────────────────────────
   const autosaveData = useMemo(() => ({
@@ -302,7 +318,8 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     selectedCatIds, primaryCatId, selectedTagIds,
     // Not derived from knowledgeEnabled, so finishing the schema check never triggers an autosave
     knowledge,
-  }), [title, slug, excerpt, body, seoTitle, metaDesc, canonicalUrl, noindex, featuredImage, socialImage, selectedCatIds, primaryCatId, selectedTagIds, knowledge]);
+    authorChange,
+  }), [title, slug, excerpt, body, seoTitle, metaDesc, canonicalUrl, noindex, featuredImage, socialImage, selectedCatIds, primaryCatId, selectedTagIds, knowledge, authorChange]);
 
   const autosaveSave = useCallback(async () => { await performSave(); }, [performSave]);
 
@@ -508,6 +525,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     const url = getMediaUrl(media.storage_path);
     if (mediaPicker === 'featured') {
       setFeaturedImage({ id: media.id, storage_path: media.storage_path, alt_text: media.alt_text });
+      setFeaturedCaption(media.caption ?? '');
     } else if (mediaPicker === 'social') {
       setSocialImage({ id: media.id, storage_path: media.storage_path, alt_text: media.alt_text });
     } else if (mediaPicker === 'inline' && editorRef.current) {
@@ -543,8 +561,55 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
 
   // ── Preview ────────────────────────────────────────────────────────────
   const handlePreview = () => {
-    if (!article) { showToast('Save the article first to preview it.', 'warning'); return; }
-    window.open(`/admin/articles/${article.id}/preview`, '_blank');
+    const id = article?.id ?? createdIdRef.current;
+    if (!id) { showToast('Save the article first to preview it.', 'warning'); return; }
+    // Show the current editor content, including unsaved changes, without saving
+    const primary = categories.find((c) => c.id === primaryCatId) ?? categories.find((c) => selectedCatIds.includes(c.id));
+    savePreviewDraft(id, {
+      title, excerpt, body: sanitiseHtml(body),
+      authorName: authorChange?.name ?? article?.author_display_name ?? profile?.display_name ?? '',
+      featuredImage: featuredImage ? { storage_path: featuredImage.storage_path, alt_text: featuredImage.alt_text } : null,
+      primaryCategory: primary ? { name: primary.name, slug: primary.slug } : null,
+      tags: tags.filter((t) => selectedTagIds.includes(t.id)).map((t) => t.name),
+      ...(knowledgeEnabled ? { articleType: knowledge.articleType, recipe: knowledge.recipe } : {}),
+    });
+    window.open(`/admin/articles/${id}/preview?draft=1`, '_blank');
+  };
+
+  // ── Featured image alt text / caption (saved to the media library) ─────
+  const saveFeaturedMeta = async (patch: { alt_text?: string | null; caption?: string | null }) => {
+    if (!featuredImage) return;
+    try {
+      await updateMediaMetadata(featuredImage.id, patch);
+      if ('alt_text' in patch) setFeaturedImage({ ...featuredImage, alt_text: patch.alt_text ?? null });
+      showToast('Image details saved in the media library.', 'success');
+    } catch (err) {
+      showToast(errMsg(err, 'Could not save the image details'), 'error');
+    }
+  };
+
+  // ── Create a tag without leaving the editor ────────────────────────────
+  const handleCreateTag = async () => {
+    const name = newTagName.trim();
+    if (!name) return;
+    const existing = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      setSelectedTagIds((prev) => (prev.includes(existing.id) ? prev : [...prev, existing.id]));
+      setNewTagName('');
+      return;
+    }
+    setCreatingTag(true);
+    try {
+      const slugValue = slugify(name);
+      const id = await createTag({ name, slug: slugValue });
+      setTagsList((list) => [...list, { id, name, slug: slugValue, created_at: new Date().toISOString() }].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedTagIds((prev) => [...prev, id]);
+      setNewTagName('');
+    } catch (err) {
+      showToast(errMsg(err, 'Could not create the tag'), 'error');
+    } finally {
+      setCreatingTag(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -557,20 +622,36 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
       <title>{isEdit ? 'Edit Article' : 'New Article'} | Chef Peter CMS</title>
       <meta name="robots" content="noindex, nofollow" />
 
-      {/* Status bar */}
-      {isEdit && (
-        <div className="flex items-center justify-between bg-white rounded-xl border border-[#DDE3EA] px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <Badge status={currentStatus} />
-            {article?.published_at && (
-              <span className="text-xs text-[#6B7A8D]">
-                Published: {new Date(article.published_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-              </span>
+      {/* Status banner — what visitors see right now */}
+      <div
+        data-testid="status-banner"
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border px-4 py-3 ${
+          currentStatus === 'published' ? 'bg-emerald-50 border-emerald-200'
+            : currentStatus === 'scheduled' ? 'bg-amber-50 border-amber-200'
+            : 'bg-white border-[#DDE3EA]'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <Badge status={currentStatus} />
+          <p className="text-sm text-[#1A2B40]">
+            {!isEdit && 'New article — nothing is visible on the website until you publish it.'}
+            {isEdit && currentStatus === 'draft' && 'Draft — not visible on the website. Changes save automatically.'}
+            {isEdit && currentStatus === 'scheduled' && article?.scheduled_for && (
+              <>Scheduled — goes live on <strong>{formatInZone(article.scheduled_for, undefined, { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong> (Kampala). Changes save automatically.</>
             )}
-          </div>
-          {isEdit && <SaveStatusIndicator status={autosaveStatus} error={autosaveError} />}
+            {isEdit && currentStatus === 'published' && (
+              <>
+                <strong>Live on the website.</strong> Saved changes appear to visitors straight away.{' '}
+                {article?.slug && (
+                  <a href={`/articles/${article.slug}`} target="_blank" rel="noopener noreferrer" className="underline text-[#1B365D]">View live article</a>
+                )}
+              </>
+            )}
+            {isEdit && currentStatus === 'archived' && 'Archived — hidden from the website. Publish it again or restore it from the article list.'}
+          </p>
         </div>
-      )}
+        {isEdit && <SaveStatusIndicator status={autosaveStatus} error={autosaveError} />}
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
@@ -640,17 +721,35 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                     Image set (preview unavailable)
                   </div>
                 )}
-                <div className="flex-1">
-                  <Button size="sm" variant="ghost" onClick={() => setMediaPicker('featured')}>
-                    Change image
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => setFeaturedImage(null)}
-                    className="ml-2 text-xs text-[#C0392B] hover:underline"
-                  >
-                    Remove
-                  </button>
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <Button size="sm" variant="ghost" onClick={() => setMediaPicker('featured')}>
+                      Change image
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setFeaturedImage(null)}
+                      className="ml-2 text-xs text-[#C0392B] hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <FeaturedMetaField
+                    key={`alt-${featuredImage.id}`}
+                    id="featured-alt"
+                    label="Alt text (describes the image for screen readers)"
+                    initial={featuredImage.alt_text ?? ''}
+                    onSave={(v) => saveFeaturedMeta({ alt_text: v || null })}
+                    warnIfEmpty
+                  />
+                  <FeaturedMetaField
+                    key={`cap-${featuredImage.id}`}
+                    id="featured-caption"
+                    label="Caption (shown under the image)"
+                    initial={featuredCaption}
+                    onSave={(v) => { setFeaturedCaption(v); return saveFeaturedMeta({ caption: v || null }); }}
+                  />
+                  <p className="text-xs text-[#6B7A8D]">Saved to the media library, so the same details appear wherever this image is used.</p>
                 </div>
               </div>
             ) : (
@@ -751,7 +850,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
           <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-4">
             {/* Save / Create button */}
             <Button className="w-full" loading={manualSaving || autosaveStatus === 'saving'} disabled={anyBusy} icon={<Save className="w-4 h-4" />} onClick={handleManualSave}>
-              {isEdit ? 'Save changes' : 'Save draft'}
+              {!isEdit ? 'Save draft' : currentStatus === 'published' ? 'Update published article' : 'Save changes'}
             </Button>
 
             {/* New article: save and publish in one step */}
@@ -872,12 +971,12 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
           )}
 
           {/* Tags */}
-          {tags.length > 0 && (
-            <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-3">
-              <p className="text-sm font-medium text-[#1A2B40]">Tags</p>
-              <div className="flex flex-wrap gap-2">
+          <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-3">
+            <p className="text-sm font-medium text-[#1A2B40]">Tags <span className="font-normal text-[#6B7A8D]">(specific topics)</span></p>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Tags">
                 {tags.map((tag) => (
-                  <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)}
+                  <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)} aria-pressed={selectedTagIds.includes(tag.id)}
                     className={`px-2 py-1 rounded-full text-xs font-medium border transition ${
                       selectedTagIds.includes(tag.id) ? 'bg-[#4A777A] text-white border-[#4A777A]' : 'bg-white text-[#6B7A8D] border-[#DDE3EA] hover:border-[#4A777A]'
                     }`}>
@@ -885,8 +984,66 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
                   </button>
                 ))}
               </div>
+            )}
+            <div className="flex gap-2">
+              <label htmlFor="new-tag" className="sr-only">New tag name</label>
+              <input
+                id="new-tag"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
+                placeholder="Add a new tag, e.g. Matooke"
+                className="flex-1 rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm focus:border-[#1B365D] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/15"
+              />
+              <Button size="sm" variant="ghost" loading={creatingTag} disabled={!newTagName.trim()} onClick={handleCreateTag}>Add</Button>
             </div>
-          )}
+          </div>
+
+          {/* Author */}
+          <div className="bg-white rounded-xl border border-[#DDE3EA] p-5 space-y-2">
+            <p className="text-sm font-medium text-[#1A2B40]">Author</p>
+            <p className="text-sm text-[#1A2B40]">
+              {authorChange?.name ?? article?.author_display_name ?? profile?.display_name ?? 'You'}
+              {!isEdit && <span className="text-[#6B7A8D]"> (you)</span>}
+            </p>
+            {isEdit && authors === null && (
+              <button
+                type="button"
+                className="text-xs text-[#1B365D] hover:underline"
+                onClick={() => {
+                  // Loaded on demand: only needed when reassigning an article
+                  setAuthors([]);
+                  listAuthors()
+                    .then((list) => setAuthors(list.filter((a) => a.role === 'admin' && a.is_active)))
+                    .catch((err) => setAuthorsError(errMsg(err, 'Could not load the list of authors')));
+                }}
+              >
+                Change author
+              </button>
+            )}
+            {authorsError && <p className="text-xs text-[#C0392B]" role="alert">{authorsError}</p>}
+            {isEdit && authors && authors.length > 0 && (
+              <div>
+                <label htmlFor="author-change" className="block text-xs text-[#6B7A8D]">Author of this article</label>
+                <select
+                  id="author-change"
+                  value={authorChange?.id ?? article?.author_id ?? ''}
+                  onChange={(e) => {
+                    const a = authors.find((x) => x.id === e.target.value);
+                    if (!a) return;
+                    setAuthorChange(a.id === article?.author_id ? null : { id: a.id, name: a.display_name });
+                  }}
+                  className="mt-1 block w-full rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm"
+                >
+                  {authors.map((a) => <option key={a.id} value={a.id}>{a.display_name || 'Unnamed admin'}</option>)}
+                </select>
+                {authorChange && <p className="mt-1 text-xs text-[#B7791F]">The new author and byline are saved with your next save.</p>}
+              </div>
+            )}
+            <p className="text-xs text-[#6B7A8D]">
+              The biography under the article comes from <a href="/admin/author" className="underline">Author profile</a>.
+            </p>
+          </div>
 
           {/* Article metadata (edit only) */}
           {isEdit && article && (
@@ -971,6 +1128,27 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
       />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </div>
+  );
+}
+
+/** Small text field that saves on blur (used for featured-image alt text and caption). */
+function FeaturedMetaField({ id, label, initial, onSave, warnIfEmpty = false }: {
+  id: string; label: string; initial: string; onSave: (value: string) => unknown; warnIfEmpty?: boolean;
+}) {
+  const [value, setValue] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs font-medium text-[#1A2B40]">{label}</label>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => { if (value.trim() !== saved.trim()) { setSaved(value); onSave(value.trim()); } }}
+        className="mt-1 block w-full rounded-lg border border-[#DDE3EA] px-3 py-1.5 text-sm focus:border-[#1B365D] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/15"
+      />
+      {warnIfEmpty && !value.trim() && <p className="mt-0.5 text-xs text-[#B7791F]">Add alt text — it is required for accessibility and helps search engines.</p>}
     </div>
   );
 }

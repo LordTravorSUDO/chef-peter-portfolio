@@ -17,7 +17,7 @@
  * The editor produces clean HTML which is stored in the articles.body column.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -66,6 +66,11 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
       },
     },
   });
+
+  const wordCount = useMemo(
+    () => value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length,
+    [value],
+  );
 
   // Sync external value changes (e.g. loading an article)
   useEffect(() => {
@@ -146,9 +151,9 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
   const Divider = () => <span className="w-px h-5 bg-[#DDE3EA] mx-0.5" />;
 
   return (
-    <div className="bg-white rounded-xl border border-[#DDE3EA] overflow-hidden">
-      {/* Toolbar */}
-      <div className="border-b border-[#DDE3EA] px-2 py-1.5 flex items-center flex-wrap gap-0.5 bg-[#FAFBFC] sticky top-0 z-10">
+    <div className="bg-white rounded-xl border border-[#DDE3EA] overflow-clip">
+      {/* Toolbar — stays visible while scrolling long articles */}
+      <div className="border-b border-[#DDE3EA] px-2 py-1.5 flex items-center flex-wrap gap-0.5 bg-[#FAFBFC] sticky top-0 z-10 rounded-t-xl">
         {/* Undo / Redo */}
         <TBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} label="Undo (Ctrl+Z)">
           <Undo className="w-4 h-4" />
@@ -214,16 +219,46 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
         <TBtn onClick={handleImageButton} label="Insert image">
           <ImageIcon className="w-4 h-4" />
         </TBtn>
+
+        <Divider />
+
+        {/* Highlighted boxes — shown on the website as coloured callouts */}
+        <label htmlFor="insert-callout" className="sr-only">Insert a highlighted box</label>
+        <select
+          id="insert-callout"
+          value=""
+          onChange={(e) => {
+            const label = e.target.value;
+            if (!label) return;
+            editor.chain().focus().insertContent(`<blockquote><p><strong>${label}:</strong> </p></blockquote>`).run();
+            e.target.value = '';
+          }}
+          className="ml-1 rounded border border-[#DDE3EA] bg-white px-2 py-1 text-xs text-[#1A2B40] focus:outline-none focus:ring-2 focus:ring-[#1B365D]/20"
+          title="Insert a highlighted box"
+        >
+          <option value="">Insert box…</option>
+          <option value="Chef’s tip">Chef’s tip</option>
+          <option value="Chef’s note">Chef’s note</option>
+          <option value="Safety note">Safety note</option>
+          <option value="In the Ugandan kitchen">In the Ugandan kitchen</option>
+        </select>
       </div>
 
       {/* Editor content area */}
       <EditorContent editor={editor} className="tiptap-content-wrapper" />
 
+      {/* Word count for long-form writing */}
+      <div className="border-t border-[#DDE3EA] bg-[#FAFBFC] px-3 py-1.5 text-xs text-[#6B7A8D] flex justify-between rounded-b-xl" aria-live="off">
+        <span>{wordCount.toLocaleString()} words · about {Math.max(1, Math.round(wordCount / 200))} min read</span>
+        <span>Heading 2 for main sections · numbered list for steps</span>
+      </div>
+
       {/* Editor styles — scoped via CSS class */}
       <style>{`
         .prose-editor {
-          font-size: 0.9375rem;
-          line-height: 1.7;
+          font-size: 1.0625rem;
+          line-height: 1.75;
+          max-width: 46rem;
         }
         .prose-editor:empty:before {
           content: attr(data-placeholder);

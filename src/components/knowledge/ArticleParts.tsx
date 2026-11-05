@@ -9,7 +9,7 @@ import type { TocEntry } from '../../lib/knowledge/articleHtml';
 import type { ArticleType, StructuredField } from '../../lib/knowledge/articleTypes';
 import { ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleTypes';
 import type { AuthorProfileView } from '../../data/authorProfile';
-import { DIFFICULTY_LABEL, formatMinutes, totalMinutes, type RecipeData, type RecipeIngredient } from '../../lib/knowledge/recipe';
+import { DIFFICULTY_LABEL, formatMinutes, sectionBlocks, totalMinutes, type RecipeData, type RecipeIngredient } from '../../lib/knowledge/recipe';
 
 // ---------------------------------------------------------------------------
 // Table of contents
@@ -201,6 +201,32 @@ export function RecipeCard({ type, recipe, title }: { type: ArticleType; recipe:
                 <p className="mt-1 text-[0.8125rem] text-muted">Check the labels of the products you use.</p>
               </div>
             )}
+          </div>
+        )}
+
+        {has('sections') && (recipe.sections?.length ?? 0) > 0 && (
+          <div className="space-y-8">
+            {recipe.sections!.map((sec, idx) => (
+              <div key={idx}>
+                <h3 className="font-serif text-[1.25rem] font-semibold text-ink">{sec.title}</h3>
+                <div className="mt-2 space-y-3 leading-relaxed text-ink-soft">
+                  {sectionBlocks(sec.body).map((b, k) =>
+                    b.kind === 'ul' ? (
+                      <ul key={k} className="space-y-1.5">
+                        {b.items.map((item, n) => (
+                          <li key={n} className="flex gap-2.5">
+                            <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p key={k}>{b.text}</p>
+                    ),
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

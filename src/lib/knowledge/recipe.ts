@@ -18,6 +18,13 @@ export interface RecipeIngredient {
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
+/** A free-form extra section, e.g. "Key terms", "Troubleshooting", "Variations". */
+export interface RecipeSection {
+  title: string;
+  /** Plain text; blank lines separate paragraphs, lines starting with "- " become bullet points */
+  body: string;
+}
+
 export interface RecipeData {
   version?: 1;
   prep_minutes?: number | null;
@@ -37,6 +44,8 @@ export interface RecipeData {
   chef_notes?: string;
   storage?: string;
   allergens?: string[];
+  /** Extra sections, shown in this order after the standard ones */
+  sections?: RecipeSection[];
 }
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
@@ -102,6 +111,17 @@ export function normaliseRecipe(raw: unknown): RecipeData | null {
     chef_notes: str(r.chef_notes) || undefined,
     storage: str(r.storage) || undefined,
     allergens: strList(r.allergens),
+    sections: Array.isArray(r.sections)
+      ? r.sections
+          .map((x): RecipeSection | null => {
+            if (!x || typeof x !== 'object') return null;
+            const o = x as Record<string, unknown>;
+            const title = str(o.title);
+            const body = str(o.body);
+            return title && body ? { title, body } : null;
+          })
+          .filter((x): x is RecipeSection => x !== null)
+      : [],
   };
 
   return hasRecipeContent(data) ? data : null;
@@ -112,7 +132,7 @@ export function hasRecipeContent(r: RecipeData | null | undefined): boolean {
   return Boolean(
     r.prep_minutes || r.cook_minutes || r.total_minutes || r.servings || r.yield || r.difficulty ||
       r.ingredients?.length || r.equipment?.length || r.preparation?.length || r.method?.length ||
-      r.chef_notes || r.storage || r.allergens?.length,
+      r.chef_notes || r.storage || r.allergens?.length || r.sections?.length,
   );
 }
 
@@ -187,4 +207,16 @@ export function buildRecipeJsonLd(input: RecipeSchemaInput, r: RecipeData): Reco
   if (total) ld.totalTime = isoDuration(total);
   if (r.yield || r.servings) ld.recipeYield = r.yield || `${r.servings} servings`;
   return ld;
+}
+
+/** Splits section text into paragraphs and bullet lists for display. */
+export function sectionBlocks(body: string): Array<{ kind: 'p'; text: string } | { kind: 'ul'; items: string[] }> {
+  const blocks: Array<{ kind: 'p'; text: string } | { kind: 'ul'; items: string[] }> = [];
+  for (const chunk of body.split(/\n\s*\n/)) {
+    const lines = chunk.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    if (lines.every((l) => /^[-•*]\s+/.test(l))) blocks.push({ kind: 'ul', items: lines.map((l) => l.replace(/^[-•*]\s+/, '')) });
+    else blocks.push({ kind: 'p', text: lines.join(' ') });
+  }
+  return blocks;
 }
