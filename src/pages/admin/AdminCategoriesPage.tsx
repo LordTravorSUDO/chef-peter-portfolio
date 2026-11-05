@@ -2,7 +2,8 @@
  * /admin/categories — Create and manage content categories.
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Pencil, Trash2, Plus, X, Check } from 'lucide-react';
+import { FolderOpen, Pencil, Trash2, Plus, X, Check, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
+import { hasKnowledgeSchema } from '../../lib/services/knowledgeSchema';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../lib/services/taxonomy';
 import { slugify } from '../../lib/services/articles';
 import type { Category } from '../../types/article';
@@ -27,6 +28,42 @@ export default function AdminCategoriesPage() {
   const [saving,      setSaving]      = useState(false);
   const [deleting,    setDeleting]    = useState(false);
   const { toasts, showToast, dismissToast } = useToast();
+  // Ordering and activation need the knowledge-platform migration
+  const [canOrganise, setCanOrganise] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => { hasKnowledgeSchema().then(setCanOrganise).catch(() => setCanOrganise(false)); }, []);
+
+  /** Moves a category up/down by renumbering sort_order 1..n for the affected rows. */
+  const move = async (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (target < 0 || target >= categories.length) return;
+    const reordered = [...categories];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    setBusyId(categories[index].id);
+    try {
+      const updates = reordered
+        .map((c, i) => ({ c, order: i + 1 }))
+        .filter(({ c, order }) => c.sort_order !== order);
+      for (const { c, order } of updates) await updateCategory(c.id, { sort_order: order });
+      setCategories(reordered.map((c, i) => ({ ...c, sort_order: i + 1 })));
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not reorder', 'error');
+      load();
+    } finally { setBusyId(null); }
+  };
+
+  const toggleActive = async (cat: Category) => {
+    setBusyId(cat.id);
+    try {
+      const next = cat.is_active === false;
+      await updateCategory(cat.id, { is_active: next });
+      setCategories((list) => list.map((c) => (c.id === cat.id ? { ...c, is_active: next } : c)));
+      showToast(next ? `"${cat.name}" is visible in the library again.` : `"${cat.name}" is hidden from library navigation. Its articles are unchanged.`, 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not update', 'error');
+    } finally { setBusyId(null); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,7 +124,7 @@ export default function AdminCategoriesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#1B365D]">Categories</h1>
-          <p className="text-sm text-[#6B7A8D] mt-0.5">{categories.length} categories</p>
+          <p className="text-sm text-[#6B7A8D] mt-0.5">{categories.length} categories · shown to visitors in this order</p>
         </div>
         <Button icon={<Plus className="w-4 h-4" />} onClick={() => { setShowForm(true); setEditId(null); setForm(EMPTY_FORM); }}>
           Add category
@@ -111,6 +148,13 @@ export default function AdminCategoriesPage() {
         </form>
       )}
 
+      {!canOrganise && !loading && (
+        <div className="bg-[#1B365D]/5 border border-[#1B365D]/15 rounded-lg p-4 text-sm text-[#1A2B40]">
+          Reordering and hiding categories become available after the knowledge-platform database upgrade
+          (awaiting approval — see docs/knowledge-platform.md). Until then categories appear alphabetically.
+        </div>
+      )}
+
       {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>}
 
       <div className="bg-white rounded-xl border border-[#DDE3EA] shadow-sm overflow-hidden">
@@ -129,19 +173,36 @@ export default function AdminCategoriesPage() {
               <tr className="border-b border-[#DDE3EA] bg-[#F4F6F8]">
                 <th className="text-left px-4 py-3 text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Name</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-[#6B7A8D] uppercase tracking-wide hidden sm:table-cell">Slug</th>
-                <th className="w-20 px-4 py-3"></th>
+                {canOrganise && <th className="text-left px-4 py-3 text-xs font-medium text-[#6B7A8D] uppercase tracking-wide">Status</th>}
+                <th className={`${canOrganise ? 'w-44' : 'w-20'} px-4 py-3`}><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#DDE3EA]">
-              {categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-[#F4F6F8] transition">
+              {categories.map((cat, index) => (
+                <tr key={cat.id} className={`hover:bg-[#F4F6F8] transition ${cat.is_active === false ? 'opacity-60' : ''}`}>
                   <td className="px-4 py-3 font-medium text-[#1A2B40]">
                     {cat.name}
                     {cat.description && <p className="text-xs text-[#6B7A8D] font-normal mt-0.5">{cat.description}</p>}
                   </td>
                   <td className="px-4 py-3 text-[#6B7A8D] font-mono text-xs hidden sm:table-cell">{cat.slug}</td>
+                  {canOrganise && (
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cat.is_active === false ? 'bg-[#F4F6F8] text-[#6B7A8D]' : 'bg-[#4A777A]/10 text-[#2F5D60]'}`}>
+                        {cat.is_active === false ? 'Hidden' : 'Visible'}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      {canOrganise && (
+                        <>
+                          <button onClick={() => move(index, -1)} disabled={index === 0 || !!busyId} aria-label={`Move ${cat.name} up`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-[#F4F6F8] transition disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                          <button onClick={() => move(index, 1)} disabled={index === categories.length - 1 || !!busyId} aria-label={`Move ${cat.name} down`} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-[#F4F6F8] transition disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                          <button onClick={() => toggleActive(cat)} disabled={!!busyId} aria-label={cat.is_active === false ? `Show ${cat.name}` : `Hide ${cat.name}`} title={cat.is_active === false ? 'Show in library' : 'Hide from library (articles are kept)'} className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-[#F4F6F8] transition disabled:opacity-30">
+                            {cat.is_active === false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          </button>
+                        </>
+                      )}
                       <button onClick={() => startEdit(cat)} aria-label="Edit" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#1B365D] hover:bg-[#F4F6F8] transition"><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => setDeleteId(cat.id)} aria-label="Delete" className="p-1.5 rounded text-[#6B7A8D] hover:text-[#C0392B] hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -156,7 +217,7 @@ export default function AdminCategoriesPage() {
       <ConfirmDialog
         open={!!deleteId}
         title="Delete category"
-        description={`Delete "${deleteTarget?.name}"? Articles in this category will become uncategorised.`}
+        description={`Delete "${deleteTarget?.name}"? The articles themselves are kept, but they will no longer be linked to this category${canOrganise ? '. To keep the links, hide the category instead' : ''}.`}
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}

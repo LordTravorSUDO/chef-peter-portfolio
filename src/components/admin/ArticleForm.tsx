@@ -45,6 +45,10 @@ import RichTextEditor from './RichTextEditor';
 import MediaPickerModal from './MediaPickerModal';
 import RevisionHistory from './RevisionHistory';
 import SeoQualityPanel from './seo/SeoQualityPanel';
+import KnowledgePanel, { type KnowledgeState } from './KnowledgePanel';
+import { hasKnowledgeSchema } from '../../lib/services/knowledgeSchema';
+import { articleTypeOf, ARTICLE_TYPE_MAP, type ArticleType } from '../../lib/knowledge/articleTypes';
+import { normaliseRecipe } from '../../lib/knowledge/recipe';
 import { runSeoChecks } from '../../lib/seo/quality';
 import { ToastContainer, useToast } from './ui/Toast';
 import { utcIsoToZonedInput, zonedInputToUtcIso, formatInZone } from '../../lib/datetime';
@@ -133,6 +137,14 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   const [selectedTagIds,   setSelectedTagIds]  = useState<string[]>(() => article?.article_tags?.map((at) => at.tags?.id ?? '').filter(Boolean) ?? []);
 
   // ── Remote data ────────────────────────────────────────────────────────
+  // Knowledge-platform fields (saved only once the proposed migration is applied)
+  const [knowledgeEnabled, setKnowledgeEnabled] = useState(false);
+  const [knowledge, setKnowledge] = useState<KnowledgeState>(() => ({
+    articleType:   articleTypeOf(article ?? {}),
+    isFeatured:    article?.is_featured ?? false,
+    isEditorsPick: article?.is_editors_pick ?? false,
+    recipe:        article?.recipe ?? {},
+  }));
   const [categories,    setCategories]   = useState<Category[]>([]);
   const [tags,          setTagsList]     = useState<Tag[]>([]);
   const [slugError,     setSlugError]    = useState<string | undefined>();
@@ -167,6 +179,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
   // ── Load taxonomy ──────────────────────────────────────────────────────
   useEffect(() => {
     getCategories().then(setCategories).catch(() => {});
+    hasKnowledgeSchema().then(setKnowledgeEnabled).catch(() => setKnowledgeEnabled(false));
     getTags().then(setTagsList).catch(() => {});
   }, []);
 
@@ -219,7 +232,15 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     meta_description:  metaDesc.trim()     || null,
     canonical_url:     canonicalUrl.trim() || null,
     noindex,
-  }), [title, slug, excerpt, body, featuredImage, socialImage, seoTitle, metaDesc, canonicalUrl, noindex]);
+    // Knowledge-platform columns exist only after the proposed migration
+    ...(knowledgeEnabled ? {
+      article_type:    knowledge.articleType,
+      is_featured:     knowledge.isFeatured,
+      is_editors_pick: knowledge.isEditorsPick,
+      // Kept even if the format changes, so no structured data is lost
+      recipe:          normaliseRecipe(knowledge.recipe),
+    } : {}),
+  }), [title, slug, excerpt, body, featuredImage, socialImage, seoTitle, metaDesc, canonicalUrl, noindex, knowledgeEnabled, knowledge]);
 
   // ── Core save (shared by manual save, autosave and publish actions) ────
   // Returns the article ID. Never navigates and never shows toasts — callers
@@ -279,7 +300,9 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     featuredImageId: featuredImage?.id ?? null,
     socialImageId: socialImage?.id ?? null,
     selectedCatIds, primaryCatId, selectedTagIds,
-  }), [title, slug, excerpt, body, seoTitle, metaDesc, canonicalUrl, noindex, featuredImage, socialImage, selectedCatIds, primaryCatId, selectedTagIds]);
+    // Not derived from knowledgeEnabled, so finishing the schema check never triggers an autosave
+    knowledge,
+  }), [title, slug, excerpt, body, seoTitle, metaDesc, canonicalUrl, noindex, featuredImage, socialImage, selectedCatIds, primaryCatId, selectedTagIds, knowledge]);
 
   const autosaveSave = useCallback(async () => { await performSave(); }, [performSave]);
 
@@ -488,7 +511,12 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     } else if (mediaPicker === 'social') {
       setSocialImage({ id: media.id, storage_path: media.storage_path, alt_text: media.alt_text });
     } else if (mediaPicker === 'inline' && editorRef.current) {
-      editorRef.current.chain().focus().setImage({ src: url, alt: media.alt_text ?? media.original_filename }).run();
+      // The media caption is stored as the image title; the public article page shows it as a figure caption.
+      editorRef.current.chain().focus().setImage({
+        src: url,
+        alt: media.alt_text ?? media.original_filename,
+        ...(media.caption?.trim() ? { title: media.caption.trim() } : {}),
+      }).run();
     }
   }, [mediaPicker]);
 
@@ -507,6 +535,11 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
       return [...prev, catId];
     });
   }, [primaryCatId]);
+
+  // ── Starter outline for an article format ──────────────────────────────
+  const handleInsertOutline = useCallback((type: ArticleType) => {
+    setBody((current) => (current.replace(/<[^>]+>/g, '').trim() ? current + ARTICLE_TYPE_MAP[type].template : ARTICLE_TYPE_MAP[type].template));
+  }, []);
 
   // ── Preview ────────────────────────────────────────────────────────────
   const handlePreview = () => {
@@ -807,6 +840,15 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
               Back to articles
             </Button>
           </div>
+
+          {/* Format, library placement, structured recipe/tutorial details */}
+          <KnowledgePanel
+            enabled={knowledgeEnabled}
+            value={knowledge}
+            onChange={setKnowledge}
+            onInsertOutline={handleInsertOutline}
+            bodyIsEmpty={!body.replace(/<[^>]+>/g, '').trim()}
+          />
 
           {/* Categories */}
           {categories.length > 0 && (

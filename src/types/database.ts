@@ -15,6 +15,9 @@
 // ---------------------------------------------------------------------------
 
 export type ArticleStatus = 'draft' | 'published' | 'scheduled' | 'archived';
+import type { ArticleType } from '../lib/knowledge/articleTypes';
+import type { RecipeData } from '../lib/knowledge/recipe';
+export type { ArticleType, RecipeData };
 export type UserRole      = 'admin' | 'editor';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +99,10 @@ export interface Category {
   name:        string;
   description: string | null;
   image_id:    string | null; // uuid → media.id
+  /** Knowledge-platform migration (proposed). Absent until it is applied. */
+  sort_order?: number;
+  /** Knowledge-platform migration (proposed). FALSE hides it from public navigation. */
+  is_active?:  boolean;
   created_at:  string;
   updated_at:  string;
 }
@@ -141,6 +148,13 @@ export interface Article {
   noindex:              boolean;
   social_image_id:      string | null;   // uuid → media.id
   view_count:           number;
+  // ── Knowledge-platform migration (proposed) — absent until it is applied ──
+  /** Editorial format — see src/lib/knowledge/articleTypes.ts */
+  article_type?:        ArticleType;
+  is_featured?:         boolean;
+  is_editors_pick?:     boolean;
+  /** Structured recipe / tutorial data — see src/lib/knowledge/recipe.ts */
+  recipe?:              RecipeData | null;
   created_at:           string;
   updated_at:           string;
 }
@@ -250,8 +264,10 @@ export interface ArticleWithRelations extends ArticleWithAuthor, ArticleWithFeat
 export interface ArticleCard
   extends Pick<Article,
     'id' | 'slug' | 'title' | 'excerpt' | 'reading_time_minutes' |
-    'published_at' | 'status' | 'featured_image_id'
+    'published_at' | 'status' | 'featured_image_id' |
+    'article_type' | 'is_featured' | 'is_editors_pick'
   > {
+  updated_at?: string;
   article_categories: Array<{
     is_primary: boolean;
     categories: Pick<Category, 'id' | 'slug' | 'name'> | null;

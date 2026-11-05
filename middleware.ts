@@ -269,11 +269,22 @@ function notFoundHead(): string {
 // ---------------------------------------------------------------------------
 // HTML injection
 // ---------------------------------------------------------------------------
-function inject(html: string, head: string): string {
-  if (html.includes(HEAD_PLACEHOLDER)) {
-    return html.replace(HEAD_PLACEHOLDER, head);
+/**
+ * Replaces the homepage's default SEO tags (marked data-default-seo in
+ * index.html) with the page-specific tags. Without this, crawlers received two
+ * <title>s and two canonical links — the first pointing at the homepage.
+ * Injected tags are marked data-seo-injected so the browser app can replace
+ * them with its own identical tags without creating duplicates.
+ */
+export function inject(html: string, head: string): string {
+  const cleaned = html
+    .replace(/[ \t]*<title\b[^>]*\bdata-default-seo\b[^>]*>[\s\S]*?<\/title>[ \t]*\r?\n?/gi, '')
+    .replace(/[ \t]*<(?:meta|link)\b[^>]*\bdata-default-seo\b[^>]*>[ \t]*\r?\n?/gi, '');
+  const marked = head.replace(/<(title|meta|link|script)\b/gi, '<$1 data-seo-injected');
+  if (cleaned.includes(HEAD_PLACEHOLDER)) {
+    return cleaned.replace(HEAD_PLACEHOLDER, marked);
   }
-  return html.replace('</head>', `  ${head}\n</head>`);
+  return cleaned.replace('</head>', `  ${marked}\n</head>`);
 }
 
 // ---------------------------------------------------------------------------

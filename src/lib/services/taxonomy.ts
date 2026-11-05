@@ -19,7 +19,22 @@ export async function getCategories(): Promise<Category[]> {
     .order('name');
 
   if (error) throw new Error(`getCategories: ${error.message}`);
-  return (data ?? []) as Category[];
+  return sortCategories((data ?? []) as Category[]);
+}
+
+/**
+ * Display order: sort_order (knowledge-platform migration) then name.
+ * Before the migration sort_order is absent, so categories sort by name.
+ */
+export function sortCategories(list: Category[]): Category[] {
+  return [...list].sort(
+    (a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || a.name.localeCompare(b.name),
+  );
+}
+
+/** Categories shown to visitors: active ones only (all, before the migration). */
+export async function getPublicCategories(): Promise<Category[]> {
+  return (await getCategories()).filter((c) => c.is_active !== false);
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -59,7 +74,7 @@ export async function deleteCategory(id: string) {
     .delete()
     .eq('id', id);
 
-  // articles with this category will have category_id set to NULL (ON DELETE SET NULL)
+  // article_categories rows are removed (ON DELETE CASCADE); the articles themselves are kept
   if (error) throw new Error(`deleteCategory: ${error.message}`);
 }
 
