@@ -107,7 +107,7 @@
 | Horizontal overflow | 0 | 0 |
 | Duplicate `<title>`, description or canonical tags | 0 | — |
 | Exactly one H1 | ✅ | — |
-| axe (WCAG 2.1 A/AA + best practice) | **0 violations** | 0 after fixes (see the background run note in §6) |
+| axe (WCAG 2.1 A/AA + best practice) | **0 violations** | **0 violations** |
 
 ### 4.3 Public functional checks (40 / 40)
 
