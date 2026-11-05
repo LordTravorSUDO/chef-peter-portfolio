@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { Search, X, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import type { Category } from '../../types/article';
 import { btn } from '../site/ui';
+import { getPrimaryAuthorProfile } from '../../lib/services/authors';
+import { DEFAULT_AUTHOR, type AuthorProfileView } from '../../data/authorProfile';
 
 export const SITE_URL = 'https://www.chefpetertheteacher.com';
 export const LIBRARY_NAME = 'The Culinary Library';
@@ -219,31 +221,39 @@ export function LibrarySectionHeading({
 // The educator behind the library
 // ---------------------------------------------------------------------------
 export function EducatorPanel() {
+  const [profile, setProfile] = useState<AuthorProfileView>(DEFAULT_AUTHOR);
+  useEffect(() => {
+    let cancelled = false;
+    getPrimaryAuthorProfile().then((p) => !cancelled && setProfile(p)).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section aria-labelledby="educator-title" className="rounded-[var(--radius-card)] bg-charcoal text-cream">
       <div className="grid items-center gap-8 p-6 sm:p-10 md:grid-cols-[13rem_1fr]">
-        <img
-          src="/images/chef-peter.jpg"
-          alt="Chef Peter the Teacher"
-          loading="lazy"
-          width={1365}
-          height={768}
-          className="aspect-square w-40 rounded-full object-cover object-[51%_30%] ring-2 ring-gold/60 md:w-52"
-        />
+        {profile.photoUrl && (
+          <img
+            src={profile.photoUrl}
+            alt={profile.photoAlt}
+            loading="lazy"
+            className="aspect-square w-40 rounded-full object-cover object-[51%_30%] ring-2 ring-gold/60 md:w-52"
+          />
+        )}
         <div>
           <p className="text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-gold-light">The educator</p>
           <h2 id="educator-title" className="mt-2 font-serif text-[1.75rem] font-semibold leading-tight text-cream">
-            Written by Chef Peter the Teacher
+            Written by {profile.name}
           </h2>
-          <p className="mt-3 max-w-2xl leading-relaxed text-cream-soft">
-            A professional chef, culinary educator and founder of De’Chosen Events Consultants in Kampala. His experience spans
-            hotel kitchens, in-flight and high-volume catering and international assignments, and he is the author of three
-            culinary books. This library shares the practical knowledge he teaches in his classes.
-          </p>
+          {profile.jobTitle && <p className="mt-1 text-cream-soft">{profile.jobTitle}</p>}
+          <p className="mt-3 max-w-2xl leading-relaxed text-cream-soft">{profile.longBio || profile.shortBio}</p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <a href="/about-chef-peter" className={btn.light}>
-              About Chef Peter
-            </a>
+            {profile.profileUrl && (
+              <a href={profile.profileUrl} className={btn.light}>
+                About {profile.name.replace(/ the Teacher$/, '')}
+              </a>
+            )}
             <a href="/cooking-classes-kampala" className={btn.lightOutline}>
               Learn in a class
             </a>

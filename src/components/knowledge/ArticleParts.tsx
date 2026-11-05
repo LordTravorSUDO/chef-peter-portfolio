@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, Check, Clock, Link as LinkIcon, Users, ChefHat, 
 import type { TocEntry } from '../../lib/knowledge/articleHtml';
 import type { ArticleType, StructuredField } from '../../lib/knowledge/articleTypes';
 import { ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleTypes';
+import type { AuthorProfileView } from '../../data/authorProfile';
 import { DIFFICULTY_LABEL, formatMinutes, totalMinutes, type RecipeData, type RecipeIngredient } from '../../lib/knowledge/recipe';
 
 // ---------------------------------------------------------------------------
@@ -208,35 +209,36 @@ export function RecipeCard({ type, recipe, title }: { type: ArticleType; recipe:
 }
 
 // ---------------------------------------------------------------------------
-// Author biography
+// Author biography (central profile — see src/lib/services/authors.ts)
 // ---------------------------------------------------------------------------
-export function AuthorBio({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
-  const isChefPeter = /peter/i.test(name);
+export function AuthorBio({ profile }: { profile: AuthorProfileView }) {
   return (
     <aside aria-label="About the author" className="mt-14 flex flex-col gap-5 rounded-[var(--radius-card)] border border-sand bg-paper p-6 sm:flex-row sm:items-start sm:p-8">
-      <img
-        src={isChefPeter ? '/images/chef-peter.jpg' : avatarUrl || '/images/chef-peter.jpg'}
-        alt=""
-        loading="lazy"
-        className="h-20 w-20 shrink-0 rounded-full object-cover object-[51%_30%] ring-1 ring-sand"
-      />
+      {profile.photoUrl && (
+        <img
+          src={profile.photoUrl}
+          alt=""
+          loading="lazy"
+          className="h-20 w-20 shrink-0 rounded-full object-cover object-[51%_30%] ring-1 ring-sand"
+        />
+      )}
       <div>
         <p className="text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-gold-deep">About the author</p>
-        <p className="mt-1 font-serif text-[1.375rem] font-semibold text-ink">{name}</p>
-        {isChefPeter ? (
-          <>
-            <p className="mt-2 leading-relaxed text-ink-soft">
-              Professional chef, culinary educator and founder of De’Chosen Events Consultants in Kampala. Chef Peter teaches
-              practical cooking and baking, advises hotels, lodges and caterers, and is the author of three culinary books.
-            </p>
-            <p className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[0.9375rem]">
-              <a href="/about-chef-peter" className="font-semibold text-ink underline decoration-gold underline-offset-4">Full profile</a>
-              <a href="/cooking-classes-kampala" className="font-semibold text-ink underline decoration-gold underline-offset-4">Cooking classes</a>
-              <a href="/baking-pastry-classes" className="font-semibold text-ink underline decoration-gold underline-offset-4">Baking classes</a>
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 leading-relaxed text-ink-soft">Contributor to Chef Peter the Teacher’s culinary library.</p>
+        <p className="mt-1 font-serif text-[1.375rem] font-semibold text-ink">{profile.name}</p>
+        {profile.jobTitle && <p className="text-[0.9375rem] text-muted">{profile.jobTitle}</p>}
+        <p className="mt-2 leading-relaxed text-ink-soft">
+          {profile.shortBio || 'Contributor to Chef Peter the Teacher’s culinary library.'}
+        </p>
+        {profile.profileUrl && (
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[0.9375rem]">
+            <a href={profile.profileUrl} className="font-semibold text-ink underline decoration-gold underline-offset-4">Full profile</a>
+            {profile.source !== 'generic' && (
+              <>
+                <a href="/cooking-classes-kampala" className="font-semibold text-ink underline decoration-gold underline-offset-4">Cooking classes</a>
+                <a href="/baking-pastry-classes" className="font-semibold text-ink underline decoration-gold underline-offset-4">Baking classes</a>
+              </>
+            )}
+          </p>
         )}
       </div>
     </aside>

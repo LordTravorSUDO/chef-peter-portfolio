@@ -44,6 +44,7 @@ const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage
 const AdminTagsPage      = lazy(() => import('./pages/admin/AdminTagsPage'));
 const AdminSeoPage       = lazy(() => import('./pages/admin/AdminSeoPage'));
 const AdminSettingsPage  = lazy(() => import('./pages/admin/AdminSettingsPage'));
+const AdminAuthorPage    = lazy(() => import('./pages/admin/AdminAuthorPage'));
 
 // ---------------------------------------------------------------------------
 // Shared route-guard
@@ -178,6 +179,7 @@ export default function App() {
           <Route path="tags"                    element={<AdminTagsPage />} />
           <Route path="seo"                     element={<AdminSeoPage />} />
           <Route path="settings"                element={<AdminSettingsPage />} />
+          <Route path="author"                  element={<AdminAuthorPage />} />
         </Route>
       </Routes>
     </Suspense>

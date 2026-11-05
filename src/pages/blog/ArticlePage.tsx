@@ -29,6 +29,8 @@ import {
 } from '../../lib/services/articles';
 import { getMediaUrl } from '../../lib/services/media';
 import { useRedirect } from '../../hooks/useRedirect';
+import { getAuthorProfile } from '../../lib/services/authors';
+import { DEFAULT_AUTHOR, isChefPeterByline, type AuthorProfileView } from '../../data/authorProfile';
 import { enhanceImageHtml } from '../../components/blog/ResponsiveImage';
 import { enhanceArticleHtml, readingMinutesFromHtml } from '../../lib/knowledge/articleHtml';
 import { articleTypeOf, ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleTypes';
@@ -67,6 +69,7 @@ export default function ArticlePage() {
   const [article, setArticle] = useState<ArticleWithRelations | null | undefined>(undefined);
   const [related, setRelated] = useState<ArticleCard[]>([]);
   const [adjacent, setAdjacent] = useState<Adjacent>({ previous: null, next: null });
+  const [authorProfile, setAuthorProfile] = useState<AuthorProfileView | null>(null);
 
   // If the article is not found, check the redirects table for a moved URL
   useRedirect(article === null);
@@ -91,6 +94,9 @@ export default function ArticlePage() {
     const categoryIds = (article.article_categories ?? []).map((ac) => ac.categories?.id).filter(Boolean) as string[];
     const tagIds = (article.article_tags ?? []).map((at) => at.tags?.id).filter(Boolean) as string[];
     getRelatedArticles({ id: article.id, categoryIds, tagIds }, 3).then((r) => !cancelled && setRelated(r));
+    getAuthorProfile(article.author_id, article.author_display_name)
+      .then((p) => !cancelled && setAuthorProfile(p))
+      .catch(() => {});
     getAdjacentArticles(article.published_at, article.id)
       .then((a) => !cancelled && setAdjacent(a))
       .catch(() => {});
@@ -141,8 +147,10 @@ export default function ArticlePage() {
   const categories = (article.article_categories ?? []).map((ac) => ac.categories).filter(Boolean);
   const tags = (article.article_tags ?? []).map((at) => at.tags).filter(Boolean);
   const raw = article as unknown as Record<string, unknown>;
-  const author = raw['profiles'] as { display_name?: string; avatar_url?: string | null } | null | undefined;
-  const authorName = article.author_display_name || 'Chef Peter the Teacher';
+  const authorName = article.author_display_name || DEFAULT_AUTHOR.name;
+  // Until the author profile loads, Chef Peter bylines use the approved default profile
+  const profile: AuthorProfileView =
+    authorProfile ?? (isChefPeterByline(authorName) ? { ...DEFAULT_AUTHOR, name: authorName } : { ...DEFAULT_AUTHOR, name: authorName, shortBio: null, jobTitle: null, photoUrl: null, profileUrl: null, source: 'generic' });
   const featuredImg = article.featured_image as Media | null;
   const socialImg = (raw['social_image'] as Media | null) ?? featuredImg;
 
@@ -159,7 +167,7 @@ export default function ArticlePage() {
     !!article.updated_at &&
     new Date(article.updated_at).getTime() - new Date(article.published_at).getTime() > 86_400_000;
   const showToc = body.toc.filter((t) => t.level === 2).length >= TOC_MIN_HEADINGS;
-  const authorPhoto = /peter/i.test(authorName) ? '/images/chef-peter.jpg' : author?.avatar_url || null;
+  const authorPhoto = profile.photoUrl;
 
   // ── Structured data ─────────────────────────────────────────────────────
   const breadcrumbs = [
@@ -177,7 +185,12 @@ export default function ArticlePage() {
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonUrl },
     datePublished: article.published_at,
     dateModified: article.updated_at,
-    author: { '@type': 'Person', name: authorName, url: `${SITE_URL}/about-chef-peter` },
+    author: {
+      '@type': 'Person',
+      name: authorName,
+      ...(profile.profileUrl ? { url: profile.profileUrl.startsWith('/') ? `${SITE_URL}${profile.profileUrl}` : profile.profileUrl } : {}),
+      ...(profile.jobTitle ? { jobTitle: profile.jobTitle } : {}),
+    },
     publisher: {
       '@type': 'Organization',
       name: 'Chef Peter the Teacher',
@@ -343,7 +356,7 @@ export default function ArticlePage() {
               <ShareLinks url={articleUrl} title={article.title} />
             </footer>
 
-            <AuthorBio name={authorName} avatarUrl={author?.avatar_url} />
+            <AuthorBio profile={profile} />
             <ArticleNavigation previous={adjacent.previous} next={adjacent.next} />
 
             <p className="mt-8">

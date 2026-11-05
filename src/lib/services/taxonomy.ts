@@ -5,7 +5,7 @@
 import { supabase } from '../supabase';
 import type {
   Category, CategoryInsert, CategoryUpdate,
-  Tag, TagInsert,
+  Tag, TagInsert, TagUpdate,
 } from '../../types/article';
 
 // ---------------------------------------------------------------------------
@@ -114,6 +114,11 @@ export async function createTag(payload: TagInsert): Promise<string> {
   return data.id as string;
 }
 
+export async function updateTag(id: string, payload: TagUpdate) {
+  const { error } = await supabase.from('tags').update(payload).eq('id', id);
+  if (error) throw new Error(`updateTag: ${error.message}`);
+}
+
 export async function deleteTag(id: string) {
   const { error } = await supabase
     .from('tags')
@@ -178,4 +183,96 @@ export async function setArticleTags(articleId: string, tagIds: string[]) {
     .insert(rows);
 
   if (insErr) throw new Error(`setArticleTags (insert): ${insErr.message}`);
+}
+
+// ---------------------------------------------------------------------------
+// Usage counts and safe reassignment (admin)
+// ---------------------------------------------------------------------------
+
+export interface TaxonomyUsage {
+  /** All linked articles, any status */
+  total: number;
+  /** Published articles */
+  published: number;
+}
+
+/** Article counts per category id (admins can see every status). */
+export async function getCategoryUsage(): Promise<Record<string, TaxonomyUsage>> {
+  const { data, error } = await supabase.from('article_categories').select('category_id, articles ( status )');
+  if (error) throw new Error(`getCategoryUsage: ${error.message}`);
+  return countUsage((data ?? []) as unknown as Array<{ category_id: string; articles: { status: string } | null }>, 'category_id');
+}
+
+/** Article counts per tag id (admins can see every status). */
+export async function getTagUsage(): Promise<Record<string, TaxonomyUsage>> {
+  const { data, error } = await supabase.from('article_tags').select('tag_id, articles ( status )');
+  if (error) throw new Error(`getTagUsage: ${error.message}`);
+  return countUsage((data ?? []) as unknown as Array<{ tag_id: string; articles: { status: string } | null }>, 'tag_id');
+}
+
+function countUsage<K extends string>(rows: Array<Record<K, string> & { articles: { status: string } | null }>, key: K) {
+  const out: Record<string, TaxonomyUsage> = {};
+  for (const row of rows) {
+    const id = row[key];
+    const entry = (out[id] ??= { total: 0, published: 0 });
+    entry.total += 1;
+    if (row.articles?.status === 'published') entry.published += 1;
+  }
+  return out;
+}
+
+/**
+ * Moves every article from one category to another, keeping each article's
+ * "primary category" choice. Used before deleting a category so that no
+ * article loses its subject. Returns the number of articles moved.
+ *
+ *  - Article not yet in the target  → its link is moved to the target.
+ *  - Article already in the target  → the old link is removed; if the old
+ *    category was primary, the target becomes primary (the database allows
+ *    one primary category per article, so the old link is removed first).
+ */
+export async function reassignCategoryArticles(fromId: string, toId: string): Promise<number> {
+  if (fromId === toId) throw new Error('Choose a different category to move the articles to.');
+  const { data: fromRows, error: e1 } = await supabase
+    .from('article_categories').select('article_id, is_primary').eq('category_id', fromId);
+  if (e1) throw new Error(`reassignCategoryArticles: ${e1.message}`);
+  const rows = (fromRows ?? []) as Array<{ article_id: string; is_primary: boolean }>;
+  if (!rows.length) return 0;
+
+  const { data: toRows, error: e2 } = await supabase
+    .from('article_categories').select('article_id').eq('category_id', toId).in('article_id', rows.map((r) => r.article_id));
+  if (e2) throw new Error(`reassignCategoryArticles: ${e2.message}`);
+  const alreadyInTarget = new Set(((toRows ?? []) as Array<{ article_id: string }>).map((r) => r.article_id));
+
+  for (const row of rows) {
+    if (alreadyInTarget.has(row.article_id)) {
+      const { error: del } = await supabase.from('article_categories').delete()
+        .eq('article_id', row.article_id).eq('category_id', fromId);
+      if (del) throw new Error(`reassignCategoryArticles: ${del.message}`);
+      if (row.is_primary) {
+        const { error: up } = await supabase.from('article_categories').update({ is_primary: true })
+          .eq('article_id', row.article_id).eq('category_id', toId);
+        if (up) throw new Error(`reassignCategoryArticles: ${up.message}`);
+      }
+    } else {
+      const { error: mv } = await supabase.from('article_categories').update({ category_id: toId })
+        .eq('article_id', row.article_id).eq('category_id', fromId);
+      if (mv) throw new Error(`reassignCategoryArticles: ${mv.message}`);
+    }
+  }
+  return rows.length;
+}
+
+/**
+ * Deletes a category only when no article is linked to it.
+ * Call reassignCategoryArticles() first for categories that contain articles.
+ */
+export async function deleteEmptyCategory(id: string): Promise<void> {
+  const { count, error } = await supabase
+    .from('article_categories').select('article_id', { count: 'exact', head: true }).eq('category_id', id);
+  if (error) throw new Error(`deleteEmptyCategory: ${error.message}`);
+  if ((count ?? 0) > 0) {
+    throw new Error(`This category still contains ${count} article${count === 1 ? '' : 's'}. Move them to another category first.`);
+  }
+  await deleteCategory(id);
 }
