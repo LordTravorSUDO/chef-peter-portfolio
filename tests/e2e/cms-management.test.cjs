@@ -371,6 +371,40 @@ const TESTS = {
     });
   },
 
+  async 'editorial calendar: creates a draft from a proposal, which cannot be published while notes remain'(browser, base) {
+    await withPage(browser, base, {}, async (page, mock) => {
+      await page.goto(`${base}/admin/editorial`);
+      const summary = page.getByTestId('calendar-summary');
+      await summary.getByText('28 not started').waitFor({ timeout: 15000 });
+      const card = page.getByTestId('proposal-why-cakes-fail');
+      await card.getByText('Full draft ready').waitFor();
+      // The brief is available for review before anything is created
+      await card.getByText('Article brief').click();
+      await card.getByText('why did my cake sink').waitFor();
+      await card.getByRole('button', { name: 'Create draft' }).click();
+
+      await page.waitForURL(/\/admin\/articles\/[^/]+\/edit$/, { timeout: 10000 });
+      const created = mock.db.articles.find((a) => a.slug === 'why-cakes-fail');
+      assert(created, 'draft row created');
+      assert(created.status === 'draft' && created.published_at === null && created.scheduled_for === null, 'created as an unscheduled draft');
+      assert(created.body.includes('Why cakes sink in the middle'), 'full draft body saved');
+      assert(created.meta_description && created.meta_description.length <= 160, 'meta description from the brief');
+      await waitFor(() => mock.db.article_categories.some((ac) => ac.article_id === created.id && ac.category_id === C_PASTRY && ac.is_primary), 5000, 'primary category set');
+
+      // Publishing is refused while bracketed editorial notes remain
+      await page.getByRole('button', { name: 'Publish now' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
+      await page.getByText(/still has \d+ editorial notes/).first().waitFor({ timeout: 8000 });
+      assert(mock.db.articles.find((a) => a.id === created.id).status === 'draft', 'still a draft');
+
+      // Back on the calendar the proposal shows its new stage and links to the editor
+      await page.goto(`${base}/admin/editorial`);
+      await summary.getByText('1 in review').waitFor({ timeout: 15000 });
+      assert(await card.getByRole('link', { name: 'Open in editor' }).count() === 1, 'open-in-editor link');
+      assert(await card.getByRole('button', { name: 'Create draft' }).count() === 0, 'no second draft');
+    });
+  },
+
   async 'author profile: saved once in the CMS and reused on public article pages'(browser, base) {
     await withPage(browser, base, { authorProfiles: true }, async (page, mock) => {
       await page.goto(`${base}/admin/author`);

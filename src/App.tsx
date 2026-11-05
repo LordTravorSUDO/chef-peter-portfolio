@@ -44,6 +44,7 @@ const AdminMediaPage     = lazy(() => import('./pages/admin/AdminMediaPage'));
 const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'));
 const AdminTagsPage      = lazy(() => import('./pages/admin/AdminTagsPage'));
 const AdminSeoPage       = lazy(() => import('./pages/admin/AdminSeoPage'));
+const AdminEditorialCalendarPage = lazy(() => import('./pages/admin/AdminEditorialCalendarPage'));
 const AdminSettingsPage  = lazy(() => import('./pages/admin/AdminSettingsPage'));
 const AdminAuthorPage    = lazy(() => import('./pages/admin/AdminAuthorPage'));
 
@@ -182,6 +183,7 @@ export default function App() {
           <Route path="categories"              element={<AdminCategoriesPage />} />
           <Route path="tags"                    element={<AdminTagsPage />} />
           <Route path="seo"                     element={<AdminSeoPage />} />
+          <Route path="editorial"               element={<AdminEditorialCalendarPage />} />
           <Route path="settings"                element={<AdminSettingsPage />} />
           <Route path="author"                  element={<AdminAuthorPage />} />
         </Route>

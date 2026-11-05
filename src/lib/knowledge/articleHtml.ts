@@ -18,16 +18,26 @@ export interface TocEntry {
   level: 2 | 3;
 }
 
-export type CalloutKind = 'tip' | 'note' | 'safety' | 'local';
+export type CalloutKind = 'tip' | 'note' | 'safety' | 'local' | 'peter' | 'pro' | 'mistake' | 'lesson';
 
 export const CALLOUT_LABEL: Record<CalloutKind, string> = {
   tip: 'Chef’s tip',
   note: 'Chef’s note',
   safety: 'Food safety',
   local: 'In the Ugandan kitchen',
+  // Chef Peter's editorial voice (docs/editorial-strategy.md). "Chef Peter’s tip"
+  // must only be used for advice Chef Peter has written or confirmed.
+  peter: 'Chef Peter’s tip',
+  pro: 'What professional chefs should know',
+  mistake: 'Common kitchen mistakes',
+  lesson: 'Practical kitchen lesson',
 };
 
 const CALLOUT_PATTERNS: Array<[CalloutKind, RegExp]> = [
+  ['peter', /^chef\s+peter[’'`]?s\s+tip\s*[:—–-]\s*/i],
+  ['pro', /^what\s+professional\s+chefs\s+should\s+know\s*[:—–-]\s*/i],
+  ['mistake', /^common\s+(?:kitchen\s+)?mistakes?\s*[:—–-]\s*/i],
+  ['lesson', /^practical\s+(?:kitchen\s+)?lesson\s*[:—–-]\s*/i],
   ['tip', /^(?:chef[’'`]?s\s+tip|tip)\s*[:—–-]\s*/i],
   ['note', /^(?:chef[’'`]?s\s+note|note)\s*[:—–-]\s*/i],
   ['safety', /^(?:food\s+safety|safety(?:\s+note)?)\s*[:—–-]\s*/i],

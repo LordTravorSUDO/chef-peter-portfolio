@@ -82,6 +82,15 @@ The coloured banner at the top always says where the article stands:
 
 ---
 
+## Editorial calendar
+
+**Admin → Editorial calendar** lists the planned articles (see `docs/editorial-strategy.md` and `docs/editorial-calendar.md`). Each entry shows its suggested date, its brief (audience, keywords, headings, photographs, links and references) and its stage: *Not started*, *Draft — in review*, *Scheduled* or *Published*.
+
+- **Create draft** makes a draft article from the brief — a full first draft for the first four articles, an outline with writing notes for the others — and opens it in the editor. Nothing is published or scheduled.
+- Notes in square brackets (`[EDITOR: …]`, `[CHEF PETER: …]`, `[PHOTO: …]`, `[REFERENCE: …]`) mark work still to do. The editor will not publish or schedule an article until they are all completed or removed.
+- **Chef Peter’s tip** boxes are for Chef Peter’s own advice only. Leave them for him to write or approve.
+- When the article is approved, set its date in the editor and choose **Schedule**.
+
 ## Categories and tags
 
 - **Categories** are the main subjects of the library. Add, rename or describe them under **Categories**.

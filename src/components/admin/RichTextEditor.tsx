@@ -241,6 +241,10 @@ export default function RichTextEditor({ value, onChange, onInsertImage, placeho
           <option value="Chef’s note">Chef’s note</option>
           <option value="Safety note">Safety note</option>
           <option value="In the Ugandan kitchen">In the Ugandan kitchen</option>
+          <option value="Chef Peter’s tip">Chef Peter’s tip (confirmed by Chef Peter only)</option>
+          <option value="What professional chefs should know">What professional chefs should know</option>
+          <option value="Common kitchen mistakes">Common kitchen mistakes</option>
+          <option value="Practical kitchen lesson">Practical kitchen lesson</option>
         </select>
       </div>
 

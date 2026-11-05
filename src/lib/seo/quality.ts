@@ -11,6 +11,7 @@ import {
   SEO_TITLE_MAX, SEO_TITLE_MIN,
   META_DESCRIPTION_MAX, META_DESCRIPTION_MIN,
 } from './constants';
+import { findEditorialPlaceholders } from '../editorial/placeholders';
 
 export type CheckSeverity = 'error' | 'warning' | 'info';
 
@@ -145,6 +146,16 @@ export function runSeoChecks(input: SeoCheckInput): SeoCheck[] {
     checks.push({
       id: 'body-too-short', severity: 'info',
       message: `Article body is only about ${plainText.length} characters. Longer, substantive content generally performs better in search.`,
+      field: 'body',
+    });
+  }
+
+  // ── Unfinished editorial notes ───────────────────────────────────────────
+  const placeholders = findEditorialPlaceholders(body);
+  if (placeholders.length) {
+    checks.push({
+      id: 'editorial-placeholders', severity: 'error',
+      message: `${placeholders.length} editorial note${placeholders.length === 1 ? '' : 's'} in square brackets still need attention (for example ${placeholders[0].text.slice(0, 80)}). The article cannot be published or scheduled until they are completed or removed.`,
       field: 'body',
     });
   }

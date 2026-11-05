@@ -178,3 +178,10 @@
 .article-body .callout-safety .callout-label { color: var(--color-danger); }
 .article-body .callout-local { background: #EDF3EC; border-color: #C7DBC4; }
 .article-body .callout-local .callout-label { color: var(--color-success); }
+.article-body .callout-peter { background: var(--color-gold-wash); border-color: var(--color-gold); border-left-width: 4px; }
+.article-body .callout-peter .callout-label { color: #6B4F1D; }
+.article-body .callout-pro { background: var(--color-paper); border-left-width: 4px; border-left-color: var(--color-ink); }
+.article-body .callout-mistake { background: #FFF6E6; border-color: #EAD3A6; }
+.article-body .callout-mistake .callout-label { color: #7A4A0B; } /* 7:1 on #FFF6E6 */
+.article-body .callout-lesson { background: #EEF2F7; border-color: #C9D4E2; }
+.article-body .callout-lesson .callout-label { color: #23395B; }

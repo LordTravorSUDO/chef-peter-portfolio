@@ -413,6 +413,10 @@ function WritingGuide() {
             <li><code>Chef’s note:</code> — background or explanation</li>
             <li><code>Safety note:</code> — food-safety warning</li>
             <li><code>In the Ugandan kitchen:</code> — local ingredients, equipment or practice</li>
+            <li><code>Chef Peter’s tip:</code> — only for advice Chef Peter has written or confirmed</li>
+            <li><code>What professional chefs should know:</code> — professional standards and context</li>
+            <li><code>Common kitchen mistakes:</code> — what goes wrong and how to avoid it</li>
+            <li><code>Practical kitchen lesson:</code> — a short exercise the reader can try</li>
           </ul>
         </div>
       </div>

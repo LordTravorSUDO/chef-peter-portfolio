@@ -53,6 +53,7 @@ import { hasKnowledgeSchema } from '../../lib/services/knowledgeSchema';
 import { articleTypeOf, ARTICLE_TYPE_MAP, type ArticleType } from '../../lib/knowledge/articleTypes';
 import { normaliseRecipe } from '../../lib/knowledge/recipe';
 import { runSeoChecks } from '../../lib/seo/quality';
+import { assertNoEditorialPlaceholders } from '../../lib/editorial/placeholders';
 import { ToastContainer, useToast } from './ui/Toast';
 import { utcIsoToZonedInput, zonedInputToUtcIso, formatInZone } from '../../lib/datetime';
 
@@ -430,6 +431,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     setActionLoading(true);
     let id: string | null = null;
     try {
+      assertNoEditorialPlaceholders(body);
       id = await performSave();
       await publishArticle(id);
       navigate(`/admin/articles/${id}/edit`, {
@@ -458,6 +460,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     if (!article) { showToast('Save the article first.', 'warning'); return; }
     setActionLoading(true);
     try {
+      assertNoEditorialPlaceholders(body);
       await saveNow(); // persist pending content first (no-op when clean)
       await publishArticle(article.id);
       showToast('Article published.', 'success');
@@ -484,6 +487,7 @@ export default function ArticleForm({ article, onSaved, onReloadRequested }: Pro
     if (!scheduledFor) { showToast('Set a scheduled date/time first.', 'error'); return; }
     setActionLoading(true);
     try {
+      assertNoEditorialPlaceholders(body);
       const scheduledUtc = zonedInputToUtcIso(scheduledFor);   // Kampala wall time → UTC, exactly once
       await saveNow();
       await scheduleArticle(article.id, scheduledUtc);

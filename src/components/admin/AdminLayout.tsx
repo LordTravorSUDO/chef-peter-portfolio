@@ -10,7 +10,7 @@ import { NavLink, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Image, Tag, FolderOpen,
   Settings, Search, LogOut, Menu, X, ChevronRight,
-  ExternalLink, Award, UserRound } from 'lucide-react';
+  ExternalLink, Award, UserRound, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import Spinner from './ui/Spinner';
 
@@ -23,6 +23,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard',   to: '/admin',            icon: <LayoutDashboard className="w-4 h-4" /> },
   { label: 'Articles',    to: '/admin/articles',   icon: <FileText        className="w-4 h-4" /> },
+  { label: 'Editorial calendar', to: '/admin/editorial', icon: <CalendarDays className="w-4 h-4" /> },
   { label: 'Media',       to: '/admin/media',      icon: <Image           className="w-4 h-4" /> },
   { label: 'Categories',  to: '/admin/categories', icon: <FolderOpen      className="w-4 h-4" /> },
   { label: 'Tags',        to: '/admin/tags',        icon: <Tag             className="w-4 h-4" /> },
