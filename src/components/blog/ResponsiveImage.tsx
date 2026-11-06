@@ -72,7 +72,7 @@ export default function ResponsiveImage({
         className="w-full h-auto rounded-lg"
       />
       {(caption || credit) && (
-        <figcaption className="mt-2 text-xs text-[#8A8A8A] text-center">
+        <figcaption className="mt-2 text-xs text-muted text-center">
           {caption && <span>{caption}</span>}
           {caption && credit && <span> · </span>}
           {credit && <span className="italic">Credit: {credit}</span>}

@@ -60,7 +60,7 @@ export default function AdminSettingsPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-[#1B365D]">Settings</h1>
-        <p className="text-sm text-[#6B7A8D] mt-0.5">Manage your account and profile.</p>
+        <p className="text-sm text-[#5F6E80] mt-0.5">Manage your account and profile.</p>
       </div>
 
       {/* Profile */}
@@ -69,7 +69,7 @@ export default function AdminSettingsPage() {
           <User className="w-4 h-4 text-[#4A777A]" />
           <h2 className="text-sm font-semibold text-[#1A2B40]">Profile</h2>
         </div>
-        <div className="text-sm text-[#6B7A8D] space-y-1">
+        <div className="text-sm text-[#5F6E80] space-y-1">
           <p><span className="font-medium text-[#1A2B40]">Email:</span> {user?.email}</p>
           <p><span className="font-medium text-[#1A2B40]">Role:</span> {profile?.role}</p>
         </div>

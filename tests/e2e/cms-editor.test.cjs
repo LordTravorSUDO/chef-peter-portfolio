@@ -100,11 +100,19 @@ function createMock(opts = {}) {
     storageMode: opts.storageMode || 'ok',  // ok | rls | bucket | jwt-expired-once
     tokenFail: !!opts.tokenFail,
     issuedTokens: [],
+    // true = database without the knowledge-platform migration (new columns missing)
+    legacySchema: !!opts.legacySchema,
   };
   for (const a of opts.articles || []) state.articles.set(a.id, a);
 
+  // A real database returns every column: after the knowledge-platform migration
+  // the new columns (with their defaults); before it, none of them.
+  const KNOWLEDGE_DEFAULTS = { article_type: 'educational', is_featured: false, is_editors_pick: false, recipe: null };
+  const withSchema = (a) => state.legacySchema
+    ? Object.fromEntries(Object.entries(a).filter(([k]) => !(k in KNOWLEDGE_DEFAULTS)))
+    : { ...KNOWLEDGE_DEFAULTS, ...a };
   const withRelations = (a) => ({
-    ...a,
+    ...withSchema(a),
     featured_image: a.featured_image_id ? MEDIA[a.featured_image_id] ?? null : null,
     social_image: a.social_image_id ? MEDIA[a.social_image_id] ?? null : null,
     article_categories: [], article_tags: [], profiles: null,
@@ -174,6 +182,14 @@ function createMock(opts = {}) {
     if (p === '/rest/v1/categories' || p === '/rest/v1/tags' || p === '/rest/v1/article_revisions') return json(route, 200, []);
     if (p === '/rest/v1/article_categories' || p === '/rest/v1/article_tags') return json(route, method === 'POST' ? 201 : 204, undefined);
 
+    if (state.legacySchema && (p === '/rest/v1/articles' || p === '/rest/v1/categories')
+        && /article_type|is_featured|is_editors_pick|recipe|sort_order|is_active/.test(url.searchParams.get('select') || '')) {
+      return json(route, 400, { code: '42703', message: 'column does not exist', details: null, hint: null });
+    }
+    if (state.legacySchema && p === '/rest/v1/articles' && method === 'PATCH'
+        && entry.body && ['article_type', 'is_featured', 'is_editors_pick', 'recipe'].some((k) => k in entry.body)) {
+      return json(route, 400, { code: 'PGRST204', message: "Could not find the 'article_type' column of 'articles' in the schema cache", details: null, hint: null });
+    }
     if (p === '/rest/v1/articles') {
       const idEq = url.searchParams.get('id')?.replace(/^eq\./, '');
       const slugEq = url.searchParams.get('slug')?.replace(/^eq\./, '');
@@ -679,6 +695,56 @@ const TESTS = {
       }, { timezoneId: tz });
     },
   }), {}),
+  // 27. Knowledge platform (after the migration): format, flags and structured recipe data are saved.
+  async 'knowledge: recipe format, flags and ingredients are saved after the migration'(browser, base) {
+    await withPage(browser, base, { articles: [baseArticle()] }, async (page, s) => {
+      await page.goto(`${base}/admin/articles/22222222-2222-4222-8222-222222222222/edit`);
+      await page.getByPlaceholder('Enter article title…').waitFor({ timeout: 15000 });
+      await page.getByLabel('Article format').selectOption('recipe');
+      await page.getByLabel('Featured article (top of the library)').check();
+      await page.getByLabel('Prep (min)').fill('15');
+      await page.getByRole('button', { name: 'Add ingredient' }).click();
+      await page.getByLabel('Ingredient 1 quantity').fill('2');
+      await page.getByLabel('Ingredient 1 name').fill('eggs');
+      await page.getByRole('button', { name: 'Add method step' }).click();
+      await page.getByLabel('Method step 1', { exact: true }).fill('Beat the eggs.');
+      await page.getByRole('button', { name: 'Add method step' }).click();
+      await page.getByLabel('Method step 2', { exact: true }).fill('Cook in a hot pan.');
+      await page.getByLabel('Eggs').check();
+      await waitFor(() => writes(s, 'PATCH').some((e) => e.body.article_type === 'recipe' && e.body.is_featured === true
+        && e.body.recipe?.ingredients?.[0]?.item === 'eggs' && e.body.recipe?.method?.length === 2
+        && e.body.recipe?.prep_minutes === 15 && e.body.recipe?.allergens?.includes('Eggs')), 12000, 'autosave with recipe data');
+    });
+  },
+
+  // 28. Before the migration: the panel is disabled and no unknown columns are ever sent.
+  async 'knowledge: before the migration no new columns are sent and saving still works'(browser, base) {
+    await withPage(browser, base, { articles: [baseArticle()], legacySchema: true }, async (page, s, errors) => {
+      await page.goto(`${base}/admin/articles/22222222-2222-4222-8222-222222222222/edit`);
+      await page.getByPlaceholder('Enter article title…').waitFor({ timeout: 15000 });
+      await page.getByText('saved after the knowledge-platform database upgrade', { exact: false }).waitFor({ timeout: 8000 });
+      assert(await page.getByLabel('Article format').isDisabled(), 'format select disabled');
+      await page.getByPlaceholder('Enter article title…').fill('Existing article — edited');
+      await page.getByRole('button', { name: 'Save changes' }).click();
+      await waitFor(() => writes(s, 'PATCH').some((e) => e.body.title === 'Existing article — edited'), 8000, 'save PATCH');
+      const bad = writes(s, 'PATCH').filter((e) => e.body && ['article_type', 'is_featured', 'is_editors_pick', 'recipe'].some((k) => k in e.body));
+      assert(bad.length === 0, 'no knowledge columns sent before the migration');
+      await expectToast(page, 'Changes saved');
+      assert(errors.length === 0, 'no page errors: ' + errors.join('; '));
+    });
+  },
+
+  // 29. Starter outline: inserting an outline fills an empty body with the format's headings.
+  async 'knowledge: starter outline is inserted into an empty article'(browser, base) {
+    await withPage(browser, base, {}, async (page) => {
+      await page.goto(`${base}/admin/articles/new`);
+      await page.getByPlaceholder('Enter article title…').waitFor({ timeout: 15000 });
+      await page.getByLabel('Starter outline').selectOption('food_safety_guide');
+      await page.getByRole('button', { name: 'Insert', exact: true }).click();
+      await page.locator('.ProseMirror h2', { hasText: 'Safe practice' }).waitFor({ timeout: 5000 });
+      assert(await page.locator('.ProseMirror blockquote', { hasText: 'Safety note' }).count() === 1, 'safety callout prompt inserted');
+    });
+  },
 };
 
 (async () => {

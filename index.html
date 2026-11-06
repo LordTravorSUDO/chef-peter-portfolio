@@ -1,137 +1,51 @@
 <!doctype html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#FBF8F3" />
 
     <!-- =====================================================================
          PRIMARY SEO META
     ====================================================================== -->
-    <title>Chef Peter the Teacher | Private Chef Uganda</title>
+    <title data-default-seo>Chef Peter the Teacher | Chef &amp; Culinary Educator in Uganda</title>
 
-    <meta name="description" content="Chef Peter the Teacher — private chef, culinary consultant and hospitality advisor based in Kampala, Uganda. Classes, catering, kitchen consultancy &amp; events." />
+    <meta name="description" data-default-seo content="Chef, culinary educator and hospitality consultant in Kampala, Uganda: cooking and baking classes, private chef services, consultancy and culinary books." />
 
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" data-default-seo content="index, follow" />
 
-    <link rel="canonical" href="https://www.chefpetertheteacher.com/" />
+    <link rel="canonical" data-default-seo href="https://www.chefpetertheteacher.com/" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- =====================================================================
          OPEN GRAPH
     ====================================================================== -->
-    <meta property="og:type"        content="website" />
-    <meta property="og:site_name"   content="Chef Peter the Teacher" />
-    <meta property="og:locale"      content="en_UG" />
-    <meta property="og:url"         content="https://www.chefpetertheteacher.com/" />
-    <meta property="og:title"       content="Chef Peter the Teacher | Private Chef Uganda" />
-    <meta property="og:description" content="Chef Peter the Teacher — private chef, culinary consultant and hospitality advisor based in Kampala, Uganda. Classes, catering, kitchen consultancy &amp; events." />
-    <meta property="og:image"       content="https://www.chefpetertheteacher.com/images/chef-peter.jpg" />
+    <meta property="og:type" data-default-seo        content="website" />
+    <meta property="og:site_name" data-default-seo   content="Chef Peter the Teacher" />
+    <meta property="og:locale" data-default-seo      content="en_UG" />
+    <meta property="og:url" data-default-seo         content="https://www.chefpetertheteacher.com/" />
+    <meta property="og:title" data-default-seo       content="Chef Peter the Teacher | Chef &amp; Culinary Educator in Uganda" />
+    <meta property="og:description" data-default-seo content="Chef, culinary educator and hospitality consultant in Kampala, Uganda: cooking and baking classes, private chef services, consultancy and culinary books." />
+    <meta property="og:image" data-default-seo       content="https://www.chefpetertheteacher.com/images/chef-peter.jpg" />
+    <meta property="og:image:width" data-default-seo content="1365" />
+    <meta property="og:image:height" data-default-seo content="768" />
+    <meta property="og:image:alt" data-default-seo   content="Chef Peter the Teacher in chef’s whites" />
 
     <!-- =====================================================================
          TWITTER / X CARD
     ====================================================================== -->
-    <meta name="twitter:card"        content="summary_large_image" />
-    <meta name="twitter:title"       content="Chef Peter the Teacher | Private Chef Uganda" />
-    <meta name="twitter:description" content="Chef Peter the Teacher — private chef, culinary consultant and hospitality advisor based in Kampala, Uganda. Classes, catering, kitchen consultancy &amp; events." />
-    <meta name="twitter:image"       content="https://www.chefpetertheteacher.com/images/chef-peter.jpg" />
+    <meta name="twitter:card" data-default-seo        content="summary_large_image" />
+    <meta name="twitter:title" data-default-seo       content="Chef Peter the Teacher | Chef &amp; Culinary Educator in Uganda" />
+    <meta name="twitter:description" data-default-seo content="Chef, culinary educator and hospitality consultant in Kampala, Uganda: cooking and baking classes, private chef services, consultancy and culinary books." />
+    <meta name="twitter:image" data-default-seo       content="https://www.chefpetertheteacher.com/images/chef-peter.jpg" />
+    <meta name="twitter:image:alt" data-default-seo   content="Chef Peter the Teacher in chef’s whites" />
 
     <!-- =====================================================================
-         STRUCTURED DATA — Person
+         STRUCTURED DATA — site-wide identity graph (WebSite, Person,
+         Organization). Generated at build time from src/lib/seo/schema.ts.
     ====================================================================== -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Person",
-      "name": "Chef Peter the Teacher",
-      "alternateName": "Yiga Edward Peter Kirigwajjo Zimwanguyizza Mulindwa",
-      "url": "https://www.chefpetertheteacher.com/",
-      "image": "https://www.chefpetertheteacher.com/images/chef-peter.jpg",
-      "jobTitle": "Private Chef, Culinary Consultant & Hospitality Advisor",
-      "description": "Professional private chef, culinary consultant and hospitality trainer based in Kampala, Uganda. Founder of De'Chosen Events Consultants. Offers culinary and baking classes, private chef services, menu development, kitchen operations consultancy, and hospitality advisory across Uganda and internationally.",
-      "sameAs": [
-        "https://www.linkedin.com/in/yiga-edward-peter-49b09b433/",
-        "https://www.dechosenevents.com/"
-      ],
-      "knowsAbout": [
-        "Private Chef Services",
-        "Culinary Consultancy",
-        "Hospitality Consultancy",
-        "Baking and Pastry Arts",
-        "Menu Engineering",
-        "Kitchen Operations",
-        "Culinary Training",
-        "Catering and Event Culinary Services",
-        "Commercial Bakery Management",
-        "African and Inter-Continental Cuisine"
-      ],
-      "worksFor": {
-        "@type": "Organization",
-        "name": "De'Chosen Events Consultants",
-        "url": "https://www.chefpetertheteacher.com/",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "Kampala",
-          "addressCountry": "UG"
-        }
-      }
-    }
-    </script>
-
-    <!-- =====================================================================
-         STRUCTURED DATA — Books
-    ====================================================================== -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": "Book",
-          "name": "Secrets of a Successful Baker",
-          "description": "A comprehensive technical manual on commercial and artisanal baking techniques, covering dough chemistry, sourdough fermentation, oven thermodynamics, yield calculations, and commercial bakery management.",
-          "author": {
-            "@type": "Person",
-            "name": "Chef Peter the Teacher"
-          },
-          "url": "https://www.chefpetertheteacher.com/#books",
-          "inLanguage": "en",
-          "audience": {
-            "@type": "Audience",
-            "audienceType": "Commercial Bakers, Pastry Chefs, Bakery Owners, Culinary Students"
-          }
-        },
-        {
-          "@type": "Book",
-          "name": "Inter-Continental Recipe Book",
-          "description": "A curated collection of international standard recipes, kitchen prep guides, and cross-cultural flavor pairings optimized for hotel brigades and catering operations.",
-          "author": {
-            "@type": "Person",
-            "name": "Chef Peter the Teacher"
-          },
-          "url": "https://www.chefpetertheteacher.com/#books",
-          "inLanguage": "en",
-          "audience": {
-            "@type": "Audience",
-            "audienceType": "Executive Chefs, Hotel Kitchen Brigades, Catering Companies"
-          }
-        },
-        {
-          "@type": "Book",
-          "name": "In 1000 Ways and More I Cooked",
-          "description": "An encyclopedic exploration of culinary techniques, spice extraction, ingredient synergy, and transformative cooking philosophies for professional chefs and culinary educators.",
-          "author": {
-            "@type": "Person",
-            "name": "Chef Peter the Teacher"
-          },
-          "url": "https://www.chefpetertheteacher.com/#books",
-          "inLanguage": "en",
-          "audience": {
-            "@type": "Audience",
-            "audienceType": "Professional Chefs, Culinary Educators, Gastronomy Enthusiasts"
-          }
-        }
-      ]
-    }
-    </script>
+    <!-- __SITE_JSONLD__ -->
 
     <!-- =====================================================================
          FONTS
@@ -139,9 +53,9 @@
     <!-- __SEO_INJECTION__ -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500..700;1,400..600&family=Source+Sans+3:ital,wght@0,400..700;1,400&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-[#0C0C0C] text-[#EAE7E2] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
+  <body class="bg-cream text-ink font-sans antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

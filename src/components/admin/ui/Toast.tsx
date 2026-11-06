@@ -35,8 +35,8 @@ export function useToast() {
 }
 
 const ICONS: Record<ToastType, React.ReactNode> = {
-  success: <CheckCircle  className="w-4 h-4 text-emerald-600 shrink-0" />,
-  error:   <XCircle      className="w-4 h-4 text-red-600    shrink-0" />,
+  success: <CheckCircle  className="w-4 h-4 text-emerald-700 shrink-0" />,
+  error:   <XCircle      className="w-4 h-4 text-red-700    shrink-0" />,
   warning: <AlertTriangle className="w-4 h-4 text-amber-600  shrink-0" />,
   info:    <CheckCircle  className="w-4 h-4 text-[#1B365D]  shrink-0" />,
 };
@@ -67,7 +67,7 @@ export function ToastContainer({ toasts, onDismiss }: ContainerProps) {
           <button
             onClick={() => onDismiss(t.id)}
             aria-label="Dismiss notification"
-            className="text-[#6B7A8D] hover:text-[#1A2B40] transition"
+            className="text-[#5F6E80] hover:text-[#1A2B40] transition"
           >
             <X className="w-4 h-4" />
           </button>

@@ -1,163 +1,88 @@
 import React from 'react';
-import { ArrowDown, Compass, Utensils, BookOpen, Globe, Sparkles, MessageSquare } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
 import { CHEF_PROFILE } from '../data/chefProfile';
-import { HeaderMovingMealsBackground } from './HeaderMovingMealsBackground';
+import { HERO } from '../data/siteContent';
+import { btn } from './site/ui';
 
 interface HeroSectionProps {
-  onOpenConsultationModal: () => void;
+  /** Kept for API compatibility with App.tsx; the hero links to #contact instead. */
+  onOpenConsultationModal?: () => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenConsultationModal }) => {
+export const HeroSection: React.FC<HeroSectionProps> = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center pt-28 pb-16 overflow-hidden bg-[#0C0C0C]">
-      {/* Continuous Moving Gourmet Meals Background */}
-      <HeaderMovingMealsBackground />
+    <section aria-labelledby="hero-title" className="relative overflow-hidden bg-cream">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-16 pt-8 sm:px-8 md:pt-12 lg:grid-cols-12 lg:gap-14 lg:pb-24 lg:pt-16">
+        {/* Text */}
+        <div className="lg:col-span-7">
+          <p className="text-[0.8125rem] font-semibold uppercase tracking-[0.14em] text-gold-deep">{HERO.eyebrow}</p>
 
-      {/* Background ambient lighting effects */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-tr from-[#C5A059]/10 via-[#8C6B2D]/5 to-transparent blur-[120px] rounded-full pointer-events-none"></div>
-      <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-[#C5A059]/5 blur-[100px] rounded-full pointer-events-none"></div>
-
-      {/* Subtle background grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#C5A0590a_1px,transparent_1px),linear-gradient(to_bottom,#C5A0590a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none"></div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          
-          {/* Left Text Column */}
-          <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 sm:space-y-8">
-            
-            {/* Top Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1A1A1A] border border-[#C5A059]/40 text-[#C5A059] text-xs font-semibold uppercase tracking-[0.25em] animate-float shadow-lg">
-              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Founder, De'Chosen Events Consultants</span>
-            </div>
-
-            {/* Main Display Title */}
-            <div className="space-y-2 sm:space-y-3">
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif font-bold text-[#EAE7E2] tracking-tight leading-[1.08]">
-                Chef Peter <br />
-                <span className="gold-gradient-text italic font-normal">the Teacher</span>
-              </h1>
-              <p className="text-sm sm:text-base lg:text-lg font-medium text-[#C5A059] tracking-[0.15em] uppercase font-mono pt-1">
-                Private Chef &amp; Culinary Consultant, Uganda | Founder, De'Chosen Events Consultants
-              </p>
-            </div>
-
-            {/* Short Intro */}
-            <p className="text-base sm:text-lg text-[#A09E98] max-w-2xl font-light leading-relaxed border-l-2 border-[#C5A059] pl-4 sm:pl-6">
-              "Professional private chef, culinary consultant and hospitality trainer based in Kampala, Uganda. Founder of De'Chosen Events Consultants — offering practical culinary and baking classes, private chef services, kitchen consultancy, and international hospitality advisory."
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto pt-2">
-              {/* WhatsApp Quick CTA Button */}
-              <a
-                href={`https://wa.me/${CHEF_PROFILE.contactDetails.whatsappNumber}?text=${encodeURIComponent(
-                  CHEF_PROFILE.contactDetails.whatsappDefaultMessage
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full text-xs font-bold uppercase tracking-wider text-black bg-[#25D366] hover:bg-[#20bd5a] shadow-xl shadow-[#25D366]/20 transition-all hover:scale-[1.02] active:scale-95 text-center"
-              >
-                <MessageSquare className="w-4 h-4 fill-black" />
-                <span>WhatsApp Chat</span>
-              </a>
-
-              <a
-                href="#story"
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full text-xs font-bold uppercase tracking-wider text-black bg-gradient-to-r from-[#E6C687] via-[#C5A059] to-[#8C6B2D] hover:brightness-110 shadow-xl shadow-[#C5A059]/25 transition-all hover:scale-[1.02] active:scale-95 text-center"
-              >
-                <Compass className="w-4 h-4" />
-                <span>Explore Journey</span>
-              </a>
-
-              <a
-                href="#gallery"
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full text-xs font-bold uppercase tracking-wider text-[#EAE7E2] bg-[#1A1A1A] hover:bg-[#222222] border border-[#C5A059]/30 hover:border-[#C5A059] transition-all hover:scale-[1.02] active:scale-95 text-center"
-              >
-                <Utensils className="w-4 h-4 text-[#C5A059]" />
-                <span>Culinary Gallery</span>
-              </a>
-            </div>
-
-            {/* Key Quick Fact Pills */}
-            <div className="pt-6 border-t border-[#C5A059]/20 w-full grid grid-cols-3 gap-2 sm:gap-4 text-center sm:text-left">
-              <div>
-                <span className="block font-serif text-xl sm:text-2xl font-bold text-[#C5A059]">7+</span>
-                <span className="text-[11px] sm:text-xs text-[#A09E98] uppercase tracking-[0.2em]">Countries</span>
-              </div>
-              <div>
-                <span className="block font-serif text-xl sm:text-2xl font-bold text-[#C5A059]">3</span>
-                <span className="text-[11px] sm:text-xs text-[#A09E98] uppercase tracking-[0.2em]">Published Books</span>
-              </div>
-              <div>
-                <span className="block font-serif text-xl sm:text-2xl font-bold text-[#C5A059]">15+ Yrs</span>
-                <span className="text-[11px] sm:text-xs text-[#A09E98] uppercase tracking-[0.2em]">Expertise</span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Right Image Frame Column */}
-          <div className="lg:col-span-5 flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-md lg:max-w-none">
-              
-              {/* Outer Decorative Frame */}
-              <div className="absolute -inset-3 rounded-2xl bg-gradient-to-tr from-[#C5A059]/30 via-transparent to-[#C5A059]/10 blur-sm pointer-events-none"></div>
-
-              {/* Image Container — Accepts any image format (.jpg, .png, .webp, .avif, .svg or web URL) */}
-              <div className="relative rounded-2xl overflow-hidden border-2 border-[#C5A059]/40 bg-[#161616] shadow-2xl group">
-                <ImageWithFallback
-                  src={CHEF_PROFILE.chefImages.heroPortrait}
-                  alt="Chef Peter the Teacher — professional chef and culinary consultant in Uganda"
-                  fallbackText="CHEF PETER PHOTO PLACEHOLDER — Upload your photo (.jpg, .png, .webp, .avif) to /public/images/ or edit src/data/chefProfile.ts"
-                  className="w-full h-[460px] sm:h-[540px] lg:h-[580px] object-cover object-top transition-transform duration-700 group-hover:scale-105"
-                />
-
-                {/* Bottom Overlay Label */}
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 flex flex-col justify-end">
-                  <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-mono font-semibold">
-                    Executive Profile
-                  </span>
-                  <h3 className="text-lg font-serif font-bold text-[#EAE7E2]">
-                    Yiga Edward Peter Kirigwajjo Zimwanguyizza Mulindwa
-                  </h3>
-                  <p className="text-xs text-[#A09E98] mt-1">
-                    Master Educator & Global Hospitality Consultant
-                  </p>
-                </div>
-              </div>
-
-              {/* Floating Quote Card */}
-              <div className="absolute -bottom-6 -left-6 sm:-left-8 bg-[#161616]/95 border border-[#C5A059]/40 rounded-xl p-4 shadow-2xl backdrop-blur-md max-w-[260px] hidden sm:block">
-                <p className="text-xs text-[#EAE7E2] italic font-serif leading-relaxed">
-                  "Precision, patience, and unyielding discipline define true culinary art."
-                </p>
-                <span className="block text-[10px] text-[#C5A059] font-mono font-semibold uppercase mt-2 tracking-[0.2em]">
-                  — Chef Peter the Teacher
-                </span>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="mt-16 flex justify-center">
-          <a
-            href="#story"
-            className="group flex flex-col items-center text-xs uppercase tracking-[0.2em] text-[#A09E98] hover:text-[#C5A059] transition-colors"
+          <h1
+            id="hero-title"
+            className="mt-4 font-serif text-[2.6rem] font-semibold leading-[1.05] text-ink sm:text-[3.4rem] lg:text-[3.75rem]"
           >
-            <span className="mb-2 text-[10px] font-mono">Scroll To Explore</span>
-            <div className="w-8 h-12 rounded-full border border-[#C5A059]/30 group-hover:border-[#C5A059] flex items-center justify-center p-1 transition-colors">
-              <div className="w-1.5 h-3 bg-[#C5A059] rounded-full animate-bounce"></div>
-            </div>
-          </a>
+            Chef Peter <span className="block font-normal italic text-gold-deep">the Teacher</span>
+          </h1>
+
+          <p className="mt-6 max-w-xl text-[1.125rem] leading-relaxed text-ink-soft sm:text-[1.1875rem]">{HERO.lead}</p>
+
+          <ul className="mt-6 space-y-2 text-[0.975rem] text-ink-soft">
+            {HERO.trustPoints.map((point) => (
+              <li key={point} className="flex items-start gap-3">
+                <span aria-hidden="true" className="mt-[0.7em] h-px w-4 shrink-0 bg-gold" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <a href="#story" className={btn.primary}>
+              Discover Chef Peter’s Journey
+            </a>
+            <a href="#services" className={btn.secondary}>
+              Explore Professional Services
+            </a>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-[0.975rem]">
+            <a href="/articles" className={btn.text}>
+              Explore Culinary Articles <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+            <a href="#contact" className={btn.text}>
+              Contact Chef Peter <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
         </div>
 
+        {/* Portrait */}
+        <div className="lg:col-span-5">
+          <figure className="relative max-w-[20rem] sm:mx-auto sm:max-w-[24rem] lg:max-w-none">
+            <div className="relative">
+              <span aria-hidden="true" className="absolute -bottom-3 -right-3 h-full w-full rounded-lg border border-gold/70" />
+              <ImageWithFallback
+              src={CHEF_PROFILE.chefImages.heroPortrait}
+              alt="Chef Peter the Teacher smiling in his chef’s whites and toque"
+              fallbackText="Portrait of Chef Peter"
+              priority
+              width={1365}
+              height={768}
+              className="relative aspect-[4/5] rounded-lg"
+              imgClassName="object-[51%_center]"
+              />
+            </div>
+            <figcaption className="mt-6 text-[0.875rem] leading-snug text-muted">
+              <span className="font-semibold text-ink">{toTitleCase(CHEF_PROFILE.fullName)}</span>
+              <br />
+              Founder, {CHEF_PROFILE.companyName}
+            </figcaption>
+          </figure>
+        </div>
       </div>
     </section>
   );
 };
+
+function toTitleCase(value: string): string {
+  return value.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+}

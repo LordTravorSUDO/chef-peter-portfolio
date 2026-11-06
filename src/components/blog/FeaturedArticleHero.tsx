@@ -1,109 +1,60 @@
 /**
- * FeaturedArticleHero — editorial hero banner for the most recent article.
- * Displayed at the top of the /articles listing page.
+ * FeaturedArticleHero — the featured article at the top of the library.
+ * Editorial split layout: large image beside the title and introduction.
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ArrowRight } from 'lucide-react';
-import { getResponsiveMediaUrl, getMediaSrcset } from '../../lib/services/media';
+import { ArrowRight } from 'lucide-react';
+import { getMediaUrl } from '../../lib/services/media';
+import { articleTypeOf, ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleTypes';
 import type { ArticleWithRelations } from '../../types/article';
+import { btn } from '../site/ui';
 
-interface Props {
-  article: ArticleWithRelations;
-}
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' }); // dates as published in Kampala, for every visitor
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-}
-
-export default function FeaturedArticleHero({ article }: Props) {
-  const primaryCat = article.article_categories?.find((ac) => ac.is_primary)?.categories
-                  ?? article.article_categories?.[0]?.categories ?? null;
-  const img        = article.featured_image;
-  const featSrc    = img ? getResponsiveMediaUrl(img.storage_path, { width: 1400, quality: 80 }) : null;
-  const featSrcset = img ? getMediaSrcset(img.storage_path) : undefined;
+export default function FeaturedArticleHero({ article }: { article: ArticleWithRelations }) {
+  const primaryCat =
+    article.article_categories?.find((ac) => ac.is_primary)?.categories ?? article.article_categories?.[0]?.categories ?? null;
+  const img = article.featured_image;
+  const type = articleTypeOf(article);
 
   return (
-    <div className="relative rounded-3xl overflow-hidden bg-[#141414] border border-[#C5A059]/15 group">
-      {/* Background image */}
-      {featSrc ? (
-        <div className="absolute inset-0">
+    <article className="group relative grid overflow-hidden rounded-[var(--radius-card)] border border-sand bg-card md:grid-cols-12">
+      <div className="relative aspect-[3/2] overflow-hidden bg-paper md:col-span-7 md:aspect-auto md:min-h-[26rem]">
+        {img ? (
           <img
-            src={featSrc}
-            srcSet={featSrcset}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1200px"
-            alt={img?.alt_text ?? article.title}
-            width={1400}
-            height={700}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+            src={getMediaUrl(img.storage_path)}
+            alt={img.alt_text ?? ''}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0C0C0C] via-[#0C0C0C]/70 to-[#0C0C0C]/20" />
-        </div>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1A1A1A] to-[#0C0C0C]" />
-      )}
-
-      {/* Content overlay */}
-      <div className="relative z-10 px-6 sm:px-10 py-12 sm:py-16 flex flex-col justify-end min-h-[420px] sm:min-h-[500px]">
-        <div className="max-w-2xl">
-          {/* Featured label + category */}
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-[#D99B26] bg-[#D99B26]/10 border border-[#D99B26]/30 px-3 py-1 rounded-full">
-              Featured
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gold-wash">
+            <span aria-hidden="true" className="font-serif text-8xl text-gold-deep/30">
+              {article.title.charAt(0)}
             </span>
-            {primaryCat && (
-              <Link
-                to={`/category/${primaryCat.slug}`}
-                className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#A09E98] hover:text-[#D99B26] transition"
-              >
-                {primaryCat.name}
-              </Link>
-            )}
           </div>
-
-          {/* Title */}
-          <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[#EAE7E2] leading-tight mb-3">
-            <Link
-              to={`/articles/${article.slug}`}
-              className="hover:text-[#D99B26] transition-colors duration-200"
-            >
-              {article.title}
-            </Link>
-          </h2>
-
-          {/* Excerpt */}
-          {article.excerpt && (
-            <p className="text-[#A09E98] text-sm sm:text-base leading-relaxed line-clamp-2 mb-5 max-w-xl">
-              {article.excerpt}
-            </p>
-          )}
-
-          {/* Meta + CTA */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-3 text-xs text-[#6A6A6A] font-mono uppercase tracking-wide">
-              {article.published_at && (
-                <time dateTime={article.published_at}>{formatDate(article.published_at)}</time>
-              )}
-              {article.reading_time_minutes > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3 h-3" />
-                  {article.reading_time_minutes} min
-                </span>
-              )}
-            </div>
-            <Link
-              to={`/articles/${article.slug}`}
-              className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black bg-[#D99B26] hover:bg-[#E6C687] px-4 py-2 rounded-full transition"
-            >
-              Read article <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
+        )}
       </div>
-    </div>
+      <div className="flex flex-col justify-center p-6 sm:p-10 md:col-span-5">
+        <p className="text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-gold-deep">
+          Featured{primaryCat ? ` · ${primaryCat.name}` : ''}
+          {type !== 'educational' && <span className="text-muted"> · {ARTICLE_TYPE_MAP[type].label}</span>}
+        </p>
+        <h2 className="mt-3 font-serif text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2.25rem]">
+          <Link to={`/articles/${article.slug}`} className="after:absolute after:inset-0 after:content-['']">
+            {article.title}
+          </Link>
+        </h2>
+        {article.excerpt && <p className="mt-4 line-clamp-4 leading-relaxed text-ink-soft">{article.excerpt}</p>}
+        <p className="mt-4 text-[0.875rem] text-muted">
+          {article.author_display_name}
+          {article.published_at && <> · {dateFormat.format(new Date(article.published_at))}</>}
+          {article.reading_time_minutes > 0 && <> · {article.reading_time_minutes} min read</>}
+        </p>
+        <span className={`${btn.primary} mt-7 self-start`} aria-hidden="true">
+          Read the article <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
+    </article>
   );
 }

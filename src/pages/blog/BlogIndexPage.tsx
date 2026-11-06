@@ -1,393 +1,419 @@
 /**
- * /articles — Public editorial landing page.
+ * /articles — The Culinary Library (public landing page of the knowledge platform).
  *
- * Layout:
- *   1. Featured article hero (most recent published article)
- *   2. Search bar
- *   3. Category filter chips
- *   4. Article grid with pagination
+ * Without filters it is an editorial home page:
+ *   introduction + search → featured article → browse by category →
+ *   latest articles → editor's selection → topics (tags) → the educator.
  *
- * Security: all Supabase queries go through the approved data-access layer.
- * RLS enforces that only status='published' AND published_at<=NOW() AND noindex=false
- * articles are ever returned — drafts, scheduled, archived and noindex articles
- * are invisible at the database level, not just filtered client-side.
+ * With filters (?q=, ?category=, ?type=, ?view=all, ?page=) it becomes a results page.
+ * All filter state lives in the URL so links can be shared and Back works.
+ *
+ * Security: RLS only ever returns published, non-noindex articles to visitors.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getPublishedArticles, getFeaturedArticle } from '../../lib/services/articles';
-import { getCategories } from '../../lib/services/taxonomy';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  getPublishedArticles,
+  getFeaturedArticle,
+  getEditorsPicks,
+  getCategoryArticleCounts,
+  getTagsInUse,
+} from '../../lib/services/articles';
+import { getPublicCategories } from '../../lib/services/taxonomy';
+import { hasKnowledgeSchema } from '../../lib/services/knowledgeSchema';
+import { ARTICLE_TYPES, isArticleType } from '../../lib/knowledge/articleTypes';
 import type { ArticleCard as ArticleCardData, Category, ArticleWithRelations } from '../../types/article';
 import BlogLayout from '../../components/blog/BlogLayout';
 import ArticleGrid, { ArticleGridSkeleton } from '../../components/blog/ArticleGrid';
+import ArticleCard from '../../components/blog/ArticleCard';
 import FeaturedArticleHero from '../../components/blog/FeaturedArticleHero';
+import { IDS } from '../../lib/seo/schema';
+import {
+  CategoryTiles,
+  EducatorPanel,
+  LIBRARY_NAME,
+  LibrarySectionHeading,
+  PageMeta,
+  Pagination,
+  SITE_URL,
+  SearchBox,
+} from '../../components/knowledge/LibraryParts';
 
-const SITE_URL  = 'https://www.chefpetertheteacher.com';
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 12;
+const LATEST_COUNT = 6;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const META_TITLE = 'Culinary Library: Recipes, Techniques & Training | Chef Peter';
+const META_DESC =
+  'Culinary lessons from Chef Peter the Teacher: cooking techniques, baking and pastry, ingredients, food safety, international cuisine and kitchen skills.';
 
-function FeaturedSkeleton() {
-  return (
-    <div className="rounded-3xl overflow-hidden bg-[#141414] border border-[#C5A059]/10 min-h-[420px] sm:min-h-[500px] animate-pulse">
-      <div className="w-full h-full flex flex-col justify-end p-10 space-y-4">
-        <div className="h-3 bg-[#222] rounded w-1/6" />
-        <div className="h-8 bg-[#222] rounded w-3/5" />
-        <div className="h-4 bg-[#1E1E1E] rounded w-2/5" />
-        <div className="h-3 bg-[#1A1A1A] rounded w-1/4 mt-2" />
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+type TagInUse = { id: string; slug: string; name: string; count: number };
 
 export default function BlogIndexPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const page = Math.max(1, parseInt(params.get('page') ?? '1', 10) || 1);
+  const q = params.get('q') ?? '';
+  const categorySlug = params.get('category') ?? '';
+  const typeParam = params.get('type') ?? '';
+  const articleType = isArticleType(typeParam) ? typeParam : undefined;
+  const listAll = params.get('view') === 'all';
+  const filtering = !!(q || categorySlug || articleType || listAll);
 
-  // Derive state from URL — all filter state lives in URL so sharing/back-forward works
-  const page         = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-  const categorySlug = searchParams.get('category') ?? '';
-  const searchQuery  = searchParams.get('q') ?? '';
-
-  // Local controlled search input (only committed to URL on submit)
-  const [searchInput, setSearchInput] = useState(searchQuery);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  // Featured article (page-level, not affected by filters)
-  const [featured,      setFeatured]       = useState<ArticleWithRelations | null | undefined>(undefined);
-  const [featuredDone,  setFeaturedDone]   = useState(false);
-
-  // Article grid
-  const [articles,    setArticles]    = useState<ArticleCardData[]>([]);
-  const [total,       setTotal]       = useState(0);
-  const [totalPages,  setTotalPages]  = useState(0);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
-
-  // Categories for filter chips
+  // Shared data
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [v2, setV2] = useState(false);
 
-  // ── Load categories once ─────────────────────────────────────────────────
+  // Home sections
+  const [featured, setFeatured] = useState<ArticleWithRelations | null | undefined>(undefined);
+  const [latest, setLatest] = useState<ArticleCardData[] | null>(null);
+  const [picks, setPicks] = useState<ArticleCardData[]>([]);
+  const [tags, setTags] = useState<TagInUse[]>([]);
+
+  // Results
+  const [results, setResults] = useState<ArticleCardData[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    getCategories().then(setCategories).catch(() => {});
+    getPublicCategories().then(setCategories).catch(() => {}).finally(() => setCategoriesLoaded(true));
+    getCategoryArticleCounts().then(setCounts).catch(() => {});
+    hasKnowledgeSchema().then(setV2).catch(() => {});
   }, []);
 
-  // ── Load featured article once (ignores filters) ─────────────────────────
+  // Home page data (loaded once, the first time the unfiltered library is shown)
+  const homeRequested = useRef(false);
   useEffect(() => {
-    getFeaturedArticle()
-      .then((a) => setFeatured(a))
-      .catch(() => setFeatured(null))
-      .finally(() => setFeaturedDone(true));
-  }, []);
+    if (filtering || homeRequested.current) return;
+    homeRequested.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const feat = await getFeaturedArticle().catch(() => null);
+        if (cancelled) return;
+        setFeatured(feat);
+        const [res, editorPicks, tagList] = await Promise.all([
+          getPublishedArticles({ pageSize: LATEST_COUNT, excludeIds: feat ? [feat.id] : undefined }),
+          getEditorsPicks(4),
+          getTagsInUse(30),
+        ]);
+        if (cancelled) return;
+        setLatest(res.articles);
+        setTotal(res.total + (feat ? 1 : 0));
+        setPicks(editorPicks.filter((a) => a.id !== feat?.id));
+        setTags(tagList);
+        setLoading(false);
+      } catch {
+        if (!cancelled) {
+          setError('The library could not be loaded. Please try again.');
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      homeRequested.current = false; // allow a reload if the page unmounts mid-request
+    };
+  }, [filtering]);
 
-  // ── Load article grid (re-runs on filter/page change) ────────────────────
-  const load = useCallback(async () => {
+  // Filtered results
+  const loadResults = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await getPublishedArticles({
         page,
-        pageSize:     PAGE_SIZE,
+        pageSize: PAGE_SIZE,
+        search: q || undefined,
         categorySlug: categorySlug || undefined,
-        search:       searchQuery  || undefined,
+        articleType,
       });
-      setArticles(res.articles);
+      setResults(res.articles);
       setTotal(res.total);
       setTotalPages(res.totalPages);
     } catch {
-      setError('Could not load articles. Please try again.');
+      setError('Articles could not be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [page, categorySlug, searchQuery]);
+  }, [page, q, categorySlug, articleType]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (filtering) loadResults();
+  }, [filtering, loadResults]);
 
-  // Sync search input when URL changes externally (back/forward)
-  useEffect(() => { setSearchInput(searchQuery); }, [searchQuery]);
-
-  // ── URL helpers ──────────────────────────────────────────────────────────
-  const setParam = (key: string, value: string) => {
-    const next = new URLSearchParams(searchParams);
-    if (value) next.set(key, value); else next.delete(key);
-    next.delete('page');
-    setSearchParams(next, { replace: true });
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setParam('q', searchInput.trim());
-  };
-
-  const clearFilters = () => {
-    setSearchInput('');
-    setSearchParams({}, { replace: true });
-  };
-
-  const setPage = (n: number) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('page', String(n));
-    setSearchParams(next, { replace: true });
+  const update = (changes: Record<string, string>) => {
+    const next = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) next.set(k, v);
+      else next.delete(k);
+    }
+    if (!('page' in changes)) next.delete('page');
+    setParams(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const hasFilters = !!(categorySlug || searchQuery);
+  const activeCategory = categories.find((c) => c.slug === categorySlug);
+  const typeOptions = useMemo(() => (v2 ? ARTICLE_TYPES : []), [v2]);
 
-  // ── Metadata ─────────────────────────────────────────────────────────────
-  const metaTitle = 'Articles | Chef Peter the Teacher';
-  const metaDesc  = 'Culinary articles, recipes, food history and hospitality insights from Chef Peter the Teacher — executive chef and hospitality consultant based in Kampala, Uganda.';
-  const ldJson    = JSON.stringify({
+  const ld = {
     '@context': 'https://schema.org',
-    '@type':    'Blog',
-    name:       metaTitle,
-    url:        `${SITE_URL}/articles`,
-    description: metaDesc,
-    author:     { '@type': 'Person', name: 'Chef Peter the Teacher', url: SITE_URL },
-    publisher:  { '@type': 'Organization', name: 'Chef Peter the Teacher', url: SITE_URL },
-  });
+    '@type': 'CollectionPage',
+    name: LIBRARY_NAME,
+    url: `${SITE_URL}/articles`,
+    description: META_DESC,
+    // References the site-wide WebSite and Person entities (defined once in index.html)
+    isPartOf: { '@id': IDS.website },
+    author: { '@id': IDS.person },
+  };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <BlogLayout>
-      {/* React 19 native document metadata */}
-      <title>{metaTitle}</title>
-      <meta name="description"        content={metaDesc} />
-      <meta property="og:type"        content="website" />
-      <meta property="og:title"       content={metaTitle} />
-      <meta property="og:description" content={metaDesc} />
-      <meta property="og:url"         content={`${SITE_URL}/articles`} />
-      <meta property="og:image"       content={`${SITE_URL}/images/chef-peter.jpg`} />
-      <meta name="twitter:card"       content="summary_large_image" />
-      <meta name="twitter:title"      content={metaTitle} />
-      <meta name="twitter:description" content={metaDesc} />
-      <link rel="canonical"           href={`${SITE_URL}/articles`} />
-      <script type="application/ld+json">{ldJson}</script>
+      <PageMeta
+        title={filtering ? `Search the library | Chef Peter the Teacher` : META_TITLE}
+        description={META_DESC}
+        path="/articles"
+        noindex={filtering}
+        jsonLd={filtering ? undefined : ld}
+      />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
-
-        {/* ── Page header ─────────────────────────────────────────────── */}
-        <div className="text-center space-y-2 pt-2">
-          <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#D99B26]">
-            De'Chosen Knowledge
-          </p>
-          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-[#EAE7E2] tracking-tight">
-            Articles
-          </h1>
-          <p className="text-[#A09E98] text-base max-w-lg mx-auto leading-relaxed">
-            Culinary insights, recipes, food history and hospitality knowledge from Chef Peter the Teacher.
-          </p>
-        </div>
-
-        {/* ── Featured article hero ────────────────────────────────────── */}
-        {!hasFilters && (
-          featuredDone
-            ? featured
-              ? <FeaturedArticleHero article={featured} />
-              : null   /* empty — no published articles yet */
-            : <FeaturedSkeleton />
-        )}
-
-        {/* ── Search bar ──────────────────────────────────────────────── */}
-        <form onSubmit={handleSearch} role="search" className="max-w-xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4A4A4A]" aria-hidden="true" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search articles by title or topic…"
-              aria-label="Search articles"
-              className="w-full bg-[#141414] border border-[#C5A059]/20 rounded-2xl pl-11 pr-12 py-3 text-sm text-[#EAE7E2] placeholder:text-[#4A4A4A] focus:outline-none focus:border-[#C5A059]/60 transition"
-            />
-            {searchInput && (
-              <button
-                type="button"
-                onClick={() => { setSearchInput(''); setParam('q', ''); }}
-                aria-label="Clear search"
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#4A4A4A] hover:text-[#EAE7E2] transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+      {/* ── Introduction ─────────────────────────────────────────────── */}
+      <header className="border-b border-sand bg-paper">
+        <div className="mx-auto max-w-6xl px-5 pb-12 pt-12 sm:px-8 sm:pt-16">
+          <div className="max-w-3xl">
+            <p className="text-[0.8125rem] font-semibold uppercase tracking-[0.14em] text-gold-deep">Learn with Chef Peter</p>
+            <h1 className="mt-3 font-serif text-[2.5rem] font-semibold leading-[1.08] text-ink sm:text-[3.25rem]">{LIBRARY_NAME}</h1>
+            <p className="mt-5 text-[1.125rem] leading-relaxed text-ink-soft">
+              Practical, well-organised lessons for aspiring chefs, culinary students, working cooks, bakers and hospitality
+              teams. Each article explains how <em>and</em> why — with examples from Ugandan, African and international
+              kitchens.
+            </p>
           </div>
-        </form>
-
-        {/* ── Category chips ───────────────────────────────────────────── */}
-        {categories.length > 0 && (
-          <div
-            className="flex flex-wrap justify-center gap-2"
-            role="group"
-            aria-label="Filter by category"
-          >
-            <button
-              onClick={() => setParam('category', '')}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                !categorySlug
-                  ? 'bg-[#C5A059] text-black border-[#C5A059]'
-                  : 'border-[#C5A059]/20 text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2]'
-              }`}
-              aria-pressed={!categorySlug}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setParam('category', cat.slug)}
-                className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                  categorySlug === cat.slug
-                    ? 'bg-[#C5A059] text-black border-[#C5A059]'
-                    : 'border-[#C5A059]/20 text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2]'
-                }`}
-                aria-pressed={categorySlug === cat.slug}
-              >
-                {cat.name}
-              </button>
-            ))}
+          <div className="mt-8 max-w-2xl">
+            <SearchBox value={q} onSearch={(term) => update({ q: term })} />
           </div>
-        )}
-
-        {/* ── Active filter pill ───────────────────────────────────────── */}
-        {hasFilters && (
-          <div className="flex items-center justify-center gap-2 text-xs text-[#A09E98]">
-            {categorySlug && (
-              <span>
-                Category:{' '}
-                <strong className="text-[#C5A059]">
-                  {categories.find((c) => c.slug === categorySlug)?.name ?? categorySlug}
-                </strong>
-              </span>
-            )}
-            {searchQuery && (
-              <span>
-                Search: <strong className="text-[#C5A059]">"{searchQuery}"</strong>
-              </span>
-            )}
-            <button
-              onClick={clearFilters}
-              className="ml-1 underline text-[#6A6A6A] hover:text-[#EAE7E2] transition"
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-
-        {/* ── Results section ──────────────────────────────────────────── */}
-        <section aria-label="Article listings">
-          {/* Error state */}
-          {error && (
-            <div className="text-center py-16 space-y-3">
-              <p className="text-[#A09E98]">{error}</p>
-              <button
-                onClick={load}
-                className="text-xs text-[#C5A059] hover:underline"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-
-          {/* Loading state */}
-          {loading && !error && <ArticleGridSkeleton count={PAGE_SIZE} />}
-
-          {/* Empty state */}
-          {!loading && !error && articles.length === 0 && (
-            <div className="text-center py-24 space-y-4">
-              <p className="text-4xl">✍️</p>
-              <p className="font-serif text-xl text-[#EAE7E2]">
-                {hasFilters ? 'No articles match your filters.' : 'No articles published yet.'}
-              </p>
-              <p className="text-sm text-[#6A6A6A] max-w-xs mx-auto">
-                {hasFilters
-                  ? 'Try a different category or search term, or browse all articles.'
-                  : 'Chef Peter is working on new content. Check back soon.'}
-              </p>
-              {hasFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-[#C5A059] hover:underline"
+          {/* Same height as the row of category links, so the page does not jump when they load */}
+          {!categoriesLoaded && <div className="mt-6 h-[2.672rem]" aria-hidden="true" />}
+          {categories.length > 0 && (
+            <nav aria-label="Categories" className="no-scrollbar -mx-5 mt-6 flex gap-2 overflow-x-auto px-5 sm:mx-0 sm:flex-wrap sm:px-0">
+              {categories.map((c) => (
+                <Link
+                  key={c.id}
+                  to={`/category/${c.slug}`}
+                  className="shrink-0 rounded-full border border-sand-strong bg-card px-4 py-2 text-[0.9375rem] text-ink-soft transition-colors hover:border-ink hover:text-ink"
                 >
-                  Show all articles
-                </button>
+                  {c.name}
+                </Link>
+              ))}
+            </nav>
+          )}
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
+        {error && (
+          <div role="alert" className="mb-10 rounded-md border border-danger/30 bg-danger/5 p-5 text-ink-soft">
+            {error}{' '}
+            <button type="button" onClick={() => (filtering ? loadResults() : window.location.reload())} className="font-semibold text-ink underline">
+              Try again
+            </button>
+          </div>
+        )}
+
+        {filtering ? (
+          /* ── Results view ─────────────────────────────────────────── */
+          <section aria-labelledby="results-title">
+            <div className="flex flex-col gap-4 border-b border-sand pb-6">
+              <h2 id="results-title" className="font-serif text-[1.75rem] font-semibold text-ink">
+                {q ? <>Results for “{q}”</> : activeCategory ? activeCategory.name : 'All articles'}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 text-[0.9375rem]">
+                {q && <FilterChip label={`Search: ${q}`} onRemove={() => update({ q: '' })} />}
+                {categorySlug && <FilterChip label={`Category: ${activeCategory?.name ?? categorySlug}`} onRemove={() => update({ category: '' })} />}
+                {articleType && (
+                  <FilterChip
+                    label={`Format: ${ARTICLE_TYPES.find((t) => t.value === articleType)?.label}`}
+                    onRemove={() => update({ type: '' })}
+                  />
+                )}
+                <Link to="/articles" className="ml-1 text-muted underline hover:text-ink">
+                  Clear all
+                </Link>
+              </div>
+              {(categories.length > 0 || typeOptions.length > 0) && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:max-w-2xl">
+                  <FilterSelect
+                    id="filter-category"
+                    label="Category"
+                    value={categorySlug}
+                    onChange={(v) => update({ category: v })}
+                    options={categories.map((c) => ({ value: c.slug, label: c.name }))}
+                    allLabel="All categories"
+                  />
+                  {typeOptions.length > 0 && (
+                    <FilterSelect
+                      id="filter-type"
+                      label="Format"
+                      value={articleType ?? ''}
+                      onChange={(v) => update({ type: v })}
+                      options={typeOptions.map((t) => ({ value: t.value, label: t.label }))}
+                      allLabel="All formats"
+                    />
+                  )}
+                </div>
               )}
             </div>
-          )}
 
-          {/* Results count + grid */}
-          {!loading && !error && articles.length > 0 && (
-            <div className="space-y-8">
-              <p className="text-xs text-[#4A4A4A] text-center" aria-live="polite">
-                {total} article{total !== 1 ? 's' : ''}
-                {hasFilters ? ' matching your filters' : ''}
-                {totalPages > 1 ? ` — page ${page} of ${totalPages}` : ''}
-              </p>
-              <ArticleGrid articles={articles} columns={3} />
+            <p className="mt-6 text-[0.9375rem] text-muted" aria-live="polite">
+              {loading ? 'Searching…' : `${total} article${total === 1 ? '' : 's'} found${totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}`}
+            </p>
+
+            <div className="mt-8">
+              {loading ? (
+                <ArticleGridSkeleton count={6} />
+              ) : results.length > 0 ? (
+                <ArticleGrid articles={results} />
+              ) : (
+                !error && (
+                  <div className="py-16 text-center">
+                    <p className="font-serif text-[1.5rem] text-ink">No articles match yet.</p>
+                    <p className="mx-auto mt-2 max-w-md text-ink-soft">
+                      Try a different word — for example an ingredient, a dish or a technique — or browse the categories.
+                    </p>
+                    <Link to="/articles" className={`mt-6 inline-flex font-semibold text-ink underline decoration-gold underline-offset-4`}>
+                      Back to the library
+                    </Link>
+                  </div>
+                )
+              )}
             </div>
-          )}
-        </section>
+            <Pagination page={page} totalPages={totalPages} onPage={(p) => update({ page: String(p) })} />
+          </section>
+        ) : (
+          /* ── Library home ─────────────────────────────────────────── */
+          <div className="space-y-20">
+            {featured === undefined ? (
+              <div className="aspect-[16/7] animate-pulse rounded-[var(--radius-card)] bg-sand/50" aria-hidden="true" />
+            ) : featured ? (
+              <section aria-label="Featured article">
+                <FeaturedArticleHero article={featured} />
+              </section>
+            ) : null}
 
-        {/* ── Pagination ───────────────────────────────────────────────── */}
-        {totalPages > 1 && !loading && (
-          <nav className="flex items-center justify-center gap-3" aria-label="Pagination">
-            <button
-              onClick={() => setPage(page - 1)}
-              disabled={page <= 1}
-              aria-label="Previous page"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C5A059]/20 text-xs text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2] transition disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" /> Previous
-            </button>
+            {categories.length > 0 && (
+              <section aria-labelledby="browse-title">
+                <LibrarySectionHeading id="browse-title" eyebrow="Browse" title="Learn by subject" />
+                <CategoryTiles categories={categories} counts={counts} />
+              </section>
+            )}
 
-            {/* Page number pills */}
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let p: number;
-                if (totalPages <= 7) {
-                  p = i + 1;
-                } else if (page <= 4) {
-                  p = i + 1;
-                } else if (page >= totalPages - 3) {
-                  p = totalPages - 6 + i;
-                } else {
-                  p = page - 3 + i;
-                }
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    aria-label={`Page ${p}`}
-                    aria-current={p === page ? 'page' : undefined}
-                    className={`w-8 h-8 rounded-lg text-xs font-medium transition ${
-                      p === page
-                        ? 'bg-[#C5A059] text-black'
-                        : 'text-[#6A6A6A] hover:text-[#EAE7E2] hover:bg-[#1A1A1A]'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
+            <section aria-labelledby="latest-title">
+              <LibrarySectionHeading
+                id="latest-title"
+                eyebrow="New in the library"
+                title="Latest articles"
+                action={total > LATEST_COUNT + 1 ? { href: '/articles?view=all', label: 'All articles' } : undefined}
+              />
+              {latest === null ? (
+                <ArticleGridSkeleton count={3} />
+              ) : latest.length > 0 ? (
+                <ArticleGrid articles={latest} headingLevel="h3" />
+              ) : !featured ? (
+                <p className="max-w-xl leading-relaxed text-ink-soft">
+                  The first lessons are being prepared. In the meantime, explore Chef Peter’s{' '}
+                  <a href="/cooking-classes-kampala" className="font-semibold text-ink underline decoration-gold underline-offset-4">
+                    cooking classes
+                  </a>
+                  .
+                </p>
+              ) : null}
+            </section>
 
-            <button
-              onClick={() => setPage(page + 1)}
-              disabled={page >= totalPages}
-              aria-label="Next page"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C5A059]/20 text-xs text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#EAE7E2] transition disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Next <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </nav>
+            {picks.length > 0 && (
+              <section aria-labelledby="picks-title">
+                <LibrarySectionHeading id="picks-title" eyebrow="Chosen by Chef Peter" title="Editor’s selection" />
+                <div className="grid gap-10 lg:grid-cols-2">
+                  {picks.map((a) => (
+                    <ArticleCard key={a.id} article={a} variant="horizontal" headingLevel="h3" />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {tags.length > 0 && (
+              <section aria-labelledby="topics-title">
+                <LibrarySectionHeading id="topics-title" eyebrow="Explore" title="Topics" />
+                <ul className="flex flex-wrap gap-2">
+                  {tags.map((t) => (
+                    <li key={t.id}>
+                      <Link
+                        to={`/tag/${t.slug}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-sand-strong bg-card px-3.5 py-1.5 text-[0.9375rem] text-ink-soft transition-colors hover:border-ink hover:text-ink"
+                      >
+                        {t.name}
+                        <span className="text-[0.8125rem] text-muted">{t.count}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <EducatorPanel />
+          </div>
         )}
-
       </div>
     </BlogLayout>
+  );
+}
+
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-gold-wash px-3 py-1 text-ink">
+      {label}
+      <button type="button" onClick={onRemove} aria-label={`Remove filter ${label}`} className="ml-1 rounded-full px-1 text-muted hover:text-ink">
+        ×
+      </button>
+    </span>
+  );
+}
+
+function FilterSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  allLabel,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+  allLabel: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-[0.875rem] font-semibold text-ink">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 block w-full rounded-md border border-sand-strong bg-card px-3 py-2.5 text-[1rem] text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-gold/40"
+      >
+        <option value="">{allLabel}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

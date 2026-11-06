@@ -82,6 +82,7 @@ Use **Production** + **Preview** for server-only vars. All environments for VITE
 | `VITE_SUPABASE_URL` | Supabase → Settings → API → Project URL | All |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → anon key | All |
 | `VITE_WEB3FORMS_ACCESS_KEY` | web3forms.com dashboard | All |
+| `VITE_AUTHOR_PROFILES` | Set to `on` **only after** `supabase/proposed/20261107000000_author_profiles.sql` has been applied (leave unset until then) | All |
 | `SUPABASE_URL` | Same as VITE_SUPABASE_URL | Production + Preview |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role | Production + Preview |
 | `CRON_SECRET` | `openssl rand -hex 32` | Production + Preview |

@@ -1,134 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, X, Award, ChevronRight, Phone } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { btn } from './site/ui';
 
 interface NavbarProps {
   onOpenConsultationModal: (serviceTitle?: string) => void;
 }
 
+/** Links use "/#…" so they also work from other pages. */
+const NAV_LINKS = [
+  { name: 'About', href: '/#story' },
+  { name: 'Experience', href: '/#experience' },
+  { name: 'Services', href: '/#services' },
+  { name: 'Gallery', href: '/#gallery' },
+  { name: 'Books', href: '/#books' },
+  { name: 'Articles', href: '/articles' },
+  { name: 'Contact', href: '/#contact' },
+];
+
 export const Navbar: React.FC<NavbarProps> = ({ onOpenConsultationModal }) => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setIsScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const navLinks = [
-    { name: 'Story',      href: '#story' },
-    { name: 'Journey',    href: '#journey' },
-    { name: 'Expertise',  href: '#expertise' },
-    { name: 'Experience', href: '#experience' },
-    { name: 'Gallery',    href: '#gallery' },
-    { name: 'Books',      href: '#books' },
-    { name: 'Services',   href: '#services' },
-    { name: 'Articles',   href: '/articles' },
-    { name: 'Contact',    href: '#contact' },
-  ];
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-[#0C0C0C]/90 backdrop-blur-md border-b border-[#C5A059]/20 py-3.5 shadow-2xl'
-          : 'bg-gradient-to-b from-black/80 via-black/40 to-transparent py-5'
+      className={`sticky top-0 z-50 border-b transition-colors duration-200 ${
+        isScrolled || menuOpen ? 'border-sand bg-cream/95 backdrop-blur-sm' : 'border-transparent bg-cream'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          {/* Logo Brand */}
-          <a href="#" className="group flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C5A059] to-[#735722] p-[1px] shadow-lg shadow-[#C5A059]/20 group-hover:scale-105 transition-transform duration-300">
-              <div className="w-full h-full bg-[#0C0C0C] rounded-full flex items-center justify-center text-[#C5A059]">
-                <Award className="w-5 h-5 text-[#C5A059]" />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-serif text-lg sm:text-xl font-bold tracking-wide text-[#EAE7E2] group-hover:text-[#C5A059] transition-colors">
-                Chef Peter <span className="text-[#C5A059]">the Teacher</span>
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-[#A09E98] font-mono">
-                Executive Consultant
-              </span>
-            </div>
-          </a>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[80] focus:rounded focus:bg-charcoal focus:px-4 focus:py-2 focus:text-cream"
+      >
+        Skip to main content
+      </a>
 
-          {/* Desktop Links */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="px-3 py-1.5 text-xs xl:text-sm font-medium tracking-wide text-[#EAE7E2]/70 hover:text-[#C5A059] transition-colors rounded-full hover:bg-[#1A1A1A]"
-              >
-                {link.name}
-              </a>
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-5 sm:px-8 md:h-[4.5rem]">
+        {/* Wordmark */}
+        <a href="/" className="group flex flex-col leading-none" aria-label="Chef Peter the Teacher — home">
+          <span className="font-serif text-[1.3rem] font-semibold text-ink sm:text-[1.4rem]">
+            Chef Peter <em className="font-normal italic text-gold-deep">the Teacher</em>
+          </span>
+          <span className="mt-1 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-muted">
+            Chef · Educator · Consultant
+          </span>
+        </a>
+
+        {/* Desktop navigation */}
+        <nav aria-label="Main" className="hidden lg:block">
+          <ul className="flex items-center gap-1">
+            {NAV_LINKS.map((link) => (
+              <li key={link.name}>
+                <a
+                  href={link.href}
+                  className="rounded px-3 py-2 text-[0.9375rem] font-medium text-ink-soft transition-colors hover:text-ink hover:underline hover:decoration-gold hover:decoration-2 hover:underline-offset-8"
+                >
+                  {link.name}
+                </a>
+              </li>
             ))}
-          </nav>
+          </ul>
+        </nav>
 
-          {/* CTA Button Desktop */}
-          <div className="hidden lg:flex items-center gap-3">
-            <button
-              onClick={() => onOpenConsultationModal()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs xl:text-sm font-semibold tracking-wider uppercase text-black bg-gradient-to-r from-[#E6C687] via-[#C5A059] to-[#8C6B2D] hover:brightness-110 shadow-md shadow-[#C5A059]/20 transition-all hover:scale-[1.02] active:scale-95"
-            >
-              <span>Consultation</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:block">
+            <button type="button" onClick={() => onOpenConsultationModal()} className={`${btn.primary} !px-4 !py-2.5`}>
+              Make an enquiry
             </button>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="flex lg:hidden items-center gap-2">
-            <button
-              onClick={() => onOpenConsultationModal()}
-              className="px-3 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider text-black bg-[#C5A059] sm:hidden"
-            >
-              Consult
-            </button>
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-[#1A1A1A] text-[#EAE7E2] hover:text-[#C5A059] border border-[#C5A059]/30 focus:outline-none"
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
+          </span>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink ring-1 ring-sand transition-colors hover:bg-paper lg:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          >
+            {menuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden bg-[#0C0C0C]/98 border-b border-[#C5A059]/20 backdrop-blur-xl px-4 pt-4 pb-6 mt-3 shadow-2xl transition-all">
-          <div className="flex flex-col space-y-1">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-4 py-2.5 text-sm font-medium text-[#EAE7E2]/90 hover:text-[#C5A059] hover:bg-[#1A1A1A] rounded-lg transition-colors flex items-center justify-between"
-              >
-                <span>{link.name}</span>
-                <ChevronRight className="w-4 h-4 text-[#8a8d9b]" />
-              </a>
+      {/* Mobile / tablet menu */}
+      {menuOpen && (
+        <nav id="mobile-menu" aria-label="Main" className="border-t border-sand bg-cream lg:hidden">
+          <ul className="mx-auto max-w-6xl px-5 py-3 sm:px-8">
+            {NAV_LINKS.map((link) => (
+              <li key={link.name}>
+                <a
+                  href={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="block border-b border-sand/70 py-3.5 font-serif text-[1.2rem] text-ink last:border-0"
+                >
+                  {link.name}
+                </a>
+              </li>
             ))}
-            <div className="pt-4 mt-2 border-t border-[#C5A059]/20">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenConsultationModal();
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-black bg-gradient-to-r from-[#E6C687] via-[#C5A059] to-[#8C6B2D] shadow-lg shadow-[#C5A059]/20"
-              >
-                <Phone className="w-4 h-4" />
-                <span>Book Executive Consultation</span>
-              </button>
-            </div>
+          </ul>
+          <div className="mx-auto max-w-6xl px-5 pb-5 sm:hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenConsultationModal();
+              }}
+              className={`${btn.primary} w-full`}
+            >
+              Make an enquiry
+            </button>
           </div>
-        </div>
+        </nav>
       )}
     </header>
   );

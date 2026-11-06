@@ -7,19 +7,20 @@ import { Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { StorySection } from './components/StorySection';
-import { InternationalJourneySection } from './components/InternationalJourneySection';
-import { ExpertiseSection } from './components/ExpertiseSection';
 import { ExperienceSection } from './components/ExperienceSection';
 import { GallerySection } from './components/GallerySection';
 import { BooksSection } from './components/BooksSection';
 import { EducationCredentialsSection } from './components/EducationCredentialsSection';
-import { PhilosophySection } from './components/PhilosophySection';
+import { TeachingSection } from './components/TeachingSection';
+import { ArticlesTeaserSection } from './components/ArticlesTeaserSection';
 import { ServicesSection } from './components/ServicesSection';
 import { ContactCTASection } from './components/ContactCTASection';
 import { Footer } from './components/Footer';
 import { ConsultationModal } from './components/ConsultationModal';
 import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
 import { SeoLandingPage } from './components/SeoLandingPage';
+import { ReviewBanner } from './components/site/ReviewNote';
+import { homeGraph, jsonLdString } from './lib/seo/schema';
 import { SEO_PAGES, type SeoPage } from './data/seoPages';
 
 // ---------------------------------------------------------------------------
@@ -43,7 +44,9 @@ const AdminMediaPage     = lazy(() => import('./pages/admin/AdminMediaPage'));
 const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'));
 const AdminTagsPage      = lazy(() => import('./pages/admin/AdminTagsPage'));
 const AdminSeoPage       = lazy(() => import('./pages/admin/AdminSeoPage'));
+const AdminEditorialCalendarPage = lazy(() => import('./pages/admin/AdminEditorialCalendarPage'));
 const AdminSettingsPage  = lazy(() => import('./pages/admin/AdminSettingsPage'));
+const AdminAuthorPage    = lazy(() => import('./pages/admin/AdminAuthorPage'));
 
 // ---------------------------------------------------------------------------
 // Shared route-guard
@@ -53,8 +56,9 @@ const ProtectedRoute     = lazy(() => import('./components/admin/ProtectedRoute'
 // ---------------------------------------------------------------------------
 // Portfolio homepage — existing implementation with SEO metadata
 // ---------------------------------------------------------------------------
-const HOME_TITLE = 'Chef Peter the Teacher | Private Chef Uganda';
-const HOME_DESCRIPTION = 'Chef Peter the Teacher is a private chef, culinary consultant and hospitality educator serving Kampala, Entebbe and clients across Uganda.';
+// Must match the defaults in index.html (used by crawlers and link previews)
+const HOME_TITLE = 'Chef Peter the Teacher | Chef & Culinary Educator in Uganda';
+const HOME_DESCRIPTION = 'Chef, culinary educator and hospitality consultant in Kampala, Uganda: cooking and baking classes, private chef services, consultancy and culinary books.';
 
 function PortfolioPage() {
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
@@ -74,54 +78,42 @@ function PortfolioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0C0C] text-[#EAE7E2] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
-      {/* Sticky Glass Navbar */}
+    <div className="min-h-screen bg-cream text-ink">
+      <ReviewBanner />
+      {/* Page-level structured data (books, web page); identity graph comes from index.html */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(homeGraph()) }} />
       <Navbar onOpenConsultationModal={handleOpenConsultationModal} />
 
-      {/* Hero Section */}
-      <HeroSection onOpenConsultationModal={() => handleOpenConsultationModal()} />
+      <main id="main">
+        {/* 1. Who Chef Peter is */}
+        <HeroSection />
+        {/* 2. Personal story (#story) */}
+        <StorySection />
+        {/* 3. Career record (#experience, #journey) */}
+        <ExperienceSection />
+        {/* 4. Education (#credentials) */}
+        <EducationCredentialsSection />
+        {/* 5. Services + specialist knowledge (#services, #expertise) */}
+        <ServicesSection onOpenConsultationModal={handleOpenConsultationModal} />
+        {/* 6. Teaching approach (#teaching) — includes the former Philosophy content */}
+        <TeachingSection />
+        {/* 7. Culinary gallery (#gallery) */}
+        <GallerySection />
+        {/* 8. Published books (#books) */}
+        <BooksSection onOpenConsultationModal={handleOpenConsultationModal} />
+        {/* 9. Latest CMS articles (#articles) */}
+        <ArticlesTeaserSection />
+        {/* 10. Contact (#contact) */}
+        <ContactCTASection />
+      </main>
 
-      {/* The Chef Peter Story */}
-      <StorySection />
-
-      {/* International Journey */}
-      <InternationalJourneySection />
-
-      {/* Expertise & Culinary Mastery */}
-      <ExpertiseSection />
-
-      {/* Professional Experience */}
-      <ExperienceSection />
-
-      {/* Culinary Gallery */}
-      <GallerySection />
-
-      {/* Published Works */}
-      <BooksSection onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Education & Credentials */}
-      <EducationCredentialsSection />
-
-      {/* Chef Philosophy */}
-      <PhilosophySection />
-
-      {/* Professional Advisory Services */}
-      <ServicesSection onOpenConsultationModal={handleOpenConsultationModal} />
-
-      {/* Contact & Executive Inquiry */}
-      <ContactCTASection />
-
-      {/* Footer */}
       <Footer />
 
-      {/* Quick Consultation Booking Modal */}
       <ConsultationModal
         isOpen={consultationModalOpen}
         initialService={modalServiceTitle}
         onClose={() => setConsultationModalOpen(false)}
       />
-
-      {/* Floating WhatsApp Quick Chat Button */}
       <FloatingWhatsAppButton />
     </div>
   );
@@ -132,8 +124,8 @@ function PortfolioPage() {
 // ---------------------------------------------------------------------------
 function PageLoader() {
   return (
-    <div className="min-h-screen bg-[#0C0C0C] flex items-center justify-center">
-      <div className="w-8 h-8 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" />
+    <div className="min-h-screen bg-cream flex items-center justify-center" role="status" aria-label="Loading">
+      <div className="w-8 h-8 rounded-full border-2 border-gold/30 border-t-gold-deep animate-spin" />
     </div>
   );
 }
@@ -191,7 +183,9 @@ export default function App() {
           <Route path="categories"              element={<AdminCategoriesPage />} />
           <Route path="tags"                    element={<AdminTagsPage />} />
           <Route path="seo"                     element={<AdminSeoPage />} />
+          <Route path="editorial"               element={<AdminEditorialCalendarPage />} />
           <Route path="settings"                element={<AdminSettingsPage />} />
+          <Route path="author"                  element={<AdminAuthorPage />} />
         </Route>
       </Routes>
     </Suspense>

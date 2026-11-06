@@ -1,64 +1,217 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   CHEF PETER THE TEACHER — DESIGN TOKENS ("Modern Culinary Editorial")
+   --------------------------------------------------------------------------
+   Every colour and font used by the public site is defined once here and
+   exposed as Tailwind utilities (bg-cream, text-ink, border-sand, font-serif…).
+   Contrast (WCAG 2.2): on cream/paper/card backgrounds use ink, ink-soft,
+   muted or gold-deep for text. `gold` is for fills, rules and accents only.
+   On charcoal backgrounds use cream, cream-soft, gold or gold-light.
+   The admin CMS has its own theme (src/components/admin/adminTheme.ts).
+   ========================================================================== */
+/* ── Metric-matched fallback fonts ─────────────────────────────────────────
+   While the web fonts download, text is drawn with a local font scaled to the
+   same width and line height, so the page barely moves when the web fonts
+   arrive (reduces Cumulative Layout Shift). Values measured against Arial /
+   Times New Roman metrics (Liberation fonts are metric-compatible). */
+@font-face {
+  font-family: "Source Sans 3 Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Helvetica"), local("Roboto");
+  font-weight: 100 500;
+  size-adjust: 92.86%; ascent-override: 109.84%; descent-override: 43.07%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Source Sans 3 Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Helvetica Bold"), local("Roboto Bold");
+  font-weight: 600 900;
+  size-adjust: 92.86%; ascent-override: 109.84%; descent-override: 43.07%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Playfair Display Fallback";
+  src: local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif"), local("Noto Serif");
+  font-weight: 100 500;
+  size-adjust: 104.87%; ascent-override: 102.99%; descent-override: 23.84%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Playfair Display Fallback";
+  src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"), local("Noto Serif Bold");
+  font-weight: 600 900;
+  size-adjust: 104.87%; ascent-override: 102.99%; descent-override: 23.84%; line-gap-override: 0%;
+}
+
+@theme {
+  --font-serif: "Playfair Display", "Playfair Display Fallback", Georgia, "Times New Roman", serif;
+  --font-sans: "Source Sans 3", "Source Sans 3 Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-cream: #FBF8F3;        /* page background */
+  --color-paper: #F4EDE2;        /* alternate section background */
+  --color-card: #FFFFFF;         /* cards, forms */
+  --color-sand: #E4D9C6;         /* borders, dividers */
+  --color-sand-strong: #CDBDA3;  /* stronger borders, input outlines */
+
+  --color-ink: #1E1A16;          /* headings, primary text      16.3:1 on cream */
+  --color-ink-soft: #4B433A;     /* body text                    9.2:1 on cream */
+  --color-muted: #6B6155;        /* captions, meta               5.7:1 on cream */
+
+  --color-charcoal: #1C1A17;     /* dark bands, footer */
+  --color-charcoal-soft: #2A2723;
+  --color-cream-soft: #CFC8BD;   /* secondary text on charcoal  10.9:1 */
+
+  --color-gold: #C5A059;         /* brand accent: fills, rules  7.1:1 on charcoal */
+  --color-gold-deep: #87652A;    /* gold text on light           5.1:1 on cream */
+  --color-gold-light: #E3C688;   /* gold text on charcoal       10.5:1 */
+  --color-gold-wash: #F3E8D2;    /* soft accent background */
+
+  --color-whatsapp: #25D366;
+  --color-whatsapp-deep: #128C4A;
+  --color-danger: #A3362A;
+  --color-success: #2F6B3F;
+
+  --radius-card: 0.625rem;
+}
+
 @layer base {
-  :root {
-    --font-serif: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem; /* keeps anchored headings clear of the sticky header */
   }
 
   body {
     font-family: var(--font-sans);
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, .font-serif-heading {
     font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-deep);
+    outline-offset: 3px;
   }
 }
 
-/* Custom animations & subtle luxury scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #0C0C0C;
-}
-::-webkit-scrollbar-thumb {
-  background: #1A1A1A;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #C5A059;
+/* Respect visitors who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-@keyframes marquee {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
-}
+/* Utility: hide horizontal scrollbars on scrollable chip rows */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-@keyframes marquee-reverse {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0%); }
-}
-
-.animate-marquee {
-  animation: marquee 35s linear infinite;
-}
-
-.animate-marquee-reverse {
-  animation: marquee-reverse 35s linear infinite;
-}
-
-/* Pause marquee on hover for interactivity */
-.animate-marquee:hover, .animate-marquee-reverse:hover {
-  animation-play-state: paused;
-}
-
+/* Legacy utilities kept for any page still referencing them */
 .gold-gradient-text {
-  background: linear-gradient(135deg, #F5E8C7 0%, #C5A059 50%, #947230 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-gold-deep);
+}
+.gold-border-glow {
+  box-shadow: 0 0 0 1px rgba(197, 160, 89, 0.25);
 }
 
-.gold-border-glow {
-  box-shadow: 0 0 25px -5px rgba(197, 160, 89, 0.2);
+/* ==========================================================================
+   ARTICLE READING TYPOGRAPHY (culinary library)
+   Comfortable measure (~68 characters), 18px body on larger screens.
+   ========================================================================== */
+.article-body {
+  color: var(--color-ink-soft);
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
+@media (min-width: 640px) {
+  .article-body { font-size: 1.125rem; }
+}
+.article-body > * + * { margin-top: 1.1em; }
+.article-body h2 {
+  font-family: var(--font-serif);
+  font-size: 1.75rem; line-height: 1.25; font-weight: 600; color: var(--color-ink);
+  margin-top: 2.2em; scroll-margin-top: 6rem;
+}
+.article-body h3 {
+  font-family: var(--font-serif);
+  font-size: 1.375rem; line-height: 1.3; font-weight: 600; color: var(--color-ink);
+  margin-top: 1.8em; scroll-margin-top: 6rem;
+}
+.article-body h4 { font-size: 1.125rem; font-weight: 600; color: var(--color-ink); margin-top: 1.6em; }
+.article-body h2 + *, .article-body h3 + *, .article-body h4 + * { margin-top: 0.6em; }
+.article-body strong { color: var(--color-ink); font-weight: 600; }
+.article-body a {
+  color: var(--color-ink); text-decoration: underline; text-decoration-color: var(--color-gold);
+  text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+.article-body a:hover { color: var(--color-gold-deep); }
+.article-body ul { list-style: disc; padding-left: 1.4em; }
+.article-body ul li::marker { color: var(--color-gold-deep); }
+.article-body li + li { margin-top: 0.4em; }
+/* Numbered instructions: clear, large step numbers */
+.article-body ol { list-style: none; padding-left: 0; counter-reset: step; }
+.article-body ol > li {
+  counter-increment: step; position: relative; padding-left: 2.75rem; min-height: 1.9rem;
+}
+.article-body ol > li + li { margin-top: 0.85em; }
+.article-body ol > li::before {
+  content: counter(step); position: absolute; left: 0; top: 0.1em;
+  width: 1.85rem; height: 1.85rem; border-radius: 9999px;
+  background: var(--color-charcoal); color: var(--color-cream);
+  font-size: 0.875rem; font-weight: 600; line-height: 1.85rem; text-align: center;
+}
+.article-body blockquote {
+  border-left: 3px solid var(--color-gold); padding: 0.25em 0 0.25em 1.25em;
+  font-family: var(--font-serif); font-style: italic; font-size: 1.2em; line-height: 1.5; color: var(--color-ink);
+}
+.article-body img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+.article-body figure { margin-top: 2em; margin-bottom: 2em; }
+.article-body figcaption { margin-top: 0.6em; font-size: 0.875rem; line-height: 1.5; color: var(--color-muted); }
+.article-body hr { border: 0; border-top: 1px solid var(--color-sand); margin: 2.5em 0; }
+.article-body code {
+  background: var(--color-paper); border: 1px solid var(--color-sand); border-radius: 4px;
+  padding: 0.1em 0.35em; font-size: 0.875em; color: var(--color-ink);
+}
+.article-body pre {
+  background: var(--color-paper); border: 1px solid var(--color-sand); border-radius: 8px;
+  padding: 1em 1.25em; overflow-x: auto; font-size: 0.875em;
+}
+.article-body pre code { background: none; border: 0; padding: 0; }
+.article-body table { width: 100%; border-collapse: collapse; font-size: 0.95em; display: block; overflow-x: auto; }
+.article-body th { text-align: left; padding: 0.6em 0.8em; color: var(--color-ink); border-bottom: 2px solid var(--color-sand-strong); }
+.article-body td { padding: 0.55em 0.8em; border-bottom: 1px solid var(--color-sand); }
+
+/* Callouts — created from quotes beginning "Chef's tip:", "Safety note:", etc. */
+.article-body .callout {
+  border-radius: 0.625rem; padding: 1.1em 1.3em; font-size: 0.975em; line-height: 1.7;
+  border: 1px solid var(--color-sand); background: var(--color-card);
+}
+.article-body .callout > * + * { margin-top: 0.6em; }
+.article-body .callout-label {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-gold-deep);
+}
+.article-body .callout-tip   { background: var(--color-gold-wash); border-color: #E7D3A8; }
+.article-body .callout-tip .callout-label { color: #6B4F1D; } /* 6.3:1 on gold-wash */
+.article-body .callout-note  { background: var(--color-paper); }
+.article-body .callout-safety { background: #FBEDEA; border-color: #EBC4BD; }
+.article-body .callout-safety .callout-label { color: var(--color-danger); }
+.article-body .callout-local { background: #EDF3EC; border-color: #C7DBC4; }
+.article-body .callout-local .callout-label { color: var(--color-success); }
+.article-body .callout-peter { background: var(--color-gold-wash); border-color: var(--color-gold); border-left-width: 4px; }
+.article-body .callout-peter .callout-label { color: #6B4F1D; }
+.article-body .callout-pro { background: var(--color-paper); border-left-width: 4px; border-left-color: var(--color-ink); }
+.article-body .callout-mistake { background: #FFF6E6; border-color: #EAD3A6; }
+.article-body .callout-mistake .callout-label { color: #7A4A0B; } /* 7:1 on #FFF6E6 */
+.article-body .callout-lesson { background: #EEF2F7; border-color: #C9D4E2; }
+.article-body .callout-lesson .callout-label { color: #23395B; }

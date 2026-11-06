@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Fallback only: /sitemap.xml redirects to the dynamic /api/sitemap (vercel.json). -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://www.chefpetertheteacher.com/</loc><lastmod>2026-09-18</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/private-chef-uganda</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/culinary-consultant-uganda</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/cooking-classes-kampala</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/baking-pastry-classes</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/hospitality-consultancy</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/about-chef-peter</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://www.chefpetertheteacher.com/culinary-books</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.chefpetertheteacher.com/</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/articles</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/private-chef-uganda</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/culinary-consultant-uganda</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/cooking-classes-kampala</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/baking-pastry-classes</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/hospitality-consultancy</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/about-chef-peter</loc></url>
+  <url><loc>https://www.chefpetertheteacher.com/culinary-books</loc></url>
 </urlset>

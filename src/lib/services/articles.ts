@@ -23,56 +23,121 @@
 
 import { supabase } from '../supabase';
 import type { ArticleCard, ArticleWithRelations, ArticleInsert, ArticleUpdate } from '../../types/article';
+import type { ArticleType } from '../knowledge/articleTypes';
+import type { ArticleStatus } from '../../types/database';
+import { hasKnowledgeSchema } from './knowledgeSchema';
+import { zonedInputToUtcIso } from '../datetime';
+import { searchWords, ilikePattern } from '../knowledge/search';
 
 // ---------------------------------------------------------------------------
 // Public queries (work under anon key; RLS restricts to published articles)
 // ---------------------------------------------------------------------------
 
-/** Fetch a paginated list of published articles for the /articles page. */
+/** Columns needed for article cards. Knowledge-platform columns are added when available. */
+const CARD_SELECT = `
+  id, slug, title, excerpt, reading_time_minutes, published_at, updated_at, status, featured_image_id,
+  article_categories (
+    is_primary,
+    categories ( id, slug, name )
+  ),
+  article_tags (
+    tags ( id, slug, name )
+  ),
+  featured_image:media!articles_featured_image_id_fkey ( storage_path, alt_text )
+`;
+const CARD_SELECT_V2 = `${CARD_SELECT}, article_type, is_featured, is_editors_pick`;
+
+export async function cardSelect(): Promise<string> {
+  return (await hasKnowledgeSchema()) ? CARD_SELECT_V2 : CARD_SELECT;
+}
+
+/** IDs of articles linked to a category (by slug). Unpublished IDs are harmless: RLS hides those articles. */
+async function articleIdsForCategory(categorySlug: string): Promise<string[]> {
+  const { data: cat } = await supabase.from('categories').select('id').eq('slug', categorySlug).maybeSingle();
+  if (!cat) return [];
+  const { data } = await supabase.from('article_categories').select('article_id').eq('category_id', cat.id);
+  return (data ?? []).map((r) => r.article_id as string);
+}
+
+async function articleIdsForTag(tagSlug: string): Promise<string[]> {
+  const { data: tag } = await supabase.from('tags').select('id').eq('slug', tagSlug).maybeSingle();
+  if (!tag) return [];
+  const { data } = await supabase.from('article_tags').select('article_id').eq('tag_id', tag.id);
+  return (data ?? []).map((r) => r.article_id as string);
+}
+
+/** Articles whose category or tag NAME matches the search term ("subject" search). */
+async function articleIdsForSubject(term: string): Promise<string[]> {
+  const pattern = ilikePattern(term);
+  const [{ data: cats }, { data: tags }] = await Promise.all([
+    supabase.from('categories').select('id').ilike('name', pattern),
+    supabase.from('tags').select('id').ilike('name', pattern),
+  ]);
+  const catIds = (cats ?? []).map((c) => c.id as string);
+  const tagIds = (tags ?? []).map((t) => t.id as string);
+  const [byCat, byTag] = await Promise.all([
+    catIds.length ? supabase.from('article_categories').select('article_id').in('category_id', catIds) : Promise.resolve({ data: [] as { article_id: string }[] }),
+    tagIds.length ? supabase.from('article_tags').select('article_id').in('tag_id', tagIds) : Promise.resolve({ data: [] as { article_id: string }[] }),
+  ]);
+  return [...new Set([...(byCat.data ?? []), ...(byTag.data ?? [])].map((r) => r.article_id as string))];
+}
+
+const intersect = (a: string[] | null, b: string[]): string[] => (a === null ? b : a.filter((id) => b.includes(id)));
+
+/**
+ * Fetch a paginated list of published articles for the library.
+ *
+ * Filters combine (AND): category, tag, article type and search.
+ * Search: every word must appear in the title, the introduction (excerpt) or
+ * the name of one of the article's categories or tags.
+ *
+ * Category and tag filters resolve article IDs first. (Filtering on an
+ * embedded resource without !inner only trims the embedded rows, so the
+ * previous implementation returned every article for any category.)
+ */
 export async function getPublishedArticles(opts: {
   page?: number;
   pageSize?: number;
   categorySlug?: string;
   tagSlug?: string;
   search?: string;
+  articleType?: ArticleType;
+  excludeIds?: string[];
 } = {}) {
-  const { page = 1, pageSize = 12, categorySlug, tagSlug, search } = opts;
+  const { page = 1, pageSize = 12, categorySlug, tagSlug, search, articleType, excludeIds } = opts;
   const from = (page - 1) * pageSize;
   const to   = from + pageSize - 1;
+  const empty = { articles: [] as ArticleCard[], total: 0, page, pageSize, totalPages: 0 };
 
+  let ids: string[] | null = null;
+  if (categorySlug) ids = intersect(ids, await articleIdsForCategory(categorySlug));
+  if (tagSlug)      ids = intersect(ids, await articleIdsForTag(tagSlug));
+  if (ids !== null && ids.length === 0) return empty;
+
+  // Every word must match (title, introduction or a category/tag name).
+  const words = search ? searchWords(search) : [];
+  const subjectIdsPerWord = await Promise.all(words.map((w) => articleIdsForSubject(w)));
+
+  const v2 = await hasKnowledgeSchema();
   let query = supabase
     .from('articles')
-    .select(`
-      id, slug, title, excerpt, reading_time_minutes, published_at, status, featured_image_id,
-      article_categories (
-        is_primary,
-        categories ( id, slug, name )
-      ),
-      article_tags (
-        tags ( id, slug, name )
-      ),
-      featured_image:media!articles_featured_image_id_fkey ( storage_path, alt_text )
-    `, { count: 'exact' })
+    .select(v2 ? CARD_SELECT_V2 : CARD_SELECT, { count: 'exact' })
     .eq('status', 'published')
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
     .range(from, to);
 
-  if (categorySlug) {
-    query = query.eq('article_categories.categories.slug', categorySlug);
-  }
-
-  if (tagSlug) {
-    query = query.eq('article_tags.tags.slug', tagSlug);
-  }
-
-  if (search) {
-    // Search title and excerpt using ilike — Supabase anon key supports this
-    query = query.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%`);
-  }
+  if (ids !== null) query = query.in('id', ids);
+  if (excludeIds?.length) query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+  if (articleType && v2) query = query.eq('article_type', articleType);
+  words.forEach((word, i) => {
+    const p = ilikePattern(word);
+    const clauses = [`title.ilike.${p}`, `excerpt.ilike.${p}`];
+    if (subjectIdsPerWord[i].length) clauses.push(`id.in.(${subjectIdsPerWord[i].join(',')})`);
+    query = query.or(clauses.join(',')); // successive .or() filters are combined with AND
+  });
 
   const { data, error, count } = await query;
-
   if (error) throw new Error(`getPublishedArticles: ${error.message}`);
 
   return {
@@ -111,11 +176,12 @@ export async function getPublishedArticleBySlug(slug: string) {
 }
 
 /**
- * Fetch the most recently published article (for the featured hero on /articles).
- * Returns null if no articles have been published yet.
+ * The featured article for /articles: the most recent article marked
+ * "featured" (knowledge-platform migration), otherwise the latest article.
  */
 export async function getFeaturedArticle(): Promise<ArticleWithRelations | null> {
-  const { data, error } = await supabase
+  const v2 = await hasKnowledgeSchema();
+  const base = () => supabase
     .from('articles')
     .select(`
       *,
@@ -132,50 +198,127 @@ export async function getFeaturedArticle(): Promise<ArticleWithRelations | null>
     .eq('status', 'published')
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
 
+  if (v2) {
+    const { data, error } = await base().eq('is_featured', true).maybeSingle();
+    if (!error && data) return data as unknown as ArticleWithRelations;
+  }
+  const { data, error } = await base().maybeSingle();
   if (error) throw new Error(`getFeaturedArticle: ${error.message}`);
-  return data as ArticleWithRelations | null;
+  return data as unknown as ArticleWithRelations | null;
+}
+
+/** Editor's selection (knowledge-platform migration). Empty before the migration. */
+export async function getEditorsPicks(limit = 4): Promise<ArticleCard[]> {
+  if (!(await hasKnowledgeSchema())) return [];
+  const { data, error } = await supabase
+    .from('articles')
+    .select(CARD_SELECT_V2)
+    .eq('status', 'published')
+    .lte('published_at', new Date().toISOString())
+    .eq('is_editors_pick', true)
+    .order('published_at', { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return (data ?? []) as unknown as ArticleCard[];
 }
 
 /**
- * Fetch up to 3 published articles related to the given article.
- * Strategy: same primary category first, then most recent published articles
- * that are not the current article.
+ * Related articles: same primary category first, then shared tags, then the
+ * most recent articles. Never includes the current article.
  */
 export async function getRelatedArticles(
-  currentSlug: string,
-  categorySlug?: string | null,
+  current: { id: string; categoryIds: string[]; tagIds: string[] },
   limit = 3,
 ): Promise<ArticleCard[]> {
+  const select = await cardSelect();
   const now = new Date().toISOString();
+  const picked: ArticleCard[] = [];
+  const seen = new Set<string>([current.id]);
 
-  let query = supabase
-    .from('articles')
-    .select(`
-      id, slug, title, excerpt, reading_time_minutes, published_at, featured_image_id,
-      article_categories (
-        is_primary,
-        categories ( id, slug, name )
-      ),
-      featured_image:media!articles_featured_image_id_fkey ( storage_path, alt_text )
-    `)
-    .eq('status', 'published')
-    .lte('published_at', now)
-    .neq('slug', currentSlug)
-    .order('published_at', { ascending: false })
-    .limit(limit * 2); // fetch extra, then filter client-side if needed
+  const take = async (ids: string[] | null) => {
+    if (picked.length >= limit) return;
+    if (ids !== null) {
+      ids = ids.filter((id) => !seen.has(id));
+      if (!ids.length) return;
+    }
+    let q = supabase
+      .from('articles')
+      .select(select)
+      .eq('status', 'published')
+      .lte('published_at', now)
+      .not('id', 'in', `(${[...seen].join(',')})`)
+      .order('published_at', { ascending: false })
+      .limit(limit - picked.length);
+    if (ids !== null) q = q.in('id', ids);
+    const { data } = await q;
+    for (const row of (data ?? []) as unknown as ArticleCard[]) {
+      if (!seen.has(row.id)) { seen.add(row.id); picked.push(row); }
+    }
+  };
 
-  if (categorySlug) {
-    query = query.eq('article_categories.categories.slug', categorySlug);
+  try {
+    if (current.categoryIds.length) {
+      const { data } = await supabase.from('article_categories').select('article_id').in('category_id', current.categoryIds);
+      await take((data ?? []).map((r) => r.article_id as string));
+    }
+    if (current.tagIds.length) {
+      const { data } = await supabase.from('article_tags').select('article_id').in('tag_id', current.tagIds);
+      await take((data ?? []).map((r) => r.article_id as string));
+    }
+    await take(null);
+  } catch {
+    /* related articles are optional */
   }
+  return picked;
+}
 
-  const { data, error } = await query;
+/** Previous (older) and next (newer) published articles, by publication date. */
+export async function getAdjacentArticles(publishedAt: string | null, currentId: string) {
+  if (!publishedAt) return { previous: null, next: null };
+  const now = new Date().toISOString();
+  const cols = 'id, slug, title';
+  const [older, newer] = await Promise.all([
+    supabase.from('articles').select(cols).eq('status', 'published').lt('published_at', publishedAt)
+      .neq('id', currentId).order('published_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('articles').select(cols).eq('status', 'published').gt('published_at', publishedAt)
+      .lte('published_at', now).neq('id', currentId).order('published_at', { ascending: true }).limit(1).maybeSingle(),
+  ]);
+  type Link = { id: string; slug: string; title: string };
+  return {
+    previous: (older.data as Link | null) ?? null,
+    next: (newer.data as Link | null) ?? null,
+  };
+}
+
+/** Number of published articles in each category (by category id). RLS limits counts to published articles. */
+export async function getCategoryArticleCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('article_categories')
+    .select('category_id, articles!inner ( id )');
+  if (error) return {};
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as Array<{ category_id: string }>) {
+    counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/** Tags used by at least one published article, most used first. */
+export async function getTagsInUse(limit = 40): Promise<Array<{ id: string; slug: string; name: string; count: number }>> {
+  const { data, error } = await supabase
+    .from('article_tags')
+    .select('tag_id, tags ( id, slug, name ), articles!inner ( id )');
   if (error) return [];
-
-  const results = (data ?? []) as unknown as ArticleCard[];
-  return results.slice(0, limit);
+  const map = new Map<string, { id: string; slug: string; name: string; count: number }>();
+  for (const row of (data ?? []) as unknown as Array<{ tags: { id: string; slug: string; name: string } | null }>) {
+    if (!row.tags) continue;
+    const entry = map.get(row.tags.id) ?? { ...row.tags, count: 0 };
+    entry.count += 1;
+    map.set(row.tags.id, entry);
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,30 +326,71 @@ export async function getRelatedArticles(
 // ---------------------------------------------------------------------------
 
 /** Fetch all articles regardless of status — for the admin article list. */
+export type AdminDateField = 'updated_at' | 'published_at' | 'created_at';
+
+export interface AdminArticleRow {
+  id: string; slug: string; title: string; status: ArticleStatus;
+  published_at: string | null; scheduled_for: string | null; created_at: string; updated_at: string;
+  author_display_name: string; featured_image_id: string | null; excerpt: string;
+  article_type?: ArticleType; is_featured?: boolean; is_editors_pick?: boolean;
+  article_categories: Array<{ is_primary: boolean; categories: { id: string; name: string; slug: string } | null }>;
+}
+
+/**
+ * Admin article list (all statuses — RLS allows admins to read everything).
+ *
+ * Filters combine: status, search (title or slug, every word), category,
+ * format (after the knowledge-platform migration) and a date range on the
+ * chosen date column. Dates are inclusive Kampala calendar days (YYYY-MM-DD).
+ */
 export async function getAllArticlesAdmin(opts: {
-  page?:     number;
-  pageSize?: number;
-  status?:   string;
+  page?:      number;
+  pageSize?:  number;
+  status?:    string;
+  search?:    string;
+  categoryId?: string;
+  articleType?: ArticleType;
+  dateField?: AdminDateField;
+  dateFrom?:  string;
+  dateTo?:    string;
 } = {}) {
-  const { page = 1, pageSize = 20, status } = opts;
+  const { page = 1, pageSize = 20, status, search, categoryId, articleType, dateField = 'updated_at', dateFrom, dateTo } = opts;
   const from = (page - 1) * pageSize;
   const to   = from + pageSize - 1;
+  const empty = { articles: [] as AdminArticleRow[], total: 0, totalPages: 0 };
 
+  let ids: string[] | null = null;
+  if (categoryId) {
+    const { data, error } = await supabase.from('article_categories').select('article_id').eq('category_id', categoryId);
+    if (error) throw new Error(`getAllArticlesAdmin: ${error.message}`);
+    ids = (data ?? []).map((r) => r.article_id as string);
+    if (!ids.length) return empty;
+  }
+
+  const v2 = await hasKnowledgeSchema();
+  const cols = 'id, slug, title, excerpt, status, published_at, scheduled_for, created_at, updated_at, author_display_name, featured_image_id, article_categories ( is_primary, categories ( id, name, slug ) )';
   let query = supabase
     .from('articles')
-    .select('id, slug, title, status, published_at, scheduled_for, created_at, updated_at, author_display_name', { count: 'exact' })
-    .order('updated_at', { ascending: false })
+    .select(v2 ? `${cols}, article_type, is_featured, is_editors_pick` : cols, { count: 'exact' })
+    .order(dateField, { ascending: false, nullsFirst: false })
     .range(from, to);
 
-  if (status) {
-    query = query.eq('status', status);
+  if (status) query = query.eq('status', status);
+  if (ids) query = query.in('id', ids);
+  if (articleType && v2) query = query.eq('article_type', articleType);
+  for (const word of search ? searchWords(search) : []) {
+    const p = ilikePattern(word);
+    query = query.or(`title.ilike.${p},slug.ilike.${p}`);
   }
+  // Calendar days are Kampala days (the CMS time zone), whatever the computer's zone
+  if (dateFrom) query = query.gte(dateField, zonedInputToUtcIso(`${dateFrom}T00:00`));
+  if (dateTo)   query = query.lt(dateField, new Date(new Date(zonedInputToUtcIso(`${dateTo}T00:00`)).getTime() + 86_400_000).toISOString());
 
   const { data, error, count } = await query;
   if (error) throw new Error(`getAllArticlesAdmin: ${error.message}`);
 
   return {
-    articles:   data ?? [],
+    articles:   (data ?? []) as unknown as AdminArticleRow[],
     total:      count ?? 0,
     totalPages: Math.ceil((count ?? 0) / pageSize),
   };
@@ -224,7 +408,7 @@ export async function getArticleByIdAdmin(id: string) {
     .from('articles')
     .select(`
       *,
-      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, width_px, height_px ),
+      featured_image:media!articles_featured_image_id_fkey ( id, storage_path, alt_text, caption, width_px, height_px ),
       social_image:media!articles_social_image_id_fkey ( id, storage_path, alt_text ),
       article_categories ( is_primary, categories ( * ) ),
       article_tags ( tags ( * ) )
@@ -432,6 +616,12 @@ export async function cancelSchedule(id: string): Promise<void> {
 }
 
 /** Archive an article (sets status = 'archived'). */
+/** Restore an archived article to draft (same rules as unpublish: published_at kept). */
+export async function restoreArticle(id: string): Promise<void> {
+  const { error } = await supabase.from('articles').update({ status: 'draft', scheduled_for: null }).eq('id', id);
+  if (error) throw new Error(`Could not restore the article: ${describeArticleDbError(error)}`);
+}
+
 export async function archiveArticle(id: string) {
   return updateArticle(id, { status: 'archived' });
 }

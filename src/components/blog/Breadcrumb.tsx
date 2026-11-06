@@ -32,18 +32,18 @@ export default function Breadcrumb({ crumbs }: Props) {
   return (
     <>
       <script type="application/ld+json">{ldJson}</script>
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-[#6A6A6A] flex-wrap">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted flex-wrap">
         {crumbs.map((crumb, idx) => {
           const isLast = idx === crumbs.length - 1;
           return (
             <React.Fragment key={idx}>
-              {idx > 0 && <ChevronRight className="w-3 h-3 text-[#3A3A3A] shrink-0" />}
+              {idx > 0 && <ChevronRight className="w-3 h-3 text-muted shrink-0" />}
               {!isLast && crumb.href ? (
-                <Link to={crumb.href} className="hover:text-[#C5A059] transition">
+                <Link to={crumb.href} className="hover:text-gold-deep transition">
                   {crumb.label}
                 </Link>
               ) : (
-                <span className={isLast ? 'text-[#A09E98]' : ''}>{crumb.label}</span>
+                <span className={isLast ? 'text-ink-soft' : ''}>{crumb.label}</span>
               )}
             </React.Fragment>
           );

@@ -1,79 +1,43 @@
 import React from 'react';
 import { CHEF_PROFILE } from '../data/chefProfile';
-import { GraduationCap, Award, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Container, btn } from './site/ui';
+import { ReviewNote } from './site/ReviewNote';
 
+/** Education — compact band between Experience and Services (anchor #credentials). */
 export const EducationCredentialsSection: React.FC = () => {
   const { education } = CHEF_PROFILE;
 
   return (
-    <section id="credentials" className="py-20 bg-[#0C0C0C] relative overflow-hidden border-t border-[#C5A059]/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#C5A059] bg-[#1A1A1A] px-3.5 py-1.5 rounded-full border border-[#C5A059]/30 inline-flex items-center gap-2 mb-3">
-            <GraduationCap className="w-3.5 h-3.5" />
-            <span>Academic Rigor</span>
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#EAE7E2] tracking-tight">
-            Education & Academic Background
-          </h2>
-          <p className="text-sm text-[#A09E98] mt-2 font-light">
-            Rooted in business leadership, gastronomy theory, and specialized hospitality training.
-          </p>
-        </div>
-
-        {/* Credentials Card */}
-        <div className="max-w-4xl mx-auto bg-[#161616] rounded-2xl border border-[#C5A059]/30 p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-[#C5A059]/20">
-            
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#1A1A1A] border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] shrink-0">
-                <GraduationCap className="w-8 h-8" />
-              </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#C5A059] bg-[#1A1A1A] px-2 py-0.5 rounded border border-[#C5A059]/30">
-                  {education.degree}
-                </span>
-                <h3 className="text-xl sm:text-2xl font-serif font-bold text-[#EAE7E2] mt-1">
-                  {education.institution}
-                </h3>
-                <p className="text-xs text-[#A09E98] font-mono mt-0.5">
-                  Makerere University Business School (MUBS)
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A1A1A] border border-[#C5A059]/30 text-xs text-[#C5A059] font-mono">
-              <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-              <span>Verified Institutional Qualification</span>
-            </div>
-
+    <section id="credentials" aria-labelledby="credentials-title" className="border-y border-sand bg-paper py-14 md:py-16">
+      <Container>
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+          <div className="lg:col-span-4">
+            <p className="text-[0.8125rem] font-semibold uppercase tracking-[0.14em] text-gold-deep">Education</p>
+            <h2 id="credentials-title" className="mt-2 font-serif text-[1.75rem] font-semibold leading-tight text-ink">
+              {education.degree}
+            </h2>
+            <p className="mt-1 text-ink-soft">{education.institution}</p>
+            <ReviewNote>Confirm the full degree title, field of study and year of graduation.</ReviewNote>
           </div>
-
-          {/* Specializations Grid */}
-          <div className="mt-8">
-            <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-[#C5A059] mb-4">
-              Core Academic & Practical Specializations
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {education.specializations.map((spec, sIdx) => (
-                <div
-                  key={sIdx}
-                  className="p-4 rounded-xl bg-[#1A1A1A] border border-[#C5A059]/20 flex items-start gap-3"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
-                  <span className="text-xs text-[#EAE7E2] font-medium leading-relaxed">
-                    {spec}
-                  </span>
-                </div>
+          <div className="lg:col-span-8">
+            <h3 className="font-sans text-[1rem] font-semibold text-ink">Professional focus areas</h3>
+            <ul className="mt-3 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+              {education.specializations.map((spec) => (
+                <li key={spec} className="flex gap-3 text-[0.975rem] leading-relaxed text-ink-soft">
+                  <span aria-hidden="true" className="mt-[0.75em] h-px w-3 shrink-0 bg-gold" />
+                  <span>{spec}</span>
+                </li>
               ))}
-            </div>
+            </ul>
+            <ReviewNote>
+              Confirm which of these areas were part of the MUBS degree and which come from professional practice.
+            </ReviewNote>
+            <a href="/about-chef-peter#credentials-heading" className={`${btn.text} mt-6`}>
+              Certificates, recognition and professional standing
+            </a>
           </div>
-
         </div>
-
-      </div>
+      </Container>
     </section>
   );
 };

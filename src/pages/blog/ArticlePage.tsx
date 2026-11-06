@@ -1,165 +1,118 @@
 /**
- * /articles/:slug — Full individual article page.
+ * /articles/:slug — a lesson in the culinary library.
  *
- * Features:
- *   - Breadcrumb navigation with BreadcrumbList JSON-LD
- *   - Responsive featured image (eager, high priority)
- *   - Correct H1 heading hierarchy (article title is the only H1)
- *   - Author, publication date, update date, reading time
- *   - Category and tag links
- *   - Article body with enhanced inline images
- *   - Image captions and credits where supplied
- *   - Social sharing links (Twitter/X, Facebook, copy link)
- *   - Related articles (same category)
- *   - BlogPosting JSON-LD structured data
- *   - React 19 native per-article metadata
- *   - 404 state with redirect check for moved articles
+ * Reading experience:
+ *   - Breadcrumbs (with BreadcrumbList JSON-LD), category, format and tags
+ *   - Title, introduction (excerpt), author, published + updated dates, reading time
+ *   - Featured image with caption/credit
+ *   - Table of contents for long articles (sidebar on desktop, collapsible on mobile)
+ *   - Body with numbered instructions, figures with captions and "Chef's tip"
+ *     style callouts (see src/lib/knowledge/articleHtml.ts)
+ *   - Optional recipe / tutorial card (knowledge-platform migration)
+ *   - Share links, author biography, previous/next, related articles
+ *   - BlogPosting JSON-LD, plus Recipe JSON-LD only for qualifying recipes
+ *   - Social metadata (Open Graph / Twitter) via React 19 document metadata
+ *   - 404 with redirect check for moved articles
  *
- * Security: RLS enforces that only published, non-noindex, non-draft articles
- * are ever returned to the browser. Private content cannot be accessed by
- * guessing a slug — the database returns null and this page shows a 404 UI.
+ * Security: RLS returns only published, non-noindex articles to visitors.
+ * The body is sanitised on save and again here before rendering.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  Clock, ArrowLeft, Calendar, Tag, Share2,
-  Twitter, Facebook, Link as LinkIcon, CheckCircle2, User,
-} from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import {
   getPublishedArticleBySlug,
   getRelatedArticles,
+  getAdjacentArticles,
   sanitiseHtml as sanitiseBodyHtml,
 } from '../../lib/services/articles';
-import { getResponsiveMediaUrl, getMediaSrcset } from '../../lib/services/media';
+import { getMediaUrl } from '../../lib/services/media';
+import { useRedirect } from '../../hooks/useRedirect';
+import { getAuthorProfile } from '../../lib/services/authors';
+import { DEFAULT_AUTHOR, isChefPeterByline, type AuthorProfileView } from '../../data/authorProfile';
 import { enhanceImageHtml } from '../../components/blog/ResponsiveImage';
-import type { ArticleWithRelations, ArticleCard } from '../../types/article';
+import { enhanceArticleHtml, readingMinutesFromHtml } from '../../lib/knowledge/articleHtml';
+import { articleLearningLinks } from '../../data/internalLinks';
+import { articleTypeOf, ARTICLE_TYPE_MAP } from '../../lib/knowledge/articleTypes';
+import { buildRecipeJsonLd, normaliseRecipe, qualifiesForRecipeSchema } from '../../lib/knowledge/recipe';
+import type { ArticleWithRelations, ArticleCard, Media } from '../../types/article';
 import BlogLayout from '../../components/blog/BlogLayout';
 import Breadcrumb from '../../components/blog/Breadcrumb';
-import ArticleGrid, { ArticleGridSkeleton } from '../../components/blog/ArticleGrid';
-import { useRedirect } from '../../hooks/useRedirect';
+import ArticleGrid from '../../components/blog/ArticleGrid';
+import { SITE_URL } from '../../components/knowledge/LibraryParts';
+import { IDS, articleDocumentTitle } from '../../lib/seo/schema';
+import { ArticleNavigation, AuthorBio, RecipeCard, ShareLinks, TableOfContents } from '../../components/knowledge/ArticleParts';
 
-const SITE_URL = 'https://www.chefpetertheteacher.com';
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' }); // dates as published in Kampala, for every visitor
+const fmt = (iso: string | null | undefined) => (iso ? dateFormat.format(new Date(iso)) : '');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/** Minimum number of main (h2) headings before a table of contents is shown */
+const TOC_MIN_HEADINGS = 3;
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-}
+type Adjacent = { previous: { slug: string; title: string } | null; next: { slug: string; title: string } | null };
 
 function ArticleSkeleton() {
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-6 animate-pulse">
-      <div className="h-3 bg-[#222] rounded w-1/3" />
-      <div className="h-8 bg-[#222] rounded w-4/5" />
-      <div className="h-4 bg-[#1E1E1E] rounded w-full" />
-      <div className="aspect-[16/9] bg-[#1A1A1A] rounded-2xl" />
-      <div className="space-y-3 pt-4">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className={`h-4 bg-[#1E1E1E] rounded ${i % 3 === 2 ? 'w-4/5' : 'w-full'}`} />
-        ))}
-      </div>
+    <div className="mx-auto min-h-[100svh] max-w-3xl animate-pulse space-y-5 px-5 py-14 sm:px-8" aria-hidden="true">
+      <div className="h-3 w-1/4 rounded bg-sand/70" />
+      <div className="h-10 w-4/5 rounded bg-sand/70" />
+      <div className="h-5 w-full rounded bg-sand/50" />
+      <div className="aspect-[16/9] rounded-lg bg-sand/50" />
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className={`h-4 rounded bg-sand/50 ${i % 3 === 2 ? 'w-3/4' : 'w-full'}`} />
+      ))}
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Social sharing strip
-// ---------------------------------------------------------------------------
-
-function ShareStrip({ url, title }: { url: string; title: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
-  };
-
-  const twitterUrl  = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
-  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#6A6A6A] flex items-center gap-1.5">
-        <Share2 className="w-3.5 h-3.5" /> Share
-      </span>
-      <a
-        href={twitterUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Share on X (Twitter)"
-        className="p-2 rounded-full border border-[#C5A059]/20 text-[#6A6A6A] hover:text-[#EAE7E2] hover:border-[#C5A059]/50 transition"
-      >
-        <Twitter className="w-3.5 h-3.5" />
-      </a>
-      <a
-        href={facebookUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Share on Facebook"
-        className="p-2 rounded-full border border-[#C5A059]/20 text-[#6A6A6A] hover:text-[#EAE7E2] hover:border-[#C5A059]/50 transition"
-      >
-        <Facebook className="w-3.5 h-3.5" />
-      </a>
-      <button
-        onClick={copyLink}
-        aria-label="Copy link to clipboard"
-        className="p-2 rounded-full border border-[#C5A059]/20 text-[#6A6A6A] hover:text-[#EAE7E2] hover:border-[#C5A059]/50 transition"
-      >
-        {copied
-          ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          : <LinkIcon className="w-3.5 h-3.5" />}
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 export default function ArticlePage() {
   const { slug } = useParams<{ slug: string }>();
+  const [article, setArticle] = useState<ArticleWithRelations | null | undefined>(undefined);
+  const [related, setRelated] = useState<ArticleCard[]>([]);
+  const [adjacent, setAdjacent] = useState<Adjacent>({ previous: null, next: null });
+  const [authorProfile, setAuthorProfile] = useState<AuthorProfileView | null>(null);
 
-  const [article,  setArticle]  = useState<ArticleWithRelations | null | undefined>(undefined);
-  const [related,  setRelated]  = useState<ArticleCard[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [relLoading, setRelLoading] = useState(false);
+  // If the article is not found, check the redirects table for a moved URL
+  useRedirect(article === null);
 
-  // Redirect hook: if article is not found, check for a redirect rule in the DB
-  useRedirect(article === null && !loading);
-
-  // ── Load article ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
-    setLoading(true);
+    let cancelled = false;
     setArticle(undefined);
     setRelated([]);
+    setAdjacent({ previous: null, next: null });
     getPublishedArticleBySlug(slug)
-      .then((data) => setArticle(data))
-      .catch(() => setArticle(null))
-      .finally(() => setLoading(false));
+      .then((data) => !cancelled && setArticle(data))
+      .catch(() => !cancelled && setArticle(null));
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
-  // ── Load related articles after the article is resolved ──────────────────
   useEffect(() => {
-    if (!article?.slug) return;
-    setRelLoading(true);
-    const primaryCat = article.article_categories?.find((ac) => ac.is_primary)?.categories
-                    ?? article.article_categories?.[0]?.categories ?? null;
-    getRelatedArticles(article.slug, primaryCat?.slug ?? null, 3)
-      .then(setRelated)
-      .catch(() => setRelated([]))
-      .finally(() => setRelLoading(false));
+    if (!article) return;
+    let cancelled = false;
+    const categoryIds = (article.article_categories ?? []).map((ac) => ac.categories?.id).filter(Boolean) as string[];
+    const tagIds = (article.article_tags ?? []).map((at) => at.tags?.id).filter(Boolean) as string[];
+    getRelatedArticles({ id: article.id, categoryIds, tagIds }, 3).then((r) => !cancelled && setRelated(r));
+    getAuthorProfile(article.author_id, article.author_display_name)
+      .then((p) => !cancelled && setAuthorProfile(p))
+      .catch(() => {});
+    getAdjacentArticles(article.published_at, article.id)
+      .then((a) => !cancelled && setAdjacent(a))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [article]);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading) {
+  const body = useMemo(
+    () => (article ? enhanceArticleHtml(enhanceImageHtml(sanitiseBodyHtml(article.body ?? ''))) : null),
+    [article],
+  );
+
+  if (article === undefined) {
     return (
       <BlogLayout>
         <title>Loading… | Chef Peter the Teacher</title>
@@ -168,324 +121,294 @@ export default function ArticlePage() {
     );
   }
 
-  // ── Not found ──────────────────────────────────────────────────────────────
-  if (!article) {
+  if (article === null || !body) {
     return (
       <BlogLayout>
-        <title>Article Not Found | Chef Peter the Teacher</title>
+        <title>Article not found | Chef Peter the Teacher</title>
         <meta name="robots" content="noindex, follow" />
-        <div className="max-w-2xl mx-auto px-4 py-28 text-center space-y-6">
-          <p className="font-serif text-8xl font-bold text-[#C5A059]/20">404</p>
-          <h1 className="font-serif text-3xl font-bold text-[#EAE7E2]">Article not found</h1>
-          <p className="text-[#A09E98] text-sm leading-relaxed max-w-sm mx-auto">
-            This article may have been unpublished, moved to a new URL, or never existed.
+        {/* Same minimum height as the loading placeholder, so the footer does not jump */}
+        <div className="mx-auto min-h-[100svh] max-w-xl px-5 py-24 text-center">
+          <p className="font-serif text-7xl text-gold-deep" aria-hidden="true">404</p>
+          <h1 className="mt-4 font-serif text-[2rem] font-semibold text-ink">Article not found</h1>
+          <p className="mt-3 leading-relaxed text-ink-soft">
+            This article may have been moved or unpublished. Search the library or browse the categories instead.
           </p>
-          <Link
-            to="/articles"
-            className="inline-flex items-center gap-2 text-sm text-[#C5A059] hover:underline"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Browse all articles
+          <Link to="/articles" className="mt-6 inline-flex items-center gap-2 font-semibold text-ink underline decoration-gold underline-offset-4">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to the library
           </Link>
         </div>
       </BlogLayout>
     );
   }
 
-  // ── Resolved data ──────────────────────────────────────────────────────────
-  const primaryCat  = article.article_categories?.find((ac) => ac.is_primary)?.categories
-                   ?? article.article_categories?.[0]?.categories ?? null;
-  const allCats     = article.article_categories?.map((ac) => ac.categories).filter(Boolean) ?? [];
-  const tags        = article.article_tags?.map((at) => at.tags).filter(Boolean) ?? [];
-  const featuredImg = article.featured_image;
-  const author      = (article as unknown as Record<string, unknown>)['profiles'] as
-                       { display_name?: string; avatar_url?: string | null } | null | undefined;
+  // ── Resolved data ───────────────────────────────────────────────────────
+  const type = articleTypeOf(article);
+  const typeInfo = ARTICLE_TYPE_MAP[type];
+  const recipe = typeInfo.fields.length ? normaliseRecipe(article.recipe) : null;
+  const primaryCat =
+    article.article_categories?.find((ac) => ac.is_primary)?.categories ?? article.article_categories?.[0]?.categories ?? null;
+  const categories = (article.article_categories ?? []).map((ac) => ac.categories).filter(Boolean);
+  const tags = (article.article_tags ?? []).map((at) => at.tags).filter(Boolean);
+  const learningLinks = articleLearningLinks([primaryCat?.slug, ...categories.map((c) => c!.slug)].filter(Boolean) as string[]);
+  const raw = article as unknown as Record<string, unknown>;
+  const authorName = article.author_display_name || DEFAULT_AUTHOR.name;
+  // Until the author profile loads, Chef Peter bylines use the approved default profile
+  const profile: AuthorProfileView =
+    authorProfile ?? (isChefPeterByline(authorName) ? { ...DEFAULT_AUTHOR, name: authorName } : { ...DEFAULT_AUTHOR, name: authorName, shortBio: null, jobTitle: null, photoUrl: null, profileUrl: null, source: 'generic' });
+  const featuredImg = article.featured_image as Media | null;
+  const socialImg = (raw['social_image'] as Media | null) ?? featuredImg;
 
-  const canonUrl    = article.canonical_url ?? `${SITE_URL}/articles/${article.slug}`;
-  const pageTitle   = (article.seo_title ?? article.title) + ' | Chef Peter the Teacher';
-  const metaDesc    = (article.meta_description ?? article.excerpt ?? '').slice(0, 160);
-  const authorName  = article.author_display_name ?? 'Chef Peter the Teacher';
+  const articleUrl = `${SITE_URL}/articles/${article.slug}`;
+  const canonUrl = article.canonical_url || articleUrl;
+  const pageTitle = articleDocumentTitle(article.seo_title || article.title);
+  const metaDesc = (article.meta_description || article.excerpt || '').slice(0, 160);
+  const ogImage = socialImg ? getMediaUrl(socialImg.storage_path) : `${SITE_URL}/images/chef-peter.jpg`;
+  const featSrc = featuredImg ? getMediaUrl(featuredImg.storage_path) : null;
 
-  // Images
-  const rawArticle  = article as unknown as Record<string, unknown>;
-  const socialImg   = (rawArticle['social_image'] as typeof featuredImg | null) ?? featuredImg;
-  const ogImageUrl  = socialImg
-    ? getResponsiveMediaUrl(socialImg.storage_path, { width: 1200, quality: 80 })
-    : `${SITE_URL}/images/chef-peter.jpg`;
+  const readingMinutes = readingMinutesFromHtml(article.body ?? '');
+  const updatedLater =
+    !!article.published_at &&
+    !!article.updated_at &&
+    new Date(article.updated_at).getTime() - new Date(article.published_at).getTime() > 86_400_000;
+  const showToc = body.toc.filter((t) => t.level === 2).length >= TOC_MIN_HEADINGS;
+  const authorPhoto = profile.photoUrl;
 
-  const featSrc    = featuredImg
-    ? getResponsiveMediaUrl(featuredImg.storage_path, { width: 1200, quality: 80 })
-    : null;
-  const featSrcset = featuredImg ? getMediaSrcset(featuredImg.storage_path) : undefined;
-
-  const articleUrl  = `${SITE_URL}/articles/${article.slug}`;
-
-  // JSON-LD BlogPosting
-  const ld: Record<string, unknown> = {
-    '@context':         'https://schema.org',
-    '@type':            'BlogPosting',
-    headline:           article.title,
-    description:        metaDesc,
-    url:                canonUrl,
-    mainEntityOfPage:   { '@type': 'WebPage', '@id': canonUrl },
-    datePublished:      article.published_at,
-    dateModified:       article.updated_at,
-    author:             { '@type': 'Person', name: authorName, url: SITE_URL },
-    publisher: {
-      '@type': 'Organization',
-      name:    'Chef Peter the Teacher',
-      logo:    { '@type': 'ImageObject', url: `${SITE_URL}/images/chef-peter.jpg` },
-    },
-  };
-  if (featuredImg) {
-    ld['image'] = {
-      '@type':   'ImageObject',
-      url:       featSrc,
-      ...(featuredImg.width_px  ? { width:  featuredImg.width_px  } : {}),
-      ...(featuredImg.height_px ? { height: featuredImg.height_px } : {}),
-      caption:   featuredImg.alt_text ?? '',
-    };
-  }
-  if (primaryCat) ld['articleSection'] = primaryCat.name;
-  if (tags.length) ld['keywords'] = tags.map((t) => t?.name).join(', ');
-
-  // Enhance inline body images with srcset, then sanitise as a defence-in-depth
-  // layer (body is already sanitised on write, but we apply it on read too)
-  const enhancedBody = enhanceImageHtml(sanitiseBodyHtml(article.body ?? ''));
-
-  // Breadcrumb trail
+  // ── Structured data ─────────────────────────────────────────────────────
   const breadcrumbs = [
-    { label: 'Home',     href: '/' },
-    { label: 'Articles', href: '/articles' },
+    { label: 'Home', href: '/' },
+    { label: 'Library', href: '/articles' },
     ...(primaryCat ? [{ label: primaryCat.name, href: `/category/${primaryCat.slug}` }] : []),
     { label: article.title },
   ];
+  const blogPosting: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: article.title,
+    description: metaDesc,
+    url: canonUrl,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonUrl },
+    datePublished: article.published_at,
+    dateModified: article.updated_at,
+    author: {
+      '@type': 'Person',
+      // A Chef Peter byline is the same entity as the site-wide Person node
+      ...(isChefPeterByline(authorName) ? { '@id': IDS.person } : {}),
+      name: authorName,
+      ...(profile.profileUrl ? { url: profile.profileUrl.startsWith('/') ? `${SITE_URL}${profile.profileUrl}` : profile.profileUrl } : {}),
+      // (the site-wide Person node already gives Chef Peter's job title)
+      ...(profile.jobTitle && !isChefPeterByline(authorName) ? { jobTitle: profile.jobTitle } : {}),
+    },
+    // The site is Chef Peter's own publication, so the publisher is the site-wide Person
+    publisher: { '@type': 'Person', '@id': IDS.person, name: 'Chef Peter the Teacher', url: `${SITE_URL}/about-chef-peter` },
+    wordCount: body.wordCount,
+    ...(featSrc ? { image: { '@type': 'ImageObject', url: featSrc, caption: featuredImg?.alt_text ?? '' } } : {}),
+    ...(primaryCat ? { articleSection: primaryCat.name } : {}),
+    ...(tags.length ? { keywords: tags.map((t) => t!.name).join(', ') } : {}),
+  };
+  // BreadcrumbList JSON-LD is emitted by <Breadcrumb>.
+  const ld: Array<Record<string, unknown>> = [blogPosting];
+  if (qualifiesForRecipeSchema(type, recipe)) {
+    ld.push(
+      buildRecipeJsonLd(
+        {
+          name: article.title,
+          description: metaDesc,
+          url: canonUrl,
+          imageUrl: featSrc,
+          authorName,
+          datePublished: article.published_at,
+          category: primaryCat?.name,
+          keywords: tags.map((t) => t!.name),
+        },
+        recipe,
+      ),
+    );
+  }
+
+  const recipeCard = recipe ? <RecipeCard type={type} recipe={recipe} title={article.title} /> : null;
 
   return (
     <BlogLayout>
-      {/* React 19 native document metadata */}
+      {/* React 19 document metadata */}
       <title>{pageTitle}</title>
-      <meta name="description"                content={metaDesc} />
-      <meta property="og:type"                content="article" />
-      <meta property="og:site_name"           content="Chef Peter the Teacher" />
-      <meta property="og:title"               content={article.seo_title ?? article.title} />
-      <meta property="og:description"         content={metaDesc} />
-      <meta property="og:url"                 content={canonUrl} />
-      <meta property="og:image"               content={ogImageUrl} />
-      <meta property="og:image:alt"           content={featuredImg?.alt_text ?? article.title} />
+      <meta name="description" content={metaDesc} />
+      <meta property="og:type" content="article" />
+      <meta property="og:site_name" content="Chef Peter the Teacher" />
+      <meta property="og:title" content={article.seo_title || article.title} />
+      <meta property="og:description" content={metaDesc} />
+      <meta property="og:url" content={canonUrl} />
+      <meta property="og:image" content={ogImage} />
+      <meta property="og:image:alt" content={socialImg?.alt_text ?? article.title} />
       <meta property="article:published_time" content={article.published_at ?? ''} />
-      <meta property="article:modified_time"  content={article.updated_at} />
+      <meta property="article:modified_time" content={article.updated_at} />
       {primaryCat && <meta property="article:section" content={primaryCat.name} />}
       {tags.map((tag) => tag && <meta key={tag.id} property="article:tag" content={tag.name} />)}
-      <meta name="twitter:card"               content="summary_large_image" />
-      <meta name="twitter:title"              content={article.seo_title ?? article.title} />
-      <meta name="twitter:description"        content={metaDesc} />
-      <meta name="twitter:image"              content={ogImageUrl} />
-      <link rel="canonical"                   href={canonUrl} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={article.seo_title || article.title} />
+      <meta name="twitter:description" content={metaDesc} />
+      <meta name="twitter:image" content={ogImage} />
+      <link rel="canonical" href={canonUrl} />
       {article.noindex && <meta name="robots" content="noindex, follow" />}
-      <script type="application/ld+json">{JSON.stringify(ld)}</script>
+      <script type="application/ld+json">{JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
 
-      {/* ── Article wrapper ────────────────────────────────────────────── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+      <article className="mx-auto max-w-6xl px-5 pb-10 pt-8 sm:px-8 sm:pt-10">
+        <Breadcrumb crumbs={breadcrumbs} />
 
-        {/* Breadcrumb */}
-        <div className="mb-8">
-          <Breadcrumb crumbs={breadcrumbs} />
-        </div>
-
-        {/* Category label */}
-        {primaryCat && (
-          <Link
-            to={`/category/${primaryCat.slug}`}
-            className="inline-block text-[10px] font-mono uppercase tracking-[0.35em] text-[#D99B26] hover:text-[#E6C687] transition mb-4"
-          >
-            {primaryCat.name}
-          </Link>
-        )}
-
-        {/* H1 — article title is the only H1 on this page */}
-        <h1 className="font-serif text-3xl sm:text-[2.625rem] font-bold text-[#EAE7E2] leading-tight mb-4">
-          {article.title}
-        </h1>
-
-        {/* Excerpt / standfirst */}
-        {article.excerpt && (
-          <p className="text-lg text-[#A09E98] font-light leading-relaxed mb-6 border-l-2 border-[#C5A059]/30 pl-4">
-            {article.excerpt}
+        {/* ── Header ───────────────────────────────────────────────── */}
+        <header className="mx-auto mt-8 max-w-[42rem] lg:mx-0 lg:max-w-3xl">
+          <p className="flex flex-wrap items-center gap-x-2 text-[0.75rem] font-semibold uppercase tracking-[0.14em]">
+            {primaryCat && (
+              <Link to={`/category/${primaryCat.slug}`} className="text-gold-deep hover:underline">
+                {primaryCat.name}
+              </Link>
+            )}
+            {type !== 'educational' && (
+              <span className="text-muted">
+                {primaryCat && <span aria-hidden="true">· </span>}
+                {typeInfo.label}
+              </span>
+            )}
           </p>
-        )}
+          <h1 className="mt-3 font-serif text-[2.1rem] font-semibold leading-[1.12] text-ink sm:text-[2.75rem]">{article.title}</h1>
+          {article.excerpt && <p className="mt-5 text-[1.1875rem] leading-relaxed text-ink-soft sm:text-[1.25rem]">{article.excerpt}</p>}
 
-        {/* Meta bar: author, date, reading time */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[#6A6A6A] pb-6 mb-8 border-b border-[#C5A059]/10 font-mono uppercase tracking-wide">
-          <span className="flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5" />
-            {authorName}
-          </span>
-          {article.published_at && (
-            <time dateTime={article.published_at} className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              {formatDate(article.published_at)}
-            </time>
-          )}
-          {article.updated_at && article.updated_at !== article.published_at && (
-            <span className="text-[#4A4A4A]">
-              Updated {formatDate(article.updated_at)}
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-sand py-4 text-[0.9375rem] text-muted">
+            <span className="flex items-center gap-2.5">
+              {authorPhoto && (
+                <img src={authorPhoto} alt="" className="h-9 w-9 rounded-full object-cover object-[51%_30%] ring-1 ring-sand" />
+              )}
+              <span>
+                By <span className="font-semibold text-ink">{authorName}</span>
+              </span>
             </span>
-          )}
-          {article.reading_time_minutes > 0 && (
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
-              {article.reading_time_minutes} min read
-            </span>
-          )}
-        </div>
+            {article.published_at && (
+              <span>
+                Published <time dateTime={article.published_at}>{fmt(article.published_at)}</time>
+              </span>
+            )}
+            {updatedLater && (
+              <span>
+                Updated <time dateTime={article.updated_at}>{fmt(article.updated_at)}</time>
+              </span>
+            )}
+            <span>{readingMinutes} min read</span>
+            {recipe && type === 'recipe' && (
+              <a href="#recipe" className="font-semibold text-ink underline decoration-gold underline-offset-4">
+                Jump to recipe
+              </a>
+            )}
+          </div>
+        </header>
 
-        {/* Featured image */}
+        {/* ── Featured image ───────────────────────────────────────── */}
         {featSrc && (
-          <figure className="mb-10 -mx-4 sm:mx-0">
+          <figure className="mt-8">
             <img
               src={featSrc}
-              srcSet={featSrcset}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 768px, 1200px"
-              alt={featuredImg?.alt_text ?? article.title}
-              width={1200}
-              height={675}
-              loading="eager"
+              alt={featuredImg?.alt_text ?? ''}
+              width={featuredImg?.width_px ?? undefined}
+              height={featuredImg?.height_px ?? undefined}
               fetchPriority="high"
-              decoding="async"
-              className="w-full rounded-none sm:rounded-2xl object-cover max-h-[520px]"
+              className="max-h-[36rem] w-full rounded-lg object-cover"
             />
             {(featuredImg?.caption || featuredImg?.credit) && (
-              <figcaption className="mt-2.5 text-xs text-[#5A5A5A] text-center leading-relaxed">
-                {featuredImg.caption}
-                {featuredImg.caption && featuredImg.credit && ' · '}
-                {featuredImg.credit && <span className="italic">Credit: {featuredImg.credit}</span>}
+              <figcaption className="mt-2.5 text-[0.875rem] leading-snug text-muted">
+                {featuredImg?.caption}
+                {featuredImg?.caption && featuredImg?.credit && ' · '}
+                {featuredImg?.credit && <span>Photo: {featuredImg.credit}</span>}
               </figcaption>
             )}
           </figure>
         )}
 
-        {/* Article body */}
-        <div
-          className="article-body text-[#D5D2CD] leading-[1.85] text-[0.9375rem]"
-          dangerouslySetInnerHTML={{ __html: enhancedBody }}
-        />
+        {/* ── Body + table of contents ─────────────────────────────── */}
+        <div className="mt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-14">
+          <div className="mx-auto min-w-0 max-w-[42rem] lg:mx-0">
+            {showToc && (
+              <div className="mb-8">
+                <TableOfContents toc={body.toc} variant="inline" />
+              </div>
+            )}
 
-        {/* Footer: categories + tags + share */}
-        <footer className="mt-14 pt-8 border-t border-[#C5A059]/10 space-y-6">
+            {type === 'recipe' && recipeCard}
 
-          {/* Categories */}
-          {allCats.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#6A6A6A]">In:</span>
-              {allCats.map((cat) => cat && (
-                <Link
-                  key={cat.id}
-                  to={`/category/${cat.slug}`}
-                  className="px-3 py-1 rounded-full text-xs font-medium bg-[#1A1A1A] border border-[#C5A059]/20 text-[#A09E98] hover:border-[#C5A059]/50 hover:text-[#C5A059] transition"
-                >
-                  {cat.name}
-                </Link>
-              ))}
-            </div>
-          )}
+            <div className="article-body" dangerouslySetInnerHTML={{ __html: body.html }} />
 
-          {/* Tags */}
-          {tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#6A6A6A] flex items-center gap-1">
-                <Tag className="w-3 h-3" /> Tags:
-              </span>
-              {tags.map((tag) => tag && (
-                <Link
-                  key={tag.id}
-                  to={`/tag/${tag.slug}`}
-                  className="px-3 py-1 rounded-full text-xs border border-[#C5A059]/15 text-[#6A6A6A] hover:border-[#C5A059]/40 hover:text-[#A09E98] transition"
-                >
-                  #{tag.name}
-                </Link>
-              ))}
-            </div>
-          )}
+            {type !== 'recipe' && recipeCard}
 
-          {/* Social sharing */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-            <ShareStrip url={articleUrl} title={article.title} />
-            <Link
-              to="/articles"
-              className="inline-flex items-center gap-1.5 text-xs text-[#6A6A6A] hover:text-[#C5A059] transition"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              All articles
-            </Link>
+            {/* Categories, tags, share */}
+            <footer className="mt-12 space-y-5 border-t border-sand pt-8">
+              {(categories.length > 0 || tags.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="mr-1 text-[0.8125rem] font-semibold uppercase tracking-[0.1em] text-muted">Filed under</span>
+                  {categories.map((c) => (
+                    <Link key={c!.id} to={`/category/${c!.slug}`} className="rounded-full bg-gold-wash px-3 py-1.5 text-[0.875rem] text-ink hover:underline">
+                      {c!.name}
+                    </Link>
+                  ))}
+                  {tags.map((t) => (
+                    <Link
+                      key={t!.id}
+                      to={`/tag/${t!.slug}`}
+                      className="rounded-full border border-sand-strong px-3 py-1.5 text-[0.875rem] text-ink-soft hover:border-ink hover:text-ink"
+                    >
+                      {t!.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <ShareLinks url={articleUrl} title={article.title} />
+            </footer>
+
+            <AuthorBio profile={profile} />
+
+            {/* Learn with Chef Peter — training, consultancy and books related to this topic */}
+            <nav aria-labelledby="learn-more-title" className="mt-10 rounded-lg border border-sand bg-paper p-6">
+              <h2 id="learn-more-title" className="font-serif text-[1.375rem] font-semibold text-ink">Learn more with Chef Peter</h2>
+              <ul className="mt-4 space-y-3">
+                {learningLinks.map((link) => (
+                  <li key={link.href}>
+                    <a href={link.href} className="font-semibold text-ink underline decoration-gold underline-offset-4 hover:decoration-ink">
+                      {link.label}
+                    </a>
+                    <span className="text-ink-soft"> — {link.description}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-[0.9375rem] text-ink-soft">
+                Interested in training or consultancy?{' '}
+                <a href="/#contact" className="font-semibold text-ink underline decoration-gold underline-offset-4">Send an enquiry</a>.
+              </p>
+            </nav>
+            <ArticleNavigation previous={adjacent.previous} next={adjacent.next} />
+
+            <p className="mt-8">
+              <Link to="/articles" className="inline-flex items-center gap-2 font-semibold text-ink underline decoration-gold underline-offset-4">
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to the library
+              </Link>
+            </p>
           </div>
-        </footer>
-      </div>
 
-      {/* ── Related articles ────────────────────────────────────────────── */}
-      {(relLoading || related.length > 0) && (
-        <section className="border-t border-[#C5A059]/10 mt-4 py-14" aria-label="Related articles">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
-            <h2 className="font-serif text-2xl font-bold text-[#EAE7E2]">
-              More to read
+          {/* The table of contents is already a <nav>; no extra landmark needed */}
+          {showToc && (
+            <div className="hidden lg:block">
+              <TableOfContents toc={body.toc} variant="sidebar" />
+            </div>
+          )}
+        </div>
+      </article>
+
+      {/* ── Related ──────────────────────────────────────────────────── */}
+      {related.length > 0 && (
+        <section aria-labelledby="related-title" className="mt-10 border-t border-sand bg-paper py-16">
+          <div className="mx-auto max-w-6xl px-5 sm:px-8">
+            <h2 id="related-title" className="mb-8 font-serif text-[1.75rem] font-semibold text-ink">
+              Continue learning
             </h2>
-            {relLoading
-              ? <ArticleGridSkeleton count={3} columns={3} />
-              : <ArticleGrid articles={related} columns={3} />
-            }
+            <ArticleGrid articles={related} headingLevel="h3" />
           </div>
         </section>
       )}
-
-      {/* Article body typography */}
-      <style>{`
-        .article-body h2 {
-          font-family: 'Playfair Display', Georgia, serif;
-          font-size: 1.75rem; font-weight: 700; color: #EAE7E2;
-          margin: 2.25em 0 0.65em; line-height: 1.25;
-        }
-        .article-body h3 {
-          font-family: 'Playfair Display', Georgia, serif;
-          font-size: 1.375rem; font-weight: 600; color: #EAE7E2;
-          margin: 1.9em 0 0.5em; line-height: 1.3;
-        }
-        .article-body h4 {
-          font-size: 1.125rem; font-weight: 600; color: #EAE7E2;
-          margin: 1.6em 0 0.4em; line-height: 1.35;
-        }
-        .article-body p  { margin: 0.9em 0; }
-        .article-body ul, .article-body ol { padding-left: 1.5em; margin: 0.9em 0; }
-        .article-body ul { list-style: disc; }
-        .article-body ol { list-style: decimal; }
-        .article-body li { margin: 0.35em 0; }
-        .article-body blockquote {
-          border-left: 3px solid #C5A059;
-          padding: 0.8em 1.25em; margin: 1.5em 0;
-          color: #A09E98; font-style: italic;
-          background: rgba(197,160,89,0.04);
-          border-radius: 0 10px 10px 0;
-        }
-        .article-body a { color: #C5A059; text-decoration: underline; text-underline-offset: 3px; }
-        .article-body a:hover { color: #E6C687; }
-        .article-body img { max-width: 100%; height: auto; border-radius: 12px; margin: 1.75em 0; }
-        .article-body figure { margin: 1.75em 0; }
-        .article-body figcaption { text-align: center; font-size: 0.75rem; color: #5A5A5A; margin-top: 0.6em; }
-        .article-body hr { border: none; border-top: 1px solid rgba(197,160,89,0.12); margin: 2.25em 0; }
-        .article-body strong { color: #EAE7E2; font-weight: 600; }
-        .article-body em { color: #C5B88A; }
-        .article-body code {
-          background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 4px;
-          padding: 0.15em 0.4em; font-size: 0.875em; color: #C5A059;
-        }
-        .article-body pre {
-          background: #141414; border: 1px solid #2A2A2A; border-radius: 8px;
-          padding: 1em 1.25em; overflow-x: auto; margin: 1.5em 0;
-        }
-        .article-body pre code { background: none; border: none; padding: 0; }
-        .article-body table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.875rem; }
-        .article-body th { text-align: left; padding: 0.6em 0.8em; color: #EAE7E2; border-bottom: 1px solid #2A2A2A; }
-        .article-body td { padding: 0.5em 0.8em; border-bottom: 1px solid #1A1A1A; color: #D5D2CD; }
-      `}</style>
     </BlogLayout>
   );
 }

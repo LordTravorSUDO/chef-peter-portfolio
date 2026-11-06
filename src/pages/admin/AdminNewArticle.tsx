@@ -13,7 +13,7 @@ export default function AdminNewArticle() {
       <meta name="robots" content="noindex, nofollow" />
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-[#6B7A8D]" aria-label="Breadcrumb">
+      <nav className="flex items-center gap-1 text-sm text-[#5F6E80]" aria-label="Breadcrumb">
         <Link to="/admin/articles" className="hover:text-[#1B365D] transition">Articles</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-[#1A2B40] font-medium">New article</span>

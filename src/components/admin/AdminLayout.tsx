@@ -10,8 +10,7 @@ import { NavLink, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Image, Tag, FolderOpen,
   Settings, Search, LogOut, Menu, X, ChevronRight,
-  ExternalLink, Award,
-} from 'lucide-react';
+  ExternalLink, Award, UserRound, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import Spinner from './ui/Spinner';
 
@@ -24,9 +23,11 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard',   to: '/admin',            icon: <LayoutDashboard className="w-4 h-4" /> },
   { label: 'Articles',    to: '/admin/articles',   icon: <FileText        className="w-4 h-4" /> },
+  { label: 'Editorial calendar', to: '/admin/editorial', icon: <CalendarDays className="w-4 h-4" /> },
   { label: 'Media',       to: '/admin/media',      icon: <Image           className="w-4 h-4" /> },
   { label: 'Categories',  to: '/admin/categories', icon: <FolderOpen      className="w-4 h-4" /> },
   { label: 'Tags',        to: '/admin/tags',        icon: <Tag             className="w-4 h-4" /> },
+  { label: 'Author profile', to: '/admin/author',  icon: <UserRound       className="w-4 h-4" /> },
   { label: 'SEO',         to: '/admin/seo',         icon: <Search          className="w-4 h-4" /> },
   { label: 'Settings',    to: '/admin/settings',   icon: <Settings        className="w-4 h-4" /> },
 ];
@@ -70,7 +71,7 @@ export default function AdminLayout({ children }: Props) {
           </div>
           <div className="leading-tight">
             <p className="text-white text-sm font-bold">Chef Peter</p>
-            <p className="text-white/50 text-[11px] font-mono uppercase tracking-wider">CMS</p>
+            <p className="text-white/75 text-[11px] font-mono uppercase tracking-wider">CMS</p>
           </div>
         </Link>
       </div>
@@ -114,10 +115,10 @@ export default function AdminLayout({ children }: Props) {
         </button>
         {/* Profile info */}
         <div className="px-3 pt-2">
-          <p className="text-xs text-white/40 truncate">
+          <p className="text-xs text-white/70 truncate">
             {loading ? '…' : profile?.display_name || 'Administrator'}
           </p>
-          <p className="text-[10px] text-white/25 uppercase tracking-wider font-mono">
+          <p className="text-[10px] text-white/70 uppercase tracking-wider font-mono">
             {profile?.role ?? 'admin'}
           </p>
         </div>
