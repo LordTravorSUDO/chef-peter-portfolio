@@ -25,7 +25,8 @@ for (const route of prerenderRoutes) {
   const canonicalUrl = `https://www.chefpetertheteacher.com${route}`;
   let output = template;
 
-  output = output.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(page.metaTitle)}</title>`);
+  // The template's <title> carries attributes (data-default-seo), so match any <title ...>
+  output = output.replace(/<title\b([^>]*)>[\s\S]*?<\/title>/i, (_m, attrs) => `<title${attrs}>${escapeHtml(page.metaTitle)}</title>`);
   output = setMeta(output, 'name', 'description', page.description);
   output = setMeta(output, 'property', 'og:title', page.metaTitle);
   output = setMeta(output, 'property', 'og:description', page.description);

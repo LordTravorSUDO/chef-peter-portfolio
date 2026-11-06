@@ -228,6 +228,10 @@ function checkJsonLd(texts, issues) {
     if (d.notFound) issues.push(['error', 'page shows a "not found" state']);
     if (d.titles.length !== 1) issues.push(['error', `${d.titles.length} <title> elements`]);
     const title = d.documentTitle;
+    if (spec.prerendered) {
+      const decoded = rawTitle.replace(/&amp;/g, '&').replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').trim();
+      if (decoded !== title.trim()) issues.push(['error', `raw HTML title "${decoded}" differs from the page title "${title.trim()}" (crawlers read the raw one)`]);
+    }
     if (title.length < 15 || title.length > 70) issues.push(['warning', `title length ${title.length}: "${title}"`]);
     if (d.descriptions.length !== 1) issues.push(['error', `${d.descriptions.length} meta descriptions`]);
     const desc = d.descriptions[0] || '';
