@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildSitemapXml, sitemapEntries } from '../../src/lib/seo/sitemap';
+import { buildSitemapXml, sitemapEntries, LANDING_PATHS } from '../../api/sitemap';
 import { SEO_PAGES } from '../../src/data/seoPages';
 
 const S = 'https://www.chefpetertheteacher.com';
@@ -96,5 +96,14 @@ test('client redirect hook accepts only same-site paths', async () => {
   for (const bad of ['//evil.example', '/\\evil.example', '/\\\\evil.example', 'https://evil.example', '/a b', 'evil', '/\t/evil']) {
     assert.equal(isSafeRedirectPath(bad), false, bad);
     assert.equal(safeRedirectTarget(bad), null, bad);
+  }
+});
+
+test('the sitemap function lists exactly the SEO landing pages and imports nothing from src/', () => {
+  assert.deepEqual([...LANDING_PATHS].sort(), SEO_PAGES.map((p) => p.path).sort());
+  // Vercel compiles API files separately as ES modules: relative imports into src/ fail at runtime
+  for (const f of ['api/sitemap.ts', 'api/redirects.ts', 'api/cron/publish-scheduled.ts']) {
+    const src = readFileSync(f, 'utf8');
+    assert.ok(!/from\s+['"]\.\.?\/(?!.*node_modules)/.test(src), `${f} must not use relative imports`);
   }
 });

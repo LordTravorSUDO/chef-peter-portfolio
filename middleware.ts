@@ -364,6 +364,11 @@ export function inject(html: string, head: string): string {
   return cleaned.replace('</head>', `  ${marked}\n</head>`);
 }
 
+/** Vercel middleware rewrite: serve another path of this deployment at the same URL. */
+export function rewriteTo(destination: URL): Response {
+  return new Response(null, { headers: { 'x-middleware-rewrite': destination.toString() } });
+}
+
 // ---------------------------------------------------------------------------
 // Main middleware handler
 // ---------------------------------------------------------------------------
@@ -380,18 +385,11 @@ export default async function middleware(request: Request): Promise<Response> {
   }
 
   // Prerendered pages: serve the build-time HTML (full content for crawlers and
-  // link previews). Independent of Supabase. Falls back to normal routing.
+  // link previews). Independent of Supabase. Uses Vercel's middleware rewrite
+  // (the same header @vercel/edge's rewrite() sets): the static file is served
+  // directly, with no extra request, so it also works on protected previews.
   const prerendered = PRERENDERED_FILES[pathname];
-  if (prerendered) {
-    const res = await fetch(new URL(prerendered, request.url).toString());
-    if (res.ok) {
-      return new Response(res.body, {
-        status: 200,
-        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=0, must-revalidate' },
-      });
-    }
-    return fetch(request);
-  }
+  if (prerendered) return rewriteTo(new URL(prerendered, request.url));
 
   const supabaseUrl = (typeof process !== 'undefined' ? process.env.SUPABASE_URL : undefined)
     ?? (globalThis as Record<string, unknown>).SUPABASE_URL as string | undefined;

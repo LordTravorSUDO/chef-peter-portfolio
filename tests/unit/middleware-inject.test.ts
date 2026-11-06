@@ -104,12 +104,12 @@ async function runMiddleware(path: string, routes: (url: string) => Response | n
   }
 }
 
-test('"/" is served from the prerendered home.html', async () => {
-  const { res, calls } = await runMiddleware('/', (u) => (u.endsWith('/home.html') ? new Response('<h1>Chef Peter</h1>', { status: 200 }) : null));
-  assert.equal(res.status, 200);
-  assert.equal(await res.text(), '<h1>Chef Peter</h1>');
-  assert.ok(calls.some((c) => c.endsWith('/home.html')));
-  assert.ok(!calls.some((c) => c.includes('sb.example')), 'no database call for prerendered pages');
+test('prerendered pages are served with a Vercel rewrite (no extra request, no database call)', async () => {
+  for (const [path, file] of Object.entries(PRERENDERED_FILES)) {
+    const { res, calls } = await runMiddleware(path, () => null);
+    assert.equal(res.headers.get('x-middleware-rewrite'), `https://www.chefpetertheteacher.com${file}`, path);
+    assert.equal(calls.length, 0, `${path}: no fetch at all`);
+  }
 });
 
 test('a moved article answers with a real 301 to its new address', async () => {
